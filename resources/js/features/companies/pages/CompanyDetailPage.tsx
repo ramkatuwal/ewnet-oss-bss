@@ -91,7 +91,7 @@ export const CompanyDetailPage = () => {
                     <Card elevation={0} sx={{ border: 1, borderColor: 'divider', height: '100%' }}>
                         <CardContent>
                             <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <BusinessIcon color="primary" /> Company Information
+                                <Avatar src={company.logo_url || undefined} sx={{ width: 48, height: 48, mr: 1 }} variant="rounded"><BusinessIcon /></Avatar> Company Information
                             </Typography>
                             <Divider sx={{ mb: 2 }} />
                             <Stack spacing={1.5}>

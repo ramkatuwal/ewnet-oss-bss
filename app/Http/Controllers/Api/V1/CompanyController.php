@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\CompanyRequest;
 use App\Http\Resources\V1\CompanyResource;
 use App\Models\Company;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class CompanyController extends Controller
 {
@@ -16,12 +18,21 @@ class CompanyController extends Controller
 
         $query = Company::query();
 
-        // Scope to user's company if not Super Admin
         if (!$request->user()->hasRole('Super Admin')) {
             $query->where('id', $request->user()->company_id);
         }
 
-        $companies = $query->paginate($request->get('per_page', 15));
+        if ($request->filled('search')) {
+            $search = $request->get('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'ilike', "%{$search}%")
+                  ->orWhere('registration_number', 'ilike', "%{$search}%")
+                  ->orWhere('pan_number', 'ilike', "%{$search}%")
+                  ->orWhere('email', 'ilike', "%{$search}%");
+            });
+        }
+
+        $companies = $query->orderBy('name')->paginate($request->get('per_page', 15));
 
         return CompanyResource::collection($companies);
     }
@@ -30,9 +41,19 @@ class CompanyController extends Controller
     {
         $this->authorize('create', Company::class);
 
-        $company = Company::create($request->validated());
+        $data = $request->validated();
+        unset($data['logo'], $data['remove_logo']);
 
-        return new CompanyResource($company);
+        $company = Company::create($data);
+
+        if ($request->hasFile('logo')) {
+            $path = $request->file('logo')->store("companies/{$company->id}", 'public');
+            $company->update(['logo_path' => $path]);
+        }
+
+        AuditService::log('company.create', 'success', $company);
+
+        return new CompanyResource($company->fresh());
     }
 
     public function show(Request $request, Company $company)
@@ -46,19 +67,51 @@ class CompanyController extends Controller
     {
         $this->authorize('update', $company);
 
-        $company->update($request->validated());
+        $data = $request->validated();
+        unset($data['logo'], $data['remove_logo']);
 
-        return new CompanyResource($company);
+        // Handle logo removal
+        if ($request->boolean('remove_logo')) {
+            if ($company->logo_path) {
+                Storage::disk('public')->delete($company->logo_path);
+            }
+            $data['logo_path'] = null;
+        }
+
+        $company->update($data);
+
+        // Handle logo upload
+        if ($request->hasFile('logo')) {
+            // Delete old logo
+            if ($company->logo_path) {
+                Storage::disk('public')->delete($company->logo_path);
+            }
+            $path = $request->file('logo')->store("companies/{$company->id}", 'public');
+            $company->update(['logo_path' => $path]);
+        }
+
+        AuditService::log('company.update', 'success', $company);
+
+        return new CompanyResource($company->fresh());
     }
 
     public function destroy(Request $request, Company $company)
     {
         $this->authorize('delete', $company);
 
-        // Soft delete with cascade warning
-        $company->update(['is_active' => false]);
+        if ($company->hasRole && $company->regions()->exists()) {
+            abort(422, 'Cannot delete company with existing regions');
+        }
+
+        // Clean up logo
+        if ($company->logo_path) {
+            Storage::disk('public')->delete($company->logo_path);
+        }
+
         $company->delete();
 
-        return response()->noContent();
+        AuditService::log('company.delete', 'success', $company);
+
+        return response()->json(['message' => 'Company deleted successfully']);
     }
 }

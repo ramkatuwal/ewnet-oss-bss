@@ -1,6 +1,7 @@
 export interface Company {
     id: number;
     name: string;
+    logo_url?: string | null;
     registration_number?: string | null;
     pan_number?: string | null;
     email?: string | null;

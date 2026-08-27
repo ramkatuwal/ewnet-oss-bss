@@ -1,9 +1,12 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
     Drawer, Box, Typography, TextField, Button, FormControlLabel,
-    Switch, Divider, IconButton, Grid,
+    Switch, Divider, IconButton, Grid, Avatar, Stack,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import DeleteIcon from '@mui/icons-material/Delete';
+import BusinessIcon from '@mui/icons-material/Business';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -30,12 +33,16 @@ interface Props {
     open: boolean;
     onClose: () => void;
     company: Company | null;
-    onSubmit: (data: Partial<Company>) => void;
+    onSubmit: (formData: FormData) => void;
     loading?: boolean;
 }
 
 export const CompanyFormDrawer = ({ open, onClose, company, onSubmit, loading }: Props) => {
     const isEdit = !!company;
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [logoPreview, setLogoPreview] = useState<string | null>(null);
+    const [logoFile, setLogoFile] = useState<File | null>(null);
+    const [removeLogo, setRemoveLogo] = useState(false);
 
     const { control, handleSubmit, reset, formState: { errors } } = useForm<CompanyFormData>({
         resolver: zodResolver(companySchema),
@@ -62,8 +69,43 @@ export const CompanyFormDrawer = ({ open, onClose, company, onSubmit, loading }:
                 website: company?.website ?? '',
                 is_active: company?.is_active ?? true,
             });
+            setLogoPreview(company?.logo_url ?? null);
+            setLogoFile(null);
+            setRemoveLogo(false);
         }
     }, [open, company, reset]);
+
+    const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 512 * 1024) {
+                alert('Logo must be under 512 KB');
+                return;
+            }
+            setLogoFile(file);
+            setLogoPreview(URL.createObjectURL(file));
+            setRemoveLogo(false);
+        }
+    };
+
+    const handleRemoveLogo = () => {
+        setLogoFile(null);
+        setLogoPreview(null);
+        setRemoveLogo(true);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    const onFormSubmit = (data: CompanyFormData) => {
+        const formData = new FormData();
+        Object.entries(data).forEach(([key, value]) => {
+            if (value !== undefined && value !== '') {
+                formData.append(key, String(value));
+            }
+        });
+        if (logoFile) formData.append('logo', logoFile);
+        if (removeLogo) formData.append('remove_logo', '1');
+        onSubmit(formData);
+    };
 
     const Field = ({ name, label, required, multiline, rows, half }: any) => (
         <Grid item xs={half ? 6 : 12}>
@@ -97,8 +139,57 @@ export const CompanyFormDrawer = ({ open, onClose, company, onSubmit, loading }:
             </Box>
             <Divider sx={{ mb: 3 }} />
 
-            <form onSubmit={handleSubmit(onSubmit)}>
+            <form onSubmit={handleSubmit(onFormSubmit)}>
                 <Grid container spacing={2}>
+                    {/* Logo Upload */}
+                    <Grid item xs={12}>
+                        <Typography variant="subtitle2" color="primary" fontWeight={600} sx={{ mb: 1 }}>
+                            Company Logo
+                        </Typography>
+                        <Stack direction="row" spacing={2} alignItems="center">
+                            <Avatar
+                                src={logoPreview || undefined}
+                                sx={{ width: 80, height: 80, bgcolor: 'action.hover' }}
+                                variant="rounded"
+                            >
+                                {!logoPreview && <BusinessIcon sx={{ fontSize: 40, color: 'text.disabled' }} />}
+                            </Avatar>
+                            <Stack spacing={1}>
+                                <Button
+                                    variant="outlined"
+                                    size="small"
+                                    startIcon={<CloudUploadIcon />}
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    {logoPreview ? 'Change Logo' : 'Upload Logo'}
+                                </Button>
+                                {logoPreview && (
+                                    <Button
+                                        variant="text"
+                                        size="small"
+                                        color="error"
+                                        startIcon={<DeleteIcon />}
+                                        onClick={handleRemoveLogo}
+                                    >
+                                        Remove Logo
+                                    </Button>
+                                )}
+                                <Typography variant="caption" color="text.secondary">
+                                    PNG, JPG, SVG, or WebP. Max 512 KB.
+                                </Typography>
+                            </Stack>
+                        </Stack>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                            style={{ display: 'none' }}
+                            onChange={handleLogoChange}
+                        />
+                    </Grid>
+
+                    <Grid item xs={12}><Divider sx={{ my: 1 }} /></Grid>
+
                     {/* Basic Information */}
                     <Grid item xs={12}>
                         <Typography variant="subtitle2" color="primary" fontWeight={600} sx={{ mb: 1 }}>
