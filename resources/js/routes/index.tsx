@@ -9,8 +9,9 @@ import { Box, CircularProgress, Typography } from '@mui/material';
 const LoginPage = lazy(() => import('@/features/auth/pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const DashboardPage = lazy(() => import('@/features/dashboard/pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
 
-// Manage pages (lazy)
+// Manage pages
 const CompaniesPage = lazy(() => import('@/features/companies/pages/CompaniesPage').then(m => ({ default: m.CompaniesPage })));
+const CompanyDetailPage = lazy(() => import('@/features/companies/pages/CompanyDetailPage').then(m => ({ default: m.CompanyDetailPage })));
 const RegionsPage = lazy(() => import('@/features/regions/pages/RegionsPage').then(m => ({ default: m.RegionsPage })));
 const BranchesPage = lazy(() => import('@/features/branches/pages/BranchesPage').then(m => ({ default: m.BranchesPage })));
 const DepartmentsPage = lazy(() => import('@/features/departments/pages/DepartmentsPage').then(m => ({ default: m.DepartmentsPage })));
@@ -18,10 +19,9 @@ const UsersPage = lazy(() => import('@/features/users/pages/UsersPage').then(m =
 const RolesPage = lazy(() => import('@/features/roles/pages/RolesPage').then(m => ({ default: m.RolesPage })));
 const PermissionsPage = lazy(() => import('@/features/permissions/pages/PermissionsPage').then(m => ({ default: m.PermissionsPage })));
 
-// Placeholder pages for TASK-025
+// Audit
 const SecurityActivityPage = lazy(() => import('@/features/debug/pages/DebugPage').then(m => ({ default: m.DebugPage })));
 
-// Loading fallback
 const PageLoader = () => (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 2 }}>
         <CircularProgress />
@@ -29,7 +29,6 @@ const PageLoader = () => (
     </Box>
 );
 
-// Not Found page
 const NotFoundPage = () => (
     <Box sx={{ textAlign: 'center', py: 8 }}>
         <Typography variant="h3" gutterBottom>404</Typography>
@@ -41,12 +40,10 @@ export const AppRouter = () => {
     return (
         <Suspense fallback={<PageLoader />}>
             <Routes>
-                {/* Public routes */}
                 <Route element={<AuthLayout />}>
                     <Route path="/login" element={<LoginPage />} />
                 </Route>
 
-                {/* Protected routes */}
                 <Route element={<ProtectedRoute />}>
                     <Route element={<MainLayout />}>
                         <Route index element={<Navigate to="/dashboard" replace />} />
@@ -55,6 +52,7 @@ export const AppRouter = () => {
                         {/* Manage section */}
                         <Route path="manage">
                             <Route path="companies" element={<CompaniesPage />} />
+                            <Route path="companies/:id" element={<CompanyDetailPage />} />
                             <Route path="regions" element={<RegionsPage />} />
                             <Route path="branches" element={<BranchesPage />} />
                             <Route path="departments" element={<DepartmentsPage />} />
@@ -68,12 +66,12 @@ export const AppRouter = () => {
                             <Route path="security" element={<SecurityActivityPage />} />
                         </Route>
 
-                        {/* Account section */}
+                        {/* Account */}
                         <Route path="account">
-                            <Route path="profile" element={<DashboardPage />} /> {/* Placeholder until TASK-025 */}
+                            <Route path="profile" element={<DashboardPage />} />
                         </Route>
 
-                        {/* Legacy route redirects */}
+                        {/* Legacy redirects */}
                         <Route path="companies" element={<Navigate to="/manage/companies" replace />} />
                         <Route path="regions" element={<Navigate to="/manage/regions" replace />} />
                         <Route path="branches" element={<Navigate to="/manage/branches" replace />} />
@@ -83,7 +81,6 @@ export const AppRouter = () => {
                         <Route path="permissions" element={<Navigate to="/manage/permissions" replace />} />
                         <Route path="debug" element={<Navigate to="/audit/security" replace />} />
 
-                        {/* Catch-all */}
                         <Route path="*" element={<NotFoundPage />} />
                     </Route>
                 </Route>
