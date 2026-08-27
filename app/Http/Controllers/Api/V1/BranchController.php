@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\BranchRequest;
 use App\Http\Resources\V1\BranchResource;
 use App\Models\Branch;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
 
 class BranchController extends Controller
@@ -14,14 +15,35 @@ class BranchController extends Controller
     {
         $this->authorize('viewAny', Branch::class);
 
-        $query = Branch::query();
+        $query = Branch::with('region.company');
 
-        // Scope to user's region if not Super Admin
         if (!$request->user()->hasRole('Super Admin')) {
-            $query->where('region_id', $request->user()->branch?->region_id);
+            $query->whereHas('region', function ($q) use ($request) {
+                $q->where('company_id', $request->user()->company_id);
+            });
         }
 
-        $branches = $query->paginate($request->get('per_page', 15));
+        if ($request->filled('region_id')) {
+            $query->where('region_id', $request->get('region_id'));
+        }
+
+        if ($request->filled('company_id')) {
+            $query->whereHas('region', function ($q) use ($request) {
+                $q->where('company_id', $request->get('company_id'));
+            });
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->get('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'ilike', "%{$search}%")
+                  ->orWhere('code', 'ilike', "%{$search}%")
+                  ->orWhere('city', 'ilike', "%{$search}%")
+                  ->orWhere('email', 'ilike', "%{$search}%");
+            });
+        }
+
+        $branches = $query->orderBy('name')->paginate($request->get('per_page', 15));
 
         return BranchResource::collection($branches);
     }
@@ -30,50 +52,50 @@ class BranchController extends Controller
     {
         $this->authorize('create', Branch::class);
 
-        // Validate region_id is within user's scope
         if (!$request->user()->hasRole('Super Admin')) {
-            $userRegionId = $request->user()->branch?->region_id;
-            if ($request->region_id !== $userRegionId) {
-                abort(403, 'Cannot create branch in another region');
+            $region = \App\Models\Region::findOrFail($request->region_id);
+            if ($region->company_id != $request->user()->company_id) {
+                abort(403, 'Cannot create branch in another company\'s region');
             }
         }
 
         $branch = Branch::create($request->validated());
+        AuditService::log('branch.create', 'success', $branch);
 
-        return new BranchResource($branch);
+        return new BranchResource($branch->load('region.company'));
     }
 
     public function show(Request $request, Branch $branch)
     {
         $this->authorize('view', $branch);
 
-        return new BranchResource($branch);
+        return new BranchResource($branch->load('region.company'));
     }
 
     public function update(BranchRequest $request, Branch $branch)
     {
         $this->authorize('update', $branch);
 
-        // Validate region_id if being changed
         if ($request->has('region_id') && !$request->user()->hasRole('Super Admin')) {
-            $userRegionId = $request->user()->branch?->region_id;
-            if ($request->region_id !== $userRegionId) {
-                abort(403, 'Cannot move branch to another region');
+            $region = \App\Models\Region::findOrFail($request->region_id);
+            if ($region->company_id != $request->user()->company_id) {
+                abort(403, 'Cannot move branch to another company\'s region');
             }
         }
 
         $branch->update($request->validated());
+        AuditService::log('branch.update', 'success', $branch);
 
-        return new BranchResource($branch);
+        return new BranchResource($branch->fresh()->load('region.company'));
     }
 
     public function destroy(Request $request, Branch $branch)
     {
         $this->authorize('delete', $branch);
 
-        $branch->update(['is_active' => false]);
         $branch->delete();
+        AuditService::log('branch.delete', 'success', $branch);
 
-        return response()->noContent();
+        return response()->json(['message' => 'Branch deleted successfully']);
     }
 }

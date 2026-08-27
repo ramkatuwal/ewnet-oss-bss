@@ -22,27 +22,7 @@ export interface LoginResponse {
 }
 
 
-export interface Region {
-    id: number;
-    name: string;
-    code?: string;
-    company_id: number;
-    company?: Company;
-    is_active: boolean;
-    created_at?: string;
-    updated_at?: string;
-}
 
-export interface Branch {
-    id: number;
-    name: string;
-    code?: string;
-    region_id: number;
-    region?: Region;
-    is_active: boolean;
-    created_at?: string;
-    updated_at?: string;
-}
 
 export interface Department {
     id: number;
@@ -124,3 +104,5 @@ export interface ApiError {
 }
 
 export type { Company } from './company';
+export type { Region } from './region';
+export type { Branch } from './branch';

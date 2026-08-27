@@ -1,284 +1,147 @@
-import React, { useState, useEffect } from 'react';
-import {
-    Box,
-    Button,
-    Typography,
-    Paper,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    IconButton,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    TextField,
-    Alert,
-    CircularProgress,
-    Chip,
-    Grid,
-    MenuItem,
-} from '@mui/material';
-import { Add, Edit, Delete } from '@mui/icons-material';
-import { useAuthStore } from '@/stores/authStore';
+import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Box, Button, Typography, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import EmailIcon from '@mui/icons-material/Email';
+import PhoneIcon from '@mui/icons-material/Phone';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { DataTable, StatusChip, type Column, type RowAction } from '@/components/tables/DataTable';
+import { SearchFilterBar } from '@/components/forms/SearchFilterBar';
+import { Can } from '@/components/auth/Can';
+import { ConfirmDialog } from '@/components/feedback/ConfirmDialog';
+import { useToast } from '@/components/feedback/ToastProvider';
+import { getErrorMessage, formatDateTime } from '@/utils';
 import { branchesApi } from '@/api/branches';
+import { companiesApi } from '@/api/companies';
 import { regionsApi } from '@/api/regions';
-import { Branch, Region } from '@/types';
+import { BranchFormDrawer } from '../components/BranchFormDrawer';
+import type { Branch } from '@/types';
 
-export const BranchesPage: React.FC = () => {
-    const { authState, hasPermission } = useAuthStore();
-    const [branches, setBranches] = useState<Branch[]>([]);
-    const [regions, setRegions] = useState<Region[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [dialogOpen, setDialogOpen] = useState(false);
+export const BranchesPage = () => {
+    const navigate = useNavigate();
+    const queryClient = useQueryClient();
+    const { showToast } = useToast();
+
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
+    const [search, setSearch] = useState('');
+    const [companyFilter, setCompanyFilter] = useState<string>('');
+    const [regionFilter, setRegionFilter] = useState<string>('');
+    const [drawerOpen, setDrawerOpen] = useState(false);
     const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
-    const [formData, setFormData] = useState<Partial<Branch>>({});
-    const [submitting, setSubmitting] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState<Branch | null>(null);
 
-    const canView = hasPermission('branches.view');
-    const canCreate = hasPermission('branches.create');
-    const canUpdate = hasPermission('branches.update');
-    const canDelete = hasPermission('branches.delete');
+    const { data, isLoading } = useQuery({
+        queryKey: ['branches', page, rowsPerPage, search, companyFilter, regionFilter],
+        queryFn: () => branchesApi.getAll({
+            page: page + 1, per_page: rowsPerPage,
+            ...(search ? { search } : {}),
+            ...(companyFilter ? { company_id: companyFilter } : {}),
+            ...(regionFilter ? { region_id: regionFilter } : {}),
+        }),
+    });
 
-    const fetchBranches = async () => {
-        if (!canView) return;
-        setLoading(true);
-        setError(null);
-        try {
-            const response = await branchesApi.getAll();
-            setBranches(response.data || []);
-        } catch (err: any) {
-            setError(err.message || 'Failed to load branches');
-        } finally {
-            setLoading(false);
-        }
+    const { data: companiesData } = useQuery({ queryKey: ['companies', 'all'], queryFn: () => companiesApi.getAll({ per_page: 100 }) });
+    const { data: regionsData } = useQuery({
+        queryKey: ['regions', 'filter', companyFilter],
+        queryFn: () => regionsApi.getAll({ per_page: 100, ...(companyFilter ? { company_id: companyFilter } : {}) }),
+    });
+
+    const createMutation = useMutation({
+        mutationFn: branchesApi.create,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['branches'] }); showToast('Branch created successfully', 'success'); setDrawerOpen(false); },
+        onError: (err) => showToast(getErrorMessage(err), 'error'),
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: ({ id, data }: { id: number; data: Partial<Branch> }) => branchesApi.update(id, data),
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['branches'] }); showToast('Branch updated successfully', 'success'); setDrawerOpen(false); setEditingBranch(null); },
+        onError: (err) => showToast(getErrorMessage(err), 'error'),
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: branchesApi.delete,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['branches'] }); showToast('Branch deleted successfully', 'success'); setDeleteTarget(null); },
+        onError: (err) => showToast(getErrorMessage(err), 'error'),
+    });
+
+    const handleEdit = async (branch: Branch) => {
+        try { const fresh = await branchesApi.getById(branch.id); setEditingBranch(fresh); setDrawerOpen(true); }
+        catch (err) { showToast(getErrorMessage(err), 'error'); }
     };
 
-    const fetchRegions = async () => {
-        try {
-            const response = await regionsApi.getAll();
-            setRegions(response.data || []);
-        } catch (err) {
-            console.error('Failed to load regions for dropdown', err);
-        }
+    const handleSubmit = (formData: Partial<Branch>) => {
+        if (editingBranch) updateMutation.mutate({ id: editingBranch.id, data: formData });
+        else createMutation.mutate(formData);
     };
 
-    useEffect(() => {
-        if (authState === 'authenticated') {
-            fetchBranches();
-            fetchRegions();
-        }
-    }, [authState]);
-
-    const handleSubmit = async () => {
-        setSubmitting(true);
-        setError(null);
-        try {
-            if (editingBranch) {
-                await branchesApi.update(editingBranch.id, formData);
-            } else {
-                await branchesApi.create(formData);
-            }
-            setDialogOpen(false);
-            fetchBranches();
-        } catch (err: any) {
-            setError(err.response?.data?.message || err.message || 'Failed to save branch');
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-    const handleDelete = async (id: number) => {
-        if (!window.confirm('Are you sure you want to delete this branch?')) return;
-        try {
-            await branchesApi.delete(id);
-            fetchBranches();
-        } catch (err: any) {
-            setError(err.message || 'Failed to delete branch');
-        }
-    };
-
-    if (authState === 'booting') {
-        return (
-            <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
-                <CircularProgress />
+    const columns: Column<Branch>[] = useMemo(() => [
+        { key: 'name', label: 'Branch', width: '18%', render: (row) => (
+            <Box><Typography variant="body2" fontWeight={600}>{row.name}</Typography><Typography variant="caption" color="text.secondary">Code: {row.code}</Typography></Box>
+        )},
+        { key: 'region', label: 'Region', width: '14%', render: (row) => <Typography variant="body2">{row.region?.name || '—'}</Typography> },
+        { key: 'company', label: 'Company', width: '14%', render: (row) => <Typography variant="body2">{row.region?.company?.name || '—'}</Typography> },
+        { key: 'contact', label: 'Contact', width: '18%', render: (row) => (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                {row.email && <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><EmailIcon sx={{ fontSize: 14 }} /> {row.email}</Typography>}
+                {row.phone && <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><PhoneIcon sx={{ fontSize: 14 }} /> {row.phone}</Typography>}
+                {!row.email && !row.phone && '—'}
             </Box>
-        );
-    }
+        )},
+        { key: 'location', label: 'Location', width: '14%', render: (row) => {
+            const parts = [row.city, row.state].filter(Boolean);
+            return parts.length ? <Typography variant="body2">{parts.join(', ')}</Typography> : '—';
+        }},
+        { key: 'is_active', label: 'Status', align: 'center', width: '10%', render: (row) => <StatusChip active={row.is_active} /> },
+        { key: 'created_at', label: 'Created', width: '12%', render: (row) => <Typography variant="caption">{formatDateTime(row.created_at)}</Typography> },
+    ], []);
 
-    if (!canView) {
-        return (
-            <Box p={3}>
-                <Alert severity="warning">You do not have permission to view branches.</Alert>
-            </Box>
-        );
-    }
+    const actions: RowAction<Branch>[] = useMemo(() => [
+        { icon: <EditIcon fontSize="small" />, label: 'Edit', onClick: handleEdit },
+        { icon: <DeleteIcon fontSize="small" />, label: 'Delete', color: 'error', onClick: (row) => setDeleteTarget(row) },
+    ], []);
 
     return (
-        <Box>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                <Typography variant="h5">Branches</Typography>
-                {canCreate && (
-                    <Button variant="contained" startIcon={<Add />} onClick={() => { setEditingBranch(null); setFormData({ country: 'Nepal', is_active: true }); setDialogOpen(true); }}>
-                        Add Branch
-                    </Button>
-                )}
-            </Box>
-
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
-            {loading ? (
-                <Box display="flex" justifyContent="center" py={4}>
-                    <CircularProgress />
-                </Box>
-            ) : (
-                <TableContainer component={Paper}>
-                    <Table>
-                        <TableHead>
-                            <TableRow>
-                                <TableCell>Name</TableCell>
-                                <TableCell>Code</TableCell>
-                                <TableCell>Region</TableCell>
-                                <TableCell>City</TableCell>
-                                <TableCell>Status</TableCell>
-                                <TableCell align="right">Actions</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {branches.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={6} align="center">No branches found</TableCell>
-                                </TableRow>
-                            ) : (
-                                branches.map((branch) => (
-                                    <TableRow key={branch.id}>
-                                        <TableCell>{branch.name}</TableCell>
-                                        <TableCell>{branch.code}</TableCell>
-                                        <TableCell>{branch.region?.name || 'N/A'}</TableCell>
-                                        <TableCell>{branch.city || '-'}</TableCell>
-                                        <TableCell>
-                                            <Chip label={branch.is_active ? 'Active' : 'Inactive'} color={branch.is_active ? 'success' : 'default'} size="small" />
-                                        </TableCell>
-                                        <TableCell align="right">
-                                            {canUpdate && (
-                                                <IconButton size="small" onClick={() => { setEditingBranch(branch); setFormData(branch); setDialogOpen(true); }}>
-                                                    <Edit fontSize="small" />
-                                                </IconButton>
-                                            )}
-                                            {canDelete && (
-                                                <IconButton size="small" color="error" onClick={() => handleDelete(branch.id)}>
-                                                    <Delete fontSize="small" />
-                                                </IconButton>
-                                            )}
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
-            )}
-
-            <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
-                <DialogTitle>{editingBranch ? 'Edit Branch' : 'Add Branch'}</DialogTitle>
-                <DialogContent dividers>
-                    <Grid container spacing={2}>
-                        <Grid item xs={12} sm={6}>
-                            <TextField
-                                select
-                                fullWidth
-                                label="Region"
-                                required
-                                value={formData.region_id || ''}
-                                onChange={(e) => setFormData({ ...formData, region_id: Number(e.target.value) })}
-                            >
-                                {regions.map((r) => (
-                                    <MenuItem key={r.id} value={r.id}>{r.name}</MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                            <TextField
-                                fullWidth
-                                label="Name"
-                                required
-                                value={formData.name || ''}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                            <TextField
-                                fullWidth
-                                label="Code"
-                                required
-                                value={formData.code || ''}
-                                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                            <TextField
-                                fullWidth
-                                label="City"
-                                value={formData.city || ''}
-                                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                            <TextField
-                                fullWidth
-                                label="State"
-                                value={formData.state || ''}
-                                onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                            <TextField
-                                fullWidth
-                                label="Country"
-                                value={formData.country || 'Nepal'}
-                                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                            <TextField
-                                fullWidth
-                                label="Phone"
-                                value={formData.phone || ''}
-                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                            <TextField
-                                fullWidth
-                                label="Email"
-                                type="email"
-                                value={formData.email || ''}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                            />
-                        </Grid>
-                        <Grid item xs={12}>
-                            <TextField
-                                fullWidth
-                                label="Address"
-                                multiline
-                                rows={2}
-                                value={formData.address || ''}
-                                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                            />
-                        </Grid>
-                    </Grid>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setDialogOpen(false)} disabled={submitting}>Cancel</Button>
-                    <Button variant="contained" onClick={handleSubmit} disabled={submitting}>
-                        {submitting ? <CircularProgress size={24} /> : (editingBranch ? 'Update' : 'Create')}
-                    </Button>
-                </DialogActions>
-            </Dialog>
-        </Box>
+        <>
+            <PageHeader title="Branches" subtitle="Manage branch offices within regions"
+                breadcrumbs={[{ label: 'Manage' }, { label: 'Branches' }]}
+                actions={<Can permission="branches.create"><Button variant="contained" startIcon={<AddIcon />} onClick={() => { setEditingBranch(null); setDrawerOpen(true); }}>Add Branch</Button></Can>}
+            />
+            <SearchFilterBar searchValue={search} onSearchChange={(v) => { setSearch(v); setPage(0); }} placeholder="Search by name, code, city, email...">
+                <FormControl size="small" sx={{ minWidth: 180 }}>
+                    <InputLabel>Company</InputLabel>
+                    <Select value={companyFilter} onChange={(e) => { setCompanyFilter(e.target.value); setRegionFilter(''); setPage(0); }} label="Company">
+                        <MenuItem value="">All</MenuItem>
+                        {(companiesData?.data ?? []).map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+                    </Select>
+                </FormControl>
+                <FormControl size="small" sx={{ minWidth: 180 }}>
+                    <InputLabel>Region</InputLabel>
+                    <Select value={regionFilter} onChange={(e) => { setRegionFilter(e.target.value); setPage(0); }} label="Region">
+                        <MenuItem value="">All</MenuItem>
+                        {(regionsData?.data ?? []).map((r) => <MenuItem key={r.id} value={r.id}>{r.name}</MenuItem>)}
+                    </Select>
+                </FormControl>
+            </SearchFilterBar>
+            <DataTable<Branch> columns={columns} data={data?.data ?? []} loading={isLoading}
+                page={page} rowsPerPage={rowsPerPage} total={data?.total ?? 0}
+                onPageChange={setPage} onRowsPerPageChange={(rpp) => { setRowsPerPage(rpp); setPage(0); }}
+                actions={actions} onRowClick={(row) => navigate(`/manage/branches/${row.id}`)}
+                emptyMessage="No branches found. Create your first branch to get started."
+            />
+            <BranchFormDrawer open={drawerOpen} onClose={() => { setDrawerOpen(false); setEditingBranch(null); }}
+                branch={editingBranch} regions={regionsData?.data ?? []} companies={companiesData?.data ?? []}
+                onSubmit={handleSubmit} loading={createMutation.isPending || updateMutation.isPending}
+            />
+            <ConfirmDialog open={!!deleteTarget} title="Delete Branch"
+                message={`Are you sure you want to delete "${deleteTarget?.name}"?`}
+                confirmLabel="Delete" loading={deleteMutation.isPending}
+                onConfirm={() => { if (deleteTarget) deleteMutation.mutate(deleteTarget.id); }}
+                onCancel={() => setDeleteTarget(null)}
+            />
+        </>
     );
 };

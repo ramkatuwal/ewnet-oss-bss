@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Box, Typography, Grid, Button, Divider, Avatar,
-    CircularProgress, Card, CardContent, Stack, Link as MuiLink,
+    CircularProgress, Card, CardContent, Stack, Link as MuiLink, Chip,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -13,11 +13,16 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import LanguageIcon from '@mui/icons-material/Language';
 import BusinessIcon from '@mui/icons-material/Business';
 import BadgeIcon from '@mui/icons-material/Badge';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import StorefrontIcon from '@mui/icons-material/Storefront';
+import PeopleIcon from '@mui/icons-material/People';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Can } from '@/components/auth/Can';
 import { StatusChip } from '@/components/tables/DataTable';
 import { CompanyFormDrawer } from '../components/CompanyFormDrawer';
 import { companiesApi } from '@/api/companies';
+import { regionsApi } from '@/api/regions';
+import { branchesApi } from '@/api/branches';
 import { formatDateTime, getErrorMessage } from '@/utils';
 import { useToast } from '@/components/feedback/ToastProvider';
 import type { Company } from '@/types';
@@ -32,6 +37,20 @@ export const CompanyDetailPage = () => {
     const { data: company, isLoading } = useQuery({
         queryKey: ['company', id],
         queryFn: () => companiesApi.getById(Number(id)),
+        enabled: !!id,
+    });
+
+    // Fetch region count for this company
+    const { data: regionsData } = useQuery({
+        queryKey: ['regions', 'byCompany', id],
+        queryFn: () => regionsApi.getAll({ company_id: Number(id), per_page: 1 }),
+        enabled: !!id,
+    });
+
+    // Fetch branch count for this company
+    const { data: branchesData } = useQuery({
+        queryKey: ['branches', 'byCompany', id],
+        queryFn: () => branchesApi.getAll({ company_id: Number(id), per_page: 1 }),
         enabled: !!id,
     });
 
@@ -60,6 +79,8 @@ export const CompanyDetailPage = () => {
     }
 
     const addressParts = [company.address, company.city, company.state, company.postal_code, company.country].filter(Boolean);
+    const regionCount = regionsData?.total ?? 0;
+    const branchCount = branchesData?.total ?? 0;
 
     return (
         <>
@@ -142,14 +163,43 @@ export const CompanyDetailPage = () => {
                     </Card>
                 </Grid>
 
-                {/* Summary Placeholder */}
+                {/* Summary with live counts */}
                 <Grid item xs={12} md={6}>
                     <Card elevation={0} sx={{ border: 1, borderColor: 'divider', height: '100%' }}>
                         <CardContent>
                             <Typography variant="h6" gutterBottom>Summary</Typography>
                             <Divider sx={{ mb: 2 }} />
-                            <Typography variant="body2" color="text.secondary">
-                                Region, branch, and user counts will be displayed here once those modules are rebuilt.
+                            <Grid container spacing={2}>
+                                <Grid item xs={4}>
+                                    <Box
+                                        sx={{ textAlign: 'center', p: 2, border: 1, borderColor: 'divider', borderRadius: 2, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+                                        onClick={() => navigate(`/manage/regions?company_id=${company.id}`)}
+                                    >
+                                        <AccountTreeIcon color="primary" sx={{ fontSize: 32, mb: 1 }} />
+                                        <Typography variant="h4" fontWeight={700}>{regionCount}</Typography>
+                                        <Typography variant="caption" color="text.secondary">Regions</Typography>
+                                    </Box>
+                                </Grid>
+                                <Grid item xs={4}>
+                                    <Box
+                                        sx={{ textAlign: 'center', p: 2, border: 1, borderColor: 'divider', borderRadius: 2, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+                                        onClick={() => navigate(`/manage/branches?company_id=${company.id}`)}
+                                    >
+                                        <StorefrontIcon color="primary" sx={{ fontSize: 32, mb: 1 }} />
+                                        <Typography variant="h4" fontWeight={700}>{branchCount}</Typography>
+                                        <Typography variant="caption" color="text.secondary">Branches</Typography>
+                                    </Box>
+                                </Grid>
+                                <Grid item xs={4}>
+                                    <Box sx={{ textAlign: 'center', p: 2, border: 1, borderColor: 'divider', borderRadius: 2, opacity: 0.6 }}>
+                                        <PeopleIcon color="disabled" sx={{ fontSize: 32, mb: 1 }} />
+                                        <Typography variant="h4" fontWeight={700} color="text.disabled">—</Typography>
+                                        <Typography variant="caption" color="text.secondary">Users</Typography>
+                                    </Box>
+                                </Grid>
+                            </Grid>
+                            <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
+                                Click Regions or Branches to view filtered list. User count available after TASK-023.
                             </Typography>
                         </CardContent>
                     </Card>

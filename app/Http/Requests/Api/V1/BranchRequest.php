@@ -16,24 +16,25 @@ class BranchRequest extends FormRequest
     {
         return [
             'name' => [
-                'required',
-                'string',
-                'max:255',
+                'required', 'string', 'max:255',
                 Rule::unique('branches')->where(function ($query) {
                     return $query->where('region_id', $this->input('region_id'));
                 })->ignore($this->route('branch')),
             ],
             'code' => [
-                'required',
-                'string',
-                'max:50',
+                'required', 'string', 'max:50',
                 Rule::unique('branches')->ignore($this->route('branch')),
             ],
             'region_id' => 'required|exists:regions,id',
-            'description' => 'nullable|string',
             'address' => 'nullable|string',
-            'phone' => 'nullable|string|max:20',
+            'city' => 'nullable|string|max:255',
+            'state' => 'nullable|string|max:255',
+            'postal_code' => 'nullable|string|max:255',
+            'country' => 'nullable|string|max:255',
+            'phone' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
+            'latitude' => 'nullable|string|max:255',
+            'longitude' => 'nullable|string|max:255',
             'is_active' => 'boolean',
         ];
     }
