@@ -20,12 +20,10 @@ export const companiesApi = {
 
     create: (formData: FormData) =>
         apiClient.post('/api/v1/organization/companies', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
         }).then((r) => unwrap<Company>(r)),
 
     update: (id: number, formData: FormData) =>
         apiClient.post(`/api/v1/organization/companies/${id}?_method=PUT`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
         }).then((r) => unwrap<Company>(r)),
 
     delete: (id: number) =>

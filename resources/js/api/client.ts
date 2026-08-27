@@ -5,7 +5,6 @@ export const apiClient = axios.create({
     baseURL: import.meta.env.VITE_API_URL || '/',
     withCredentials: true,
     headers: {
-        'Content-Type': 'application/json',
         Accept: 'application/json',
     },
 });
@@ -16,6 +15,11 @@ apiClient.interceptors.request.use((config) => {
     if (token) {
         config.headers['X-CSRF-TOKEN'] = token;
     }
+    // Only set Content-Type for non-FormData requests
+    // Axios auto-sets multipart/form-data with boundary for FormData
+    if (!(config.data instanceof FormData)) {
+        config.headers['Content-Type'] = 'application/json';
+    }
     return config;
 });
 
@@ -24,7 +28,6 @@ apiClient.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
-            // Clear auth state and redirect to login
             const store = useAuthStore.getState();
             if (store.authState === 'authenticated') {
                 store.logout().catch(() => {});
