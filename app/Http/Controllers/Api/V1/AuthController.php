@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use App\Services\AuditService;
 
 class AuthController extends Controller
 {
@@ -19,21 +20,27 @@ class AuthController extends Controller
                 'password' => 'required|string',
             ]);
 
-            $user = User::where('email', $request->email)->first();
-
-            if (!$user || !Hash::check($request->password, $user->password)) {
-                return response()->json([
-                    'message' => 'Invalid credentials'
-                ], 401);
+            // Use native Auth::attempt to fire Attempting/Failed/Login events automatically
+            if (!Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
+                // Auth::attempt already fired the 'Failed' event, which our listener catches
+                return response()->json(['message' => 'Invalid credentials'], 401);
             }
 
+            $user = Auth::user();
             $user->load('roles.permissions');
-            
-            // Flatten permissions to an array of strings for easier frontend use
+
             $permissions = $user->getAllPermissions()->pluck('name')->toArray();
             $roles = $user->getRoleNames()->toArray();
 
-            Auth::login($user);
+            // Auth::attempt also fires the 'Login' event, which our listener catches
+            // We add a custom audit log here for additional context if needed, 
+            // but the listener already handles the basic success log.
+            AuditService::log(
+                action: 'auth.login.success',
+                result: 'success',
+                target: $user,
+                metadata: ['roles' => $roles]
+            );
 
             if ($request->hasSession()) {
                 $request->session()->regenerate();
@@ -64,16 +71,23 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         try {
+            $user = Auth::user();
             Auth::guard('web')->logout();
-            
+
+            if ($user) {
+                AuditService::log(
+                    action: 'auth.logout',
+                    result: 'success',
+                    target: $user
+                );
+            }
+
             if ($request->hasSession()) {
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();
             }
 
-            return response()->json([
-                'message' => 'Logged out successfully'
-            ]);
+            return response()->json(['message' => 'Logged out successfully']);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'An error occurred during logout'
@@ -86,9 +100,7 @@ class AuthController extends Controller
         try {
             $user = $request->user();
             if (!$user) {
-                return response()->json([
-                    'message' => 'Unauthenticated'
-                ], 401);
+                return response()->json(['message' => 'Unauthenticated'], 401);
             }
 
             $user->load('roles.permissions');
@@ -105,9 +117,7 @@ class AuthController extends Controller
                 ]
             ]);
         } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'An error occurred'
-            ], 500);
+            return response()->json(['message' => 'An error occurred'], 500);
         }
     }
 }
