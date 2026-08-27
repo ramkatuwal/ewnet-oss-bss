@@ -21,14 +21,6 @@ export interface LoginResponse {
     user: User;
 }
 
-export interface Company {
-    id: number;
-    name: string;
-    code?: string;
-    is_active: boolean;
-    created_at?: string;
-    updated_at?: string;
-}
 
 export interface Region {
     id: number;
@@ -130,3 +122,5 @@ export interface ApiError {
     message: string;
     errors?: Record<string, string[]>;
 }
+
+export type { Company } from './company';
