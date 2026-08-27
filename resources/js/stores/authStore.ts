@@ -1,8 +1,29 @@
 import { create } from 'zustand';
 import { apiClient } from '@/api/client';
-import { AuthUser } from '@/types';
 
 export type AuthState = 'booting' | 'authenticated' | 'anonymous';
+
+export interface AuthOrgContext {
+    id: number;
+    name: string;
+}
+
+export interface AuthUser {
+    id: number;
+    name: string;
+    email: string;
+    phone_number?: string | null;
+    avatar?: string | null;
+    is_active: boolean;
+    company_id?: number | null;
+    branch_id?: number | null;
+    department_id?: number | null;
+    company?: AuthOrgContext | null;
+    branch?: AuthOrgContext | null;
+    department?: AuthOrgContext | null;
+    roles: string[];
+    permissions: string[];
+}
 
 interface AuthStore {
     user: AuthUser | null;
@@ -14,6 +35,7 @@ interface AuthStore {
     hydrate: () => Promise<void>;
     hasPermission: (permission: string) => boolean;
     hasAnyPermission: (permissions: string[]) => boolean;
+    isSuperAdmin: () => boolean;
     getDisplayRole: () => string;
 }
 
@@ -31,7 +53,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         try {
             await get().fetchUser();
             set({ authState: 'authenticated' });
-        } catch (error) {
+        } catch {
             set({ user: null, authState: 'anonymous' });
         } finally {
             set({ isLoading: false });
@@ -41,13 +63,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     login: async (email: string, password: string) => {
         set({ isLoading: true });
         try {
-            // Step 1: Get CSRF cookie
             await apiClient.get('/sanctum/csrf-cookie');
-
-            // Step 2: Login via session (no token)
             await apiClient.post('/api/v1/auth/login', { email, password });
-
-            // Step 3: Hydrate user
             await get().fetchUser();
             set({ authState: 'authenticated' });
         } catch (error) {
@@ -60,16 +77,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
     logout: async () => {
         set({ isLoading: true });
-        try {
-            await apiClient.post('/api/v1/auth/logout');
-        } catch (error) {
-            // Ignore errors on logout
-        }
-        set({
-            user: null,
-            authState: 'anonymous',
-            isLoading: false,
-        });
+        try { await apiClient.post('/api/v1/auth/logout'); } catch {}
+        set({ user: null, authState: 'anonymous', isLoading: false });
     },
 
     fetchUser: async () => {
@@ -77,16 +86,10 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         try {
             const response = await apiClient.get('/api/v1/auth/user');
             const userData = response.data.user || response.data;
-            set({
-                user: userData,
-                authState: userData ? 'authenticated' : 'anonymous',
-            });
-        } catch (error) {
-            set({
-                user: null,
-                authState: 'anonymous',
-            });
-            throw error;
+            set({ user: userData, authState: userData ? 'authenticated' : 'anonymous' });
+        } catch {
+            set({ user: null, authState: 'anonymous' });
+            throw new Error('Failed to fetch user');
         } finally {
             set({ isLoading: false });
         }
@@ -95,20 +98,17 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     hasPermission: (permission: string) => {
         const { user } = get();
         if (!user) return false;
-        
-        // Super Admin bypass
         if (user.roles?.includes('Super Admin')) return true;
-        
-        // Check flat permission array
-        if (Array.isArray(user.permissions)) {
-            return user.permissions.includes(permission);
-        }
-        
+        if (Array.isArray(user.permissions)) return user.permissions.includes(permission);
         return false;
     },
 
     hasAnyPermission: (permissions: string[]) => {
         return permissions.some((p) => get().hasPermission(p));
+    },
+
+    isSuperAdmin: () => {
+        return get().user?.roles?.includes('Super Admin') ?? false;
     },
 
     getDisplayRole: () => {

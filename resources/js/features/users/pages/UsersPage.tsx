@@ -1,282 +1,164 @@
-import React, { useState, useEffect } from 'react';
-import {
-    Box,
-    Button,
-    Typography,
-    Paper,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    IconButton,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    TextField,
-    Alert,
-    CircularProgress,
-    Chip,
-    Grid,
-    FormControlLabel,
-    Checkbox,
-} from '@mui/material';
-import { Add, Edit, Delete } from '@mui/icons-material';
+import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Box, Button, Typography, Chip, FormControl, InputLabel, Select, MenuItem, Avatar } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import PersonIcon from '@mui/icons-material/Person';
+import SecurityIcon from '@mui/icons-material/Security';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { DataTable, StatusChip, type Column, type RowAction } from '@/components/tables/DataTable';
+import { SearchFilterBar } from '@/components/forms/SearchFilterBar';
+import { Can } from '@/components/auth/Can';
+import { ConfirmDialog } from '@/components/feedback/ConfirmDialog';
+import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuthStore } from '@/stores/authStore';
+import { getErrorMessage, formatDateTime } from '@/utils';
 import { usersApi } from '@/api/users';
-import { rolesApi } from '@/api/roles';
-import { Role } from '@/types';
+import { companiesApi } from '@/api/companies';
+import { branchesApi } from '@/api/branches';
+import { UserFormDrawer } from '../components/UserFormDrawer';
+import type { UserListItem } from '@/types';
 
-export const UsersPage: React.FC = () => {
-    const { authState, hasPermission, user: currentUser } = useAuthStore();
-    const [users, setUsers] = useState<any[]>([]);
-    const [roles, setRoles] = useState<Role[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [dialogOpen, setDialogOpen] = useState(false);
-    const [editingUser, setEditingUser] = useState<any | null>(null);
-    const [formData, setFormData] = useState<{ name: string; email: string; password: string; roleIds: number[] }>({
-        name: '',
-        email: '',
-        password: '',
-        roleIds: [],
+export const UsersPage = () => {
+    const navigate = useNavigate();
+    const queryClient = useQueryClient();
+    const { showToast } = useToast();
+    const { user: authUser, isSuperAdmin } = useAuthStore();
+
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
+    const [search, setSearch] = useState('');
+    const [companyFilter, setCompanyFilter] = useState<string>('');
+    const [statusFilter, setStatusFilter] = useState<string>('');
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const [editingUser, setEditingUser] = useState<UserListItem | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<UserListItem | null>(null);
+
+    const { data, isLoading } = useQuery({
+        queryKey: ['users', page, rowsPerPage, search, companyFilter, statusFilter],
+        queryFn: () => usersApi.getAll({
+            page: page + 1, per_page: rowsPerPage,
+            ...(search ? { search } : {}),
+            ...(companyFilter ? { company_id: companyFilter } : {}),
+            ...(statusFilter !== '' ? { is_active: statusFilter } : {}),
+        }),
     });
-    const [submitting, setSubmitting] = useState(false);
 
-    const canView = hasPermission('users.view');
-    const canCreate = hasPermission('users.create');
-    const canUpdate = hasPermission('users.update');
-    const canDelete = hasPermission('users.delete');
+    const { data: companiesData } = useQuery({ queryKey: ['companies', 'all'], queryFn: () => companiesApi.getAll({ per_page: 100 }) });
 
-    const fetchData = async () => {
-        if (!canView) return;
-        setLoading(true);
-        setError(null);
-        try {
-            const [usersRes, rolesRes] = await Promise.all([
-                usersApi.getAll(),
-                rolesApi.getAll(),
-            ]);
-            setUsers(Array.isArray(usersRes) ? usersRes : []);
-            setRoles(Array.isArray(rolesRes) ? rolesRes : []);
-        } catch (err: any) {
-            setError(err.message || 'Failed to load data');
-        } finally {
-            setLoading(false);
-        }
+    const createMutation = useMutation({
+        mutationFn: usersApi.create,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['users'] }); showToast('User created successfully', 'success'); setDrawerOpen(false); },
+        onError: (err) => showToast(getErrorMessage(err), 'error'),
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: ({ id, data }: { id: number; data: Record<string, unknown> }) => usersApi.update(id, data),
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['users'] }); showToast('User updated successfully', 'success'); setDrawerOpen(false); setEditingUser(null); },
+        onError: (err) => showToast(getErrorMessage(err), 'error'),
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: usersApi.delete,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['users'] }); showToast('User deleted successfully', 'success'); setDeleteTarget(null); },
+        onError: (err) => showToast(getErrorMessage(err), 'error'),
+    });
+
+    const handleEdit = async (user: UserListItem) => {
+        try { const fresh = await usersApi.getById(user.id); setEditingUser(fresh); setDrawerOpen(true); }
+        catch (err) { showToast(getErrorMessage(err), 'error'); }
     };
 
-    useEffect(() => {
-        if (authState === 'authenticated') {
-            fetchData();
-        }
-    }, [authState]);
-
-    const handleSubmit = async () => {
-        setSubmitting(true);
-        setError(null);
-        try {
-            const payload: any = {
-                name: formData.name,
-                email: formData.email,
-                roles: formData.roleIds,
-            };
-            if (formData.password) {
-                payload.password = formData.password;
-            }
-
-            if (editingUser) {
-                await usersApi.update(editingUser.id, payload);
-            } else {
-                await usersApi.create(payload);
-            }
-            setDialogOpen(false);
-            fetchData();
-        } catch (err: any) {
-            const msg = err.response?.data?.message || err.message || 'Failed to save user';
-            setError(msg);
-        } finally {
-            setSubmitting(false);
-        }
+    const handleSubmit = (formData: Record<string, unknown>) => {
+        if (editingUser) updateMutation.mutate({ id: editingUser.id, data: formData });
+        else createMutation(formData);
     };
 
-    const handleDelete = async (id: number) => {
-        if (!window.confirm('Are you sure you want to delete this user?')) return;
-        try {
-            await usersApi.delete(id);
-            fetchData();
-        } catch (err: any) {
-            setError(err.response?.data?.message || err.message || 'Failed to delete user');
-        }
-    };
-
-    const openDialog = (user: any | null) => {
-        if (user) {
-            setEditingUser(user);
-            setFormData({
-                name: user.name,
-                email: user.email,
-                password: '',
-                roleIds: user.roles?.map((r: any) => r.id) || [],
-            });
-        } else {
-            setEditingUser(null);
-            setFormData({ name: '', email: '', password: '', roleIds: [] });
-        }
-        setDialogOpen(true);
-    };
-
-    const toggleRole = (roleId: number) => {
-        setFormData((prev) => ({
-            ...prev,
-            roleIds: prev.roleIds.includes(roleId)
-                ? prev.roleIds.filter((id) => id !== roleId)
-                : [...prev.roleIds, roleId],
-        }));
-    };
-
-    if (authState === 'booting') {
-        return (
-            <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
-                <CircularProgress />
+    const columns: Column<UserListItem>[] = useMemo(() => [
+        { key: 'name', label: 'User', width: '22%', render: (row) => (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontSize: 14 }}>{row.name?.charAt(0)}</Avatar>
+                <Box>
+                    <Typography variant="body2" fontWeight={600}>{row.name}</Typography>
+                    <Typography variant="caption" color="text.secondary">{row.email}</Typography>
+                </Box>
             </Box>
-        );
-    }
-
-    if (!canView) {
-        return (
-            <Box p={3}>
-                <Alert severity="warning">You do not have permission to view users.</Alert>
+        )},
+        { key: 'org', label: 'Organization', width: '20%', render: (row) => (
+            <Box>
+                <Typography variant="caption" display="block">{row.company?.name || '—'}</Typography>
+                {row.branch && <Typography variant="caption" color="text.secondary" display="block">{row.branch.name}</Typography>}
+                {row.department && <Typography variant="caption" color="text.disabled" display="block">{row.department.name}</Typography>}
             </Box>
-        );
-    }
+        )},
+        { key: 'roles', label: 'Roles', width: '18%', render: (row) => (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                {(row.roles ?? []).map((r) => (
+                    <Chip key={r.id} label={r.name} size="small"
+                        color={r.name === 'Super Admin' ? 'error' : 'default'}
+                        icon={r.name === 'Super Admin' ? <SecurityIcon sx={{ fontSize: 14 }} /> : undefined}
+                        variant={r.name === 'Super Admin' ? 'filled' : 'outlined'}
+                    />
+                ))}
+                {(!row.roles || row.roles.length === 0) && <Typography variant="caption" color="text.secondary">No roles</Typography>}
+            </Box>
+        )},
+        { key: 'is_active', label: 'Status', align: 'center', width: '10%', render: (row) => <StatusChip active={row.is_active} /> },
+        { key: 'last_login', label: 'Last Login', width: '14%', render: (row) => <Typography variant="caption">{row.last_login_at ? formatDateTime(row.last_login_at) : 'Never'}</Typography> },
+        { key: 'created_at', label: 'Created', width: '12%', render: (row) => <Typography variant="caption">{formatDateTime(row.created_at)}</Typography> },
+    ], []);
+
+    const actions: RowAction<UserListItem>[] = useMemo(() => [
+        { icon: <EditIcon fontSize="small" />, label: 'Edit', onClick: handleEdit },
+        { icon: <DeleteIcon fontSize="small" />, label: 'Delete', color: 'error',
+          onClick: (row) => setDeleteTarget(row),
+          visible: (row) => !row.roles?.some(r => r.name === 'Super Admin') && row.id !== authUser?.id,
+        },
+    ], [authUser]);
 
     return (
-        <Box>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                <Typography variant="h5">Users</Typography>
-                {canCreate && (
-                    <Button variant="contained" startIcon={<Add />} onClick={() => openDialog(null)}>
-                        Add User
-                    </Button>
+        <>
+            <PageHeader title="Users" subtitle="Manage system users and access"
+                breadcrumbs={[{ label: 'Manage' }, { label: 'Users' }]}
+                actions={<Can permission="users.create"><Button variant="contained" startIcon={<AddIcon />} onClick={() => { setEditingUser(null); setDrawerOpen(true); }}>Add User</Button></Can>}
+            />
+            <SearchFilterBar searchValue={search} onSearchChange={(v) => { setSearch(v); setPage(0); }} placeholder="Search by name or email...">
+                {isSuperAdmin() && (
+                    <FormControl size="small" sx={{ minWidth: 180 }}>
+                        <InputLabel>Company</InputLabel>
+                        <Select value={companyFilter} onChange={(e) => { setCompanyFilter(e.target.value); setPage(0); }} label="Company">
+                            <MenuItem value="">All</MenuItem>
+                            {(companiesData?.data ?? []).map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+                        </Select>
+                    </FormControl>
                 )}
-            </Box>
-
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
-            {loading ? (
-                <Box display="flex" justifyContent="center" py={4}>
-                    <CircularProgress />
-                </Box>
-            ) : (
-                <TableContainer component={Paper}>
-                    <Table>
-                        <TableHead>
-                            <TableRow>
-                                <TableCell>Name</TableCell>
-                                <TableCell>Email</TableCell>
-                                <TableCell>Roles</TableCell>
-                                <TableCell align="right">Actions</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {users.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={4} align="center">No users found</TableCell>
-                                </TableRow>
-                            ) : (
-                                users.map((user) => (
-                                    <TableRow key={user.id}>
-                                        <TableCell>{user.name}</TableCell>
-                                        <TableCell>{user.email}</TableCell>
-                                        <TableCell>
-                                            {user.roles?.map((role: any) => (
-                                                <Chip key={role.id} label={role.name} size="small" sx={{ mr: 0.5 }} />
-                                            )) || '-'}
-                                        </TableCell>
-                                        <TableCell align="right">
-                                            {canUpdate && (
-                                                <IconButton size="small" onClick={() => openDialog(user)}>
-                                                    <Edit fontSize="small" />
-                                                </IconButton>
-                                            )}
-                                            {canDelete && user.id !== currentUser?.id && (
-                                                <IconButton size="small" color="error" onClick={() => handleDelete(user.id)}>
-                                                    <Delete fontSize="small" />
-                                                </IconButton>
-                                            )}
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
-            )}
-
-            <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle>{editingUser ? 'Edit User' : 'Add User'}</DialogTitle>
-                <DialogContent dividers>
-                    <Grid container spacing={2}>
-                        <Grid item xs={12}>
-                            <TextField
-                                fullWidth
-                                label="Name"
-                                required
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            />
-                        </Grid>
-                        <Grid item xs={12}>
-                            <TextField
-                                fullWidth
-                                label="Email"
-                                type="email"
-                                required
-                                value={formData.email}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                            />
-                        </Grid>
-                        <Grid item xs={12}>
-                            <TextField
-                                fullWidth
-                                label="Password"
-                                type="password"
-                                required={!editingUser}
-                                helperText={editingUser ? 'Leave blank to keep current password' : ''}
-                                value={formData.password}
-                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                            />
-                        </Grid>
-                        <Grid item xs={12}>
-                            <Typography variant="subtitle2" sx={{ mb: 1 }}>Assign Roles:</Typography>
-                            <Box display="flex" flexWrap="wrap" gap={1}>
-                                {roles.map((role) => (
-                                    <FormControlLabel
-                                        key={role.id}
-                                        control={
-                                            <Checkbox
-                                                checked={formData.roleIds.includes(role.id)}
-                                                onChange={() => toggleRole(role.id)}
-                                                size="small"
-                                            />
-                                        }
-                                        label={role.name}
-                                    />
-                                ))}
-                            </Box>
-                        </Grid>
-                    </Grid>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setDialogOpen(false)} disabled={submitting}>Cancel</Button>
-                    <Button variant="contained" onClick={handleSubmit} disabled={submitting || !formData.name || !formData.email}>
-                        {submitting ? <CircularProgress size={24} /> : (editingUser ? 'Update' : 'Create')}
-                    </Button>
-                </DialogActions>
-            </Dialog>
-        </Box>
+                <FormControl size="small" sx={{ minWidth: 120 }}>
+                    <InputLabel>Status</InputLabel>
+                    <Select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }} label="Status">
+                        <MenuItem value="">All</MenuItem>
+                        <MenuItem value="true">Active</MenuItem>
+                        <MenuItem value="false">Inactive</MenuItem>
+                    </Select>
+                </FormControl>
+            </SearchFilterBar>
+            <DataTable<UserListItem> columns={columns} data={data?.data ?? []} loading={isLoading}
+                page={page} rowsPerPage={rowsPerPage} total={data?.total ?? 0}
+                onPageChange={setPage} onRowsPerPageChange={(rpp) => { setRowsPerPage(rpp); setPage(0); }}
+                actions={actions} onRowClick={(row) => navigate(`/manage/users/${row.id}`)}
+                emptyMessage="No users found."
+            />
+            <UserFormDrawer open={drawerOpen} onClose={() => { setDrawerOpen(false); setEditingUser(null); }}
+                user={editingUser} onSubmit={handleSubmit}
+                loading={createMutation.isPending || updateMutation.isPending}
+            />
+            <ConfirmDialog open={!!deleteTarget} title="Delete User"
+                message={`Are you sure you want to delete "${deleteTarget?.name}" (${deleteTarget?.email})?`}
+                confirmLabel="Delete" loading={deleteMutation.isPending}
+                onConfirm={() => { if (deleteTarget) deleteMutation.mutate(deleteTarget.id); }}
+                onCancel={() => setDeleteTarget(null)}
+            />
+        </>
     );
 };

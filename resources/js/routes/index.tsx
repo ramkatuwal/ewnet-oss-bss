@@ -16,6 +16,7 @@ const BranchesPage = lazy(() => import('@/features/branches/pages/BranchesPage')
 const BranchDetailPage = lazy(() => import('@/features/branches/pages/BranchDetailPage').then(m => ({ default: m.BranchDetailPage })));
 const DepartmentsPage = lazy(() => import('@/features/departments/pages/DepartmentsPage').then(m => ({ default: m.DepartmentsPage })));
 const UsersPage = lazy(() => import('@/features/users/pages/UsersPage').then(m => ({ default: m.UsersPage })));
+const UserDetailPage = lazy(() => import('@/features/users/pages/UserDetailPage').then(m => ({ default: m.UserDetailPage })));
 const RolesPage = lazy(() => import('@/features/roles/pages/RolesPage').then(m => ({ default: m.RolesPage })));
 const PermissionsPage = lazy(() => import('@/features/permissions/pages/PermissionsPage').then(m => ({ default: m.PermissionsPage })));
 const SecurityActivityPage = lazy(() => import('@/features/debug/pages/DebugPage').then(m => ({ default: m.DebugPage })));
@@ -50,6 +51,7 @@ export const AppRouter = () => (
                         <Route path="branches/:id" element={<BranchDetailPage />} />
                         <Route path="departments" element={<DepartmentsPage />} />
                         <Route path="users" element={<UsersPage />} />
+                        <Route path="users/:id" element={<UserDetailPage />} />
                         <Route path="roles" element={<RolesPage />} />
                         <Route path="permissions" element={<PermissionsPage />} />
                     </Route>

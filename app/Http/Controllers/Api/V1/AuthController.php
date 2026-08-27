@@ -3,121 +3,105 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
-use App\Services\AuditService;
 
 class AuthController extends Controller
 {
     public function login(Request $request)
     {
-        try {
-            $request->validate([
-                'email' => 'required|email',
-                'password' => 'required|string',
+        $credentials = $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|string',
+        ]);
+
+        if (!Auth::attempt($credentials)) {
+            AuditService::log('auth.login.failure', 'failure', null, [
+                'email' => $credentials['email'],
             ]);
-
-            // Use native Auth::attempt to fire Attempting/Failed/Login events automatically
-            if (!Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
-                // Auth::attempt already fired the 'Failed' event, which our listener catches
-                return response()->json(['message' => 'Invalid credentials'], 401);
-            }
-
-            $user = Auth::user();
-            $user->load('roles.permissions');
-
-            $permissions = $user->getAllPermissions()->pluck('name')->toArray();
-            $roles = $user->getRoleNames()->toArray();
-
-            // Auth::attempt also fires the 'Login' event, which our listener catches
-            // We add a custom audit log here for additional context if needed, 
-            // but the listener already handles the basic success log.
-            AuditService::log(
-                action: 'auth.login.success',
-                result: 'success',
-                target: $user,
-                metadata: ['roles' => $roles]
-            );
-
-            if ($request->hasSession()) {
-                $request->session()->regenerate();
-            }
-
-            return response()->json([
-                'message' => 'Login successful',
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'roles' => $roles,
-                    'permissions' => $permissions,
-                ]
-            ]);
-        } catch (ValidationException $e) {
-            return response()->json([
-                'message' => 'Validation error',
-                'errors' => $e->errors()
-            ], 422);
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'An error occurred during login'
-            ], 500);
+            return response()->json(['message' => 'Invalid credentials'], 401);
         }
+
+        $user = Auth::user();
+
+        if (!$user->is_active) {
+            Auth::logout();
+            AuditService::log('auth.login.failure', 'failure', $user, ['reason' => 'account_inactive']);
+            return response()->json(['message' => 'Account is deactivated'], 403);
+        }
+
+        $user->update([
+            'failed_login_attempts' => 0,
+            'locked_at' => null,
+            'last_login_at' => now(),
+        ]);
+
+        try { $request->session()->regenerate(); } catch (\RuntimeException $e) { /* Session not available */ }
+
+        AuditService::log('auth.login.success', 'success', $user);
+
+        // Return user data for frontend hydration
+        $user->load(['roles.permissions', 'company', 'branch.region.company', 'department.branch']);
+
+        return response()->json([
+            'message' => 'Login successful',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ],
+        ]);
     }
 
     public function logout(Request $request)
     {
-        try {
-            $user = Auth::user();
-            Auth::guard('web')->logout();
-
-            if ($user) {
-                AuditService::log(
-                    action: 'auth.logout',
-                    result: 'success',
-                    target: $user
-                );
-            }
-
-            if ($request->hasSession()) {
-                $request->session()->invalidate();
-                $request->session()->regenerateToken();
-            }
-
-            return response()->json(['message' => 'Logged out successfully']);
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'An error occurred during logout'
-            ], 500);
+        $user = $request->user();
+        if ($user) {
+            AuditService::log('auth.logout', 'success', $user);
         }
+
+        Auth::guard('web')->logout();
+
+        // Safely handle session invalidation (may fail in stateless/test contexts)
+        try {
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        } catch (\RuntimeException $e) {
+            // Session not available (API-only or test context)
+        }
+
+        return response()->json(['message' => 'Logged out successfully']);
     }
 
     public function user(Request $request)
     {
-        try {
-            $user = $request->user();
-            if (!$user) {
-                return response()->json(['message' => 'Unauthenticated'], 401);
-            }
-
-            $user->load('roles.permissions');
-            $permissions = $user->getAllPermissions()->pluck('name')->toArray();
-            $roles = $user->getRoleNames()->toArray();
-
-            return response()->json([
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'roles' => $roles,
-                    'permissions' => $permissions,
-                ]
-            ]);
-        } catch (\Exception $e) {
-            return response()->json(['message' => 'An error occurred'], 500);
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
         }
+
+        $user->load(['roles.permissions', 'company', 'branch.region.company', 'department.branch']);
+        $permissions = $user->getAllPermissions()->pluck('name')->toArray();
+        $roles = $user->getRoleNames()->toArray();
+
+        return response()->json([
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone_number' => $user->phone_number,
+                'avatar' => $user->avatar,
+                'is_active' => $user->is_active,
+                'company_id' => $user->company_id,
+                'branch_id' => $user->branch_id,
+                'department_id' => $user->department_id,
+                'company' => $user->company ? ['id' => $user->company->id, 'name' => $user->company->name] : null,
+                'branch' => $user->branch ? ['id' => $user->branch->id, 'name' => $user->branch->name] : null,
+                'department' => $user->department ? ['id' => $user->department->id, 'name' => $user->department->name] : null,
+                'roles' => $roles,
+                'permissions' => $permissions,
+            ],
+        ]);
     }
 }

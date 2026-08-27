@@ -106,3 +106,4 @@ export interface ApiError {
 export type { Company } from './company';
 export type { Region } from './region';
 export type { Branch } from './branch';
+export type { UserListItem, UserRole } from './user';

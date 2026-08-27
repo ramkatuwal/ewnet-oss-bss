@@ -188,7 +188,7 @@ class UserAuthorizationTest extends TestCase
             'company_id' => $this->companyA->id,
         ]);
         $response->assertStatus(201);
-        $this->assertEquals($this->companyA->id, $response->json('company_id'));
+        $this->assertEquals($this->companyA->id, $response->json('data.company_id'));
     }
 
     public function test_legitimate_branch_scoped_operations_continue_working()
@@ -199,6 +199,6 @@ class UserAuthorizationTest extends TestCase
             'password' => 'password123',
         ]);
         $response->assertStatus(201);
-        $this->assertEquals($this->branchAdmin->branch_id, $response->json('branch_id'));
+        $this->assertEquals($this->branchAdmin->branch_id, $response->json('data.branch_id'));
     }
 }
