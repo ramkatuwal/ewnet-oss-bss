@@ -52,7 +52,8 @@ class AuditSecurityTest extends TestCase
             'password' => 'wrongpassword'
         ])->assertStatus(401);
 
-        $log = AuditLog::where('action', 'auth.login.failure')->first();
+        // Use latest() to get the most recent failure log from THIS request
+        $log = AuditLog::where('action', 'auth.login.failure')->latest('id')->first();
         $this->assertNotNull($log, 'Failed login audit log not found');
         $this->assertEquals('failure', $log->result);
         $this->assertStringContainsString('nonexistent@example.com', $log->metadata['email']);
@@ -65,7 +66,7 @@ class AuditSecurityTest extends TestCase
             'password' => 'password'
         ])->assertStatus(200);
 
-        $log = AuditLog::where('action', 'auth.login.success')->first();
+        $log = AuditLog::where('action', 'auth.login.success')->latest('id')->first();
         $this->assertNotNull($log, 'Successful login audit log not found');
         $this->assertEquals('success', $log->result);
         $this->assertEquals($this->companyAdmin->id, $log->actor_id);
@@ -77,7 +78,10 @@ class AuditSecurityTest extends TestCase
             'name' => 'Hacked Name'
         ])->assertStatus(403);
 
-        $log = AuditLog::where('action', 'user.update.attempt')->where('result', 'failure')->first();
+        $log = AuditLog::where('action', 'user.update.attempt')
+            ->where('result', 'failure')
+            ->latest('id')
+            ->first();
         $this->assertNotNull($log, 'Boundary violation audit log not found');
         $this->assertEquals($this->companyAdmin->id, $log->actor_id);
         $this->assertEquals('boundary_violation', $log->metadata['reason']);
@@ -92,7 +96,11 @@ class AuditSecurityTest extends TestCase
             'roles' => [$role->id]
         ])->assertStatus(200);
 
-        $log = AuditLog::where('action', 'user.role.assign')->first();
+        // Use latest() to ensure we get the log from THIS specific request
+        $log = AuditLog::where('action', 'user.role.assign')
+            ->where('target_id', $targetUser->id)
+            ->latest('id')
+            ->first();
         $this->assertNotNull($log, 'Role assignment audit log not found');
         $this->assertEquals('success', $log->result);
         $this->assertEquals($this->superAdmin->id, $log->actor_id);
@@ -108,7 +116,10 @@ class AuditSecurityTest extends TestCase
             'roles' => [$superAdminRole->id]
         ])->assertStatus(403);
 
-        $log = AuditLog::where('action', 'user.role.assign.attempt')->where('result', 'failure')->first();
+        $log = AuditLog::where('action', 'user.role.assign.attempt')
+            ->where('result', 'failure')
+            ->latest('id')
+            ->first();
         $this->assertNotNull($log, 'Super admin assignment attempt audit log not found');
         $this->assertEquals($this->companyAdmin->id, $log->actor_id);
         $this->assertStringContainsString('Super Admin', $log->metadata['role_name']);
@@ -131,19 +142,18 @@ class AuditSecurityTest extends TestCase
 
     public function test_sensitive_credentials_are_never_written_to_audit_records()
     {
-        // Use the factory default password ('password')
         $this->postJson('/api/v1/auth/login', [
             'email' => $this->companyAdmin->email,
             'password' => 'password'
         ])->assertStatus(200);
 
-        $log = AuditLog::where('action', 'auth.login.attempt')->latest()->first();
-        
+        $log = AuditLog::where('action', 'auth.login.attempt')->latest('id')->first();
+
         $this->assertNotNull($log, 'Login attempt audit log not found');
-        
+
         // CRITICAL: Verify that the 'password' key is explicitly stripped from metadata
         $this->assertArrayNotHasKey('password', $log->metadata, 'Password should never be stored in audit metadata');
-        
+
         // Also verify no raw password string is accidentally serialized
         $this->assertStringNotContainsString('password', json_encode($log->metadata));
     }
