@@ -99,7 +99,7 @@ export const CompanyFormDrawer = ({ open, onClose, company, onSubmit, loading }:
         const formData = new FormData();
         Object.entries(data).forEach(([key, value]) => {
             if (value !== undefined && value !== '') {
-                formData.append(key, String(value));
+                formData.append(key, typeof value === 'boolean' ? (value ? '1' : '0') : String(value));
             }
         });
         if (logoFile) formData.append('logo', logoFile);

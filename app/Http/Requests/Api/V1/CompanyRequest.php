@@ -11,6 +11,24 @@ class CompanyRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        // FormData sends booleans as strings; normalize them
+        if ($this->has('is_active')) {
+            $val = $this->input('is_active');
+            $this->merge([
+                'is_active' => filter_var($val, FILTER_VALIDATE_BOOLEAN),
+            ]);
+        }
+
+        if ($this->has('remove_logo')) {
+            $val = $this->input('remove_logo');
+            $this->merge([
+                'remove_logo' => filter_var($val, FILTER_VALIDATE_BOOLEAN),
+            ]);
+        }
+    }
+
     public function rules(): array
     {
         $rules = [
@@ -30,7 +48,7 @@ class CompanyRequest extends FormRequest
             'is_active' => 'boolean',
         ];
 
-        if ($this->isMethod('PUT') || $this->isMethod('PATCH')) {
+        if ($this->isMethod('PUT') || $this->isMethod('PATCH') || $this->input('_method') === 'PUT') {
             $id = $this->route('company')?->id;
             if ($id) {
                 $rules['registration_number'] .= ',' . $id;
