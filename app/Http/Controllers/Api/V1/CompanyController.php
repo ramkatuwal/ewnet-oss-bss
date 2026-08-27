@@ -82,7 +82,6 @@ class CompanyController extends Controller
 
         // Handle logo upload
         if ($request->hasFile('logo')) {
-            // Delete old logo
             if ($company->logo_path) {
                 Storage::disk('public')->delete($company->logo_path);
             }
@@ -99,8 +98,9 @@ class CompanyController extends Controller
     {
         $this->authorize('delete', $company);
 
-        if ($company->hasRole && $company->regions()->exists()) {
-            abort(422, 'Cannot delete company with existing regions');
+        // Prevent deletion if company has child records
+        if ($company->regions()->exists()) {
+            abort(422, 'Cannot delete company with existing regions. Delete or reassign regions first.');
         }
 
         // Clean up logo

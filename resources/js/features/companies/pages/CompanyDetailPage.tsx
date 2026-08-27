@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-    Box, Typography, Paper, Grid, Button, Chip, Divider,
+    Box, Typography, Grid, Button, Divider, Avatar,
     CircularProgress, Card, CardContent, Stack, Link as MuiLink,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
@@ -18,9 +18,8 @@ import { Can } from '@/components/auth/Can';
 import { StatusChip } from '@/components/tables/DataTable';
 import { CompanyFormDrawer } from '../components/CompanyFormDrawer';
 import { companiesApi } from '@/api/companies';
-import { formatDateTime } from '@/utils';
+import { formatDateTime, getErrorMessage } from '@/utils';
 import { useToast } from '@/components/feedback/ToastProvider';
-import { getErrorMessage } from '@/utils';
 import type { Company } from '@/types';
 
 export const CompanyDetailPage = () => {
@@ -37,7 +36,7 @@ export const CompanyDetailPage = () => {
     });
 
     const updateMutation = useMutation({
-        mutationFn: (data: Partial<Company>) => companiesApi.update(Number(id), data),
+        mutationFn: (formData: FormData) => companiesApi.update(Number(id), formData),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['company', id] });
             queryClient.invalidateQueries({ queryKey: ['companies'] });
@@ -73,29 +72,30 @@ export const CompanyDetailPage = () => {
                 ]}
                 actions={
                     <Stack direction="row" spacing={1}>
-                        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/manage/companies')}>
-                            Back
-                        </Button>
+                        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/manage/companies')}>Back</Button>
                         <Can permission="companies.update">
-                            <Button variant="contained" startIcon={<EditIcon />} onClick={() => setEditOpen(true)}>
-                                Edit
-                            </Button>
+                            <Button variant="contained" startIcon={<EditIcon />} onClick={() => setEditOpen(true)}>Edit</Button>
                         </Can>
                     </Stack>
                 }
             />
 
             <Grid container spacing={3}>
-                {/* Overview Card */}
+                {/* Company Information */}
                 <Grid item xs={12} md={6}>
                     <Card elevation={0} sx={{ border: 1, borderColor: 'divider', height: '100%' }}>
                         <CardContent>
-                            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Avatar src={company.logo_url || undefined} sx={{ width: 48, height: 48, mr: 1 }} variant="rounded"><BusinessIcon /></Avatar> Company Information
-                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                                <Avatar src={company.logo_url || undefined} sx={{ width: 56, height: 56, bgcolor: 'action.hover' }} variant="rounded">
+                                    <BusinessIcon />
+                                </Avatar>
+                                <Box>
+                                    <Typography variant="h6" fontWeight={600}>{company.name}</Typography>
+                                    <StatusChip active={company.is_active} />
+                                </Box>
+                            </Box>
                             <Divider sx={{ mb: 2 }} />
                             <Stack spacing={1.5}>
-                                <DetailRow label="Status" value={<StatusChip active={company.is_active} />} />
                                 <DetailRow label="Registration Number" value={company.registration_number} icon={<BadgeIcon fontSize="small" />} />
                                 <DetailRow label="PAN Number" value={company.pan_number} />
                                 <DetailRow label="Country" value={company.country} />
@@ -106,7 +106,7 @@ export const CompanyDetailPage = () => {
                     </Card>
                 </Grid>
 
-                {/* Contact Card */}
+                {/* Contact Information */}
                 <Grid item xs={12} md={6}>
                     <Card elevation={0} sx={{ border: 1, borderColor: 'divider', height: '100%' }}>
                         <CardContent>
@@ -115,27 +115,15 @@ export const CompanyDetailPage = () => {
                             </Typography>
                             <Divider sx={{ mb: 2 }} />
                             <Stack spacing={1.5}>
-                                <DetailRow
-                                    label="Email"
-                                    value={company.email ? <MuiLink href={`mailto:${company.email}`}>{company.email}</MuiLink> : null}
-                                    icon={<EmailIcon fontSize="small" />}
-                                />
-                                <DetailRow
-                                    label="Phone"
-                                    value={company.phone ? <MuiLink href={`tel:${company.phone}`}>{company.phone}</MuiLink> : null}
-                                    icon={<PhoneIcon fontSize="small" />}
-                                />
-                                <DetailRow
-                                    label="Website"
-                                    value={company.website ? <MuiLink href={company.website} target="_blank" rel="noopener">{company.website}</MuiLink> : null}
-                                    icon={<LanguageIcon fontSize="small" />}
-                                />
+                                <DetailRow label="Email" value={company.email ? <MuiLink href={`mailto:${company.email}`}>{company.email}</MuiLink> : null} icon={<EmailIcon fontSize="small" />} />
+                                <DetailRow label="Phone" value={company.phone ? <MuiLink href={`tel:${company.phone}`}>{company.phone}</MuiLink> : null} icon={<PhoneIcon fontSize="small" />} />
+                                <DetailRow label="Website" value={company.website ? <MuiLink href={company.website} target="_blank" rel="noopener">{company.website}</MuiLink> : null} icon={<LanguageIcon fontSize="small" />} />
                             </Stack>
                         </CardContent>
                     </Card>
                 </Grid>
 
-                {/* Address Card */}
+                {/* Address */}
                 <Grid item xs={12} md={6}>
                     <Card elevation={0} sx={{ border: 1, borderColor: 'divider', height: '100%' }}>
                         <CardContent>
@@ -154,45 +142,37 @@ export const CompanyDetailPage = () => {
                     </Card>
                 </Grid>
 
-                {/* Quick Stats Placeholder */}
+                {/* Summary Placeholder */}
                 <Grid item xs={12} md={6}>
                     <Card elevation={0} sx={{ border: 1, borderColor: 'divider', height: '100%' }}>
                         <CardContent>
                             <Typography variant="h6" gutterBottom>Summary</Typography>
                             <Divider sx={{ mb: 2 }} />
-                            <Stack spacing={1}>
-                                <Typography variant="body2" color="text.secondary">
-                                    Region, branch, and user counts will be displayed here once those modules are rebuilt.
-                                </Typography>
-                            </Stack>
+                            <Typography variant="body2" color="text.secondary">
+                                Region, branch, and user counts will be displayed here once those modules are rebuilt.
+                            </Typography>
                         </CardContent>
                     </Card>
                 </Grid>
             </Grid>
 
-            {/* Edit Drawer */}
             <CompanyFormDrawer
                 open={editOpen}
                 onClose={() => setEditOpen(false)}
                 company={company}
-                onSubmit={(data) => updateMutation.mutate(data)}
+                onSubmit={(formData) => updateMutation.mutate(formData)}
                 loading={updateMutation.isPending}
             />
         </>
     );
 };
 
-// Helper component for consistent detail rows
 const DetailRow = ({ label, value, icon }: { label: string; value: React.ReactNode; icon?: React.ReactNode }) => (
     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
         {icon && <Box sx={{ mt: 0.25, color: 'text.secondary' }}>{icon}</Box>}
         <Box>
-            <Typography variant="caption" color="text.secondary" display="block">
-                {label}
-            </Typography>
-            <Typography variant="body2" fontWeight={500}>
-                {value || <span style={{ color: '#999' }}>—</span>}
-            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block">{label}</Typography>
+            <Typography variant="body2" fontWeight={500}>{value || <span style={{ color: '#999' }}>—</span>}</Typography>
         </Box>
     </Box>
 );
