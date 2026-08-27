@@ -1,44 +1,30 @@
-# ARCHITECTURE GATE 001 — BASELINE FREEZE
+# Architecture Gate 001: Baseline & Freeze
 
-## 1. Production Source Location
-- **Path:** `/opt/misp`
-- **Backup:** `/opt/backups/ewnet-baseline-[DATE]`
-- **Strategy:** Full tarball exclusion of `.git`, `node_modules`, and `vendor`.
+**Date:** August 27, 2026
 
-## 2. Docker Configuration
-- **File:** `docker-compose.yml` (Resolved version saved in backup)
-- **Services:** App, Horizon, Postgres (PostGIS), Redis, Nginx.
+## Purpose
+Architecture Gate 001 was established to freeze the foundational organizational hierarchy and separate the immutable architectural documentation from the active application source code.
 
-## 3. Database State
-- **Schema:** Dumped to `schema-only.sql` in backup.
-- **Migrations:** Fully synchronized (0 Pending).
+## Organizational Hierarchy
+Company
+  ↓
+Region
+  ↓
+Branch
+  ↓
+Department
 
-## 4. Environment Contract
-- **Template:** `env-contract.template` (Secrets redacted).
-- **Required Variables:** APP_KEY, DB_CONNECTION, REDIS_HOST, SANCTUM_STATEFUL_DOMAINS.
+## Core Models
+- User
+- Company
+- Region
+- Branch
+- Department
 
-## 5. API Route Inventory
-- **Total Routes:** Recorded in `api-route-inventory.txt`.
-- **Protection:** All routes protected by `auth:sanctum`.
+## Baseline-Freeze Concept
+To ensure architectural integrity and prevent accidental source code pollution of the historical record, the Git repository is strictly divided:
 
-## 6. Permission/Role Matrix
-- **Roles:** Super Admin.
-- **Permissions:** 29 Active Permissions (Recorded in `permission-matrix.json`).
+- **master branch:** Frozen documentation and architectural baseline only. Contains no deployable application source code.
+- **develop branch:** The active, authoritative application source code. All development, testing, and feature integration occurs here.
 
-## 7. Authentication Behavior
-- **Mechanism:** Laravel Sanctum.
-- **Session:** Stateful for SPA; Token-based for API.
-- **CSRF:** Protected via `EnsureFrontendRequestsAreStateful`.
-
-## 8. Git Strategy
-- **Current Repo:** Documentation Only (`ramkatuwal/ewnet-oss-bss.git`).
-- **Application Source:** Managed locally at `/opt/misp` with regular backups.
-- **Future Direction:** A separate private repository or branch strategy will be used for active application source code to maintain this clean architectural baseline.
-
-## 9. Next Phase Directive
-- **Sequence:** ORGANIZATION/RBAC HARDENING → AUDIT/OBSERVABILITY → API CONTRACT → CORE DOMAIN → FIM.
-
-## 10. Final Verification
-- **Permission Matrix:** Generated and saved in backup.
-- **Backup Location:** `/opt/backups/ewnet-baseline-20260827`
-- **Status:** All governance artifacts secured.
+Future promotions to production must be verified against the specific commit hash on the develop branch, while master serves as the immutable truth of the system's design.
