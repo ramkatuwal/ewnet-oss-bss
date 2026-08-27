@@ -1,0 +1,36 @@
+===== SYSTEM AUDIT REPORT =====
+Date: Thu Aug 27 07:37:05 AM UTC 2026
+
+--- ENVIRONMENT ---
+PHP 8.4.24 (cli) (built: Jul 30 2026 15:23:13) (NTS)
+
+In Application.php line 1041:
+                                                                        
+  Class "Barryvdh\LaravelIdeHelper\IdeHelperServiceProvider" not found  
+                                                                        
+
+v22.23.2
+10.9.8
+
+--- DATABASE ---
+
+--- MIGRATIONS ---
+
+In Application.php line 1041:
+                                                                        
+  Class "Barryvdh\LaravelIdeHelper\IdeHelperServiceProvider" not found  
+                                                                        
+
+
+--- ROUTES COUNT ---
+6
+
+--- PERMISSIONS ---
+0
+
+--- STORAGE ---
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda2        48G   29G   17G  64% /
+471M	/opt/misp
+
+================================

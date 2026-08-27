@@ -1,0 +1,50 @@
+<?php
+
+namespace App\Http\Requests\Api\V1;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class CompanyRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        $rules = [
+            'name' => 'required|string|max:255',
+            'registration_number' => 'nullable|string|max:255|unique:companies,registration_number',
+            'pan_number' => 'nullable|string|max:255|unique:companies,pan_number',
+            'email' => 'nullable|email|max:255',
+            'phone' => 'nullable|string|max:255',
+            'address' => 'nullable|string',
+            'city' => 'nullable|string|max:255',
+            'state' => 'nullable|string|max:255',
+            'country' => 'nullable|string|max:255',
+            'website' => 'nullable|url|max:255',
+            'is_active' => 'boolean',
+        ];
+
+        if ($this->isMethod('PUT') || $this->isMethod('PATCH')) {
+            $id = $this->route('company')?->id;
+            if ($id) {
+                $rules['registration_number'] .= ',' . $id;
+                $rules['pan_number'] .= ',' . $id;
+            }
+        }
+
+        return $rules;
+    }
+
+    public function messages(): array
+    {
+        return [
+            'name.required' => 'Company name is required',
+            'registration_number.unique' => 'This registration number is already in use',
+            'pan_number.unique' => 'This PAN number is already in use',
+            'email.email' => 'Please enter a valid email address',
+        ];
+    }
+}

@@ -1,0 +1,178 @@
+=====================================
+EWNET OSS/BSS - FULL SYSTEM AUDIT
+Date: Thu Aug 27 07:38:05 AM UTC 2026
+=====================================
+
+📦 DOCKER CONTAINERS
+NAME             IMAGE                    COMMAND                  SERVICE    CREATED        STATUS                  PORTS
+ewnet-app        ewnet-app                "docker-php-entrypoi…"   app        40 hours ago   Up 22 hours             9000/tcp
+ewnet-horizon    ewnet-app                "docker-php-entrypoi…"   horizon    40 hours ago   Up 25 hours             9000/tcp
+ewnet-postgres   postgis/postgis:17-3.5   "docker-entrypoint.s…"   postgres   40 hours ago   Up 40 hours (healthy)   127.0.0.1:5432->5432/tcp
+ewnet-redis      redis:7.4-alpine         "docker-entrypoint.s…"   redis      40 hours ago   Up 40 hours (healthy)   127.0.0.1:6379->6379/tcp
+ewnet-web        nginx:1.26-alpine        "/docker-entrypoint.…"   web        40 hours ago   Up 22 hours             0.0.0.0:80->80/tcp, [::]:80->80/tcp, 0.0.0.0:443->443/tcp, [::]:443->443/tcp
+
+🖥️  APPLICATION INFO
+
+  Environment ................................................................  
+  Application Name ..................................................... EWNET  
+  Laravel Version .................................................... 13.26.1  
+  PHP Version ......................................................... 8.4.24  
+  Composer Version .................................................... 2.8.12  
+  Environment ..................................................... production  
+  Debug Mode ............................................................. OFF  
+  URL ....................................................... oss.ewnet.com.np  
+  Maintenance Mode ....................................................... OFF  
+  Timezone ............................................................... UTC  
+  Locale .................................................................. en  
+
+  Cache ......................................................................  
+  Config .......................................................... NOT CACHED  
+  Events .......................................................... NOT CACHED  
+  Routes .......................................................... NOT CACHED  
+  Views ............................................................... CACHED  
+
+  Drivers ....................................................................  
+  Broadcasting ........................................................... log  
+  Cache ................................................................ redis  
+  Database ............................................................. pgsql  
+  Logs ........................................................ stack / single  
+  Mail ................................................................... log  
+  Queue ................................................................ redis  
+  Session .............................................................. redis  
+
+  Storage ....................................................................  
+  public/storage ...................................................... LINKED  
+
+  Spatie Permissions .........................................................  
+  Features Enabled ................................................... Default  
+  Version .............................................................. 8.3.0  
+
+
+📊 DATABASE TABLES
+
+In Interactivity.php line 32:
+             
+  Required.  
+             
+
+
+🔌 ROUTES LIST
+
+  GET|HEAD        / .................................. home › routes/web.php:5
+  POST            api/v1/auth/login .............. Api\V1\AuthController@login
+  POST            api/v1/auth/logout ............ Api\V1\AuthController@logout
+  GET|HEAD        api/v1/auth/user ................ Api\V1\AuthController@user
+  GET|HEAD        api/v1/debug/logs .............. Api\V1\DebugController@logs
+  GET|HEAD        api/v1/debug/status .......... Api\V1\DebugController@status
+  GET|HEAD        api/v1/debug/test ............... Api\V1\TestController@test
+  GET|HEAD        api/v1/infrastructure/ducts ducts.index › Api\V1\Infrastruc…
+  POST            api/v1/infrastructure/ducts ducts.store › Api\V1\Infrastruc…
+  GET|HEAD        api/v1/infrastructure/ducts/bbox Api\V1\Infrastructure\Duct…
+  GET|HEAD        api/v1/infrastructure/ducts/nearby Api\V1\Infrastructure\Du…
+  GET|HEAD        api/v1/infrastructure/ducts/{duct} ducts.show › Api\V1\Infr…
+  PUT|PATCH       api/v1/infrastructure/ducts/{duct} ducts.update › Api\V1\In…
+  DELETE          api/v1/infrastructure/ducts/{duct} ducts.destroy › Api\V1\I…
+  GET|HEAD        api/v1/infrastructure/manholes manholes.index › Api\V1\Infr…
+  POST            api/v1/infrastructure/manholes manholes.store › Api\V1\Infr…
+  GET|HEAD        api/v1/infrastructure/manholes/bbox Api\V1\Infrastructure\M…
+  GET|HEAD        api/v1/infrastructure/manholes/nearby Api\V1\Infrastructure…
+  GET|HEAD        api/v1/infrastructure/manholes/{manhole} manholes.show › Ap…
+  PUT|PATCH       api/v1/infrastructure/manholes/{manhole} manholes.update › …
+  DELETE          api/v1/infrastructure/manholes/{manhole} manholes.destroy  …
+  GET|HEAD        api/v1/infrastructure/poles poles.index › Api\V1\Infrastruc…
+  POST            api/v1/infrastructure/poles poles.store › Api\V1\Infrastruc…
+  GET|HEAD        api/v1/infrastructure/poles/bbox Api\V1\Infrastructure\Pole…
+  GET|HEAD        api/v1/infrastructure/poles/nearby Api\V1\Infrastructure\Po…
+  GET|HEAD        api/v1/infrastructure/poles/{pole} poles.show › Api\V1\Infr…
+  PUT|PATCH       api/v1/infrastructure/poles/{pole} poles.update › Api\V1\In…
+  DELETE          api/v1/infrastructure/poles/{pole} poles.destroy › Api\V1\I…
+  GET|HEAD        api/v1/organization/branches branches.index › Api\V1\Branch…
+
+🔐 PERMISSIONS
+Guard: web
++--------------------+-------------+
+|                    | Super Admin |
++--------------------+-------------+
+| branches.create    |  ✔          |
+| branches.delete    |  ✔          |
+| branches.update    |  ✔          |
+| branches.view      |  ✔          |
+| companies.create   |  ✔          |
+| companies.delete   |  ✔          |
+| companies.update   |  ✔          |
+| companies.view     |  ✔          |
+| departments.create |  ✔          |
+| departments.delete |  ✔          |
+| departments.update |  ✔          |
+| departments.view   |  ✔          |
+| permissions.create |  ✔          |
+| permissions.delete |  ✔          |
+| permissions.update |  ✔          |
+| permissions.view   |  ✔          |
+| regions.create     |  ✔          |
+| regions.delete     |  ✔          |
+| regions.update     |  ✔          |
+| regions.view       |  ✔          |
+| roles.create       |  ✔          |
+| roles.delete       |  ✔          |
+| roles.update       |  ✔          |
+| roles.view         |  ✔          |
+| system.debug.view  |  ✔          |
+| users.create       |  ✔          |
+| users.delete       |  ✔          |
+| users.update       |  ✔          |
+| users.view         |  ✔          |
++--------------------+-------------+
+
+📈 MIGRATION STATUS
+
+  Migration name .............................................. Batch / Status  
+  0001_01_01_000000_create_users_table ............................... [1] Ran  
+  0001_01_01_000001_create_cache_table ............................... [1] Ran  
+  0001_01_01_000002_create_jobs_table ................................ [1] Ran  
+  2026_08_23_170801_create_companies_table ........................... [1] Ran  
+  2026_08_23_170802_create_regions_table ............................. [1] Ran  
+  2026_08_23_170803_create_branches_table ............................ [1] Ran  
+  2026_08_23_170804_create_departments_table ......................... [1] Ran  
+  2026_08_23_170805_create_designations_table ........................ [1] Ran  
+  2026_08_23_170806_create_employees_table ........................... [1] Ran  
+  2026_08_23_170900_add_foreign_key_manager_id_to_departments_table .. [1] Ran  
+  2026_08_23_171114_add_foreign_key_manager_id_to_departments_table .. [1] Ran  
+  2026_08_23_173000_create_personal_access_tokens_table .............. [1] Ran  
+  2026_08_23_173426_create_permission_tables ......................... [1] Ran  
+  2026_08_23_174000_create_permission_tables ......................... [1] Ran  
+  2026_08_24_000009_add_enum_types ................................... [1] Ran  
+  2026_08_26_100003_drop_manager_id_from_departments ................. [3] Ran  
+  2026_08_26_100004_drop_employees_and_designations_tables ........... [3] Ran  
+
+
+💾 STORAGE USAGE
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda2        48G   29G   17G  64% /
+471M	/opt/misp
+
+📝 ENVIRONMENT VARIABLES (Sanitized)
+DB_CONNECTION=pgsql
+DB_HOST=postgres
+DB_USERNAME=ewnet
+APP_URL=https://oss.ewnet.com.np
+REDIS_PORT=6379
+DB_PORT=5432
+APP_ENV=production
+APP_DEBUG=false
+DB_DATABASE=ewnet
+REDIS_HOST=redis
+
+🔧 PHP EXTENSIONS
+curl
+json
+pdo_pgsql
+pgsql
+redis
+
+📦 NPM PACKAGES
+OCI runtime exec failed: exec failed: unable to start container process: exec: "npm": executable file not found in $PATH
+
+=====================================
+AUDIT COMPLETE
+=====================================
