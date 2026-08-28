@@ -135,8 +135,8 @@ export const DepartmentFormDrawer = ({ open, onClose, department, branchId, onSu
 
     // In contextual mode, show only the fixed branch
     // const availableBranches = isContextual
-        ? (contextBranchData ? [contextBranchData] : [])
-        : branches;
+    //     ? (contextBranchData ? [contextBranchData] : [])
+    //     : branches;
 
     // Context display for contextual mode
     const contextBranch = contextBranchData as any;
