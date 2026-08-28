@@ -21,7 +21,7 @@ const UserDetailPage = lazy(() => import('@/features/users/pages/UserDetailPage'
 const RolesPage = lazy(() => import('@/features/roles/pages/RolesPage').then(m => ({ default: m.RolesPage })));
 const RoleDetailPage = lazy(() => import('@/features/roles/pages/RoleDetailPage').then(m => ({ default: m.RoleDetailPage })));
 const PermissionsPage = lazy(() => import('@/features/permissions/pages/PermissionsPage').then(m => ({ default: m.PermissionsPage })));
-const SecurityActivityPage = lazy(() => import('@/features/debug/pages/DebugPage').then(m => ({ default: m.DebugPage })));
+const SecurityActivityPage = lazy(() => import('@/features/audit/pages/SecurityActivityPage').then(m => ({ default: m.SecurityActivityPage })));
 
 const PageLoader = () => (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 2 }}>

@@ -3,12 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class AuditLog extends Model
 {
     protected $table = 'audit_logs';
-    
-    // Allow mass assignment for specific fields (controlled by AuditService)
+
     protected $fillable = [
         'actor_type',
         'actor_id',
@@ -22,13 +22,23 @@ class AuditLog extends Model
         'correlation_id',
         'metadata',
     ];
-    
+
     protected $casts = [
         'organization_context' => 'array',
         'metadata' => 'array',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    public function actor(): MorphTo
+    {
+        return $this->morphTo('actor');
+    }
+
+    public function target(): MorphTo
+    {
+        return $this->morphTo('target');
+    }
 
     // Override to prevent accidental updates
     public function update(array $attributes = [], array $options = [])

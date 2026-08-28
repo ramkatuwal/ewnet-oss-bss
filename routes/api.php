@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\RegionController;
 use App\Http\Controllers\Api\V1\BranchController;
@@ -37,6 +38,10 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::apiResource('/security/roles', RoleController::class);
     Route::get('/security/roles/{role}/users', [RoleController::class, 'users']);
     Route::apiResource('/security/permissions', PermissionController::class);
+
+    // Audit Logs
+    Route::get('/security/audit-logs', [AuditLogController::class, 'index']);
+    Route::get('/security/audit-logs/{auditLog}', [AuditLogController::class, 'show']);
 
     // Debug
     Route::middleware(['auth:sanctum', 'can:system.debug.view'])->get('/debug/status', [DebugController::class, 'status']);
