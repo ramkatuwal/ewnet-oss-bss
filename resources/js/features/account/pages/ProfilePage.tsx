@@ -24,6 +24,7 @@ import {
 } from '@mui/icons-material';
 import { useAuthStore } from '@/stores/authStore';
 import { apiClient } from '@/api/client';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { useToast } from '@/components/feedback/ToastProvider';
 
 export const ProfilePage = () => {
@@ -151,7 +152,14 @@ export const ProfilePage = () => {
 
   if (!user) {
     return (
-      <Box sx={{ p: 3 }}>
+              <PageHeader
+            title="My Profile"
+            breadcrumbs={[
+                { label: 'Dashboard', path: '/dashboard' },
+                { label: 'My Profile' },
+            ]}
+        />
+<Box sx={{ p: 3 }}>
         <Alert severity="error">User not authenticated</Alert>
       </Box>
     );
