@@ -21,6 +21,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { Sidebar, DRAWER_WIDTH } from '@/components/navigation/Sidebar';
 import { ErrorBoundary } from '@/components/feedback/ErrorBoundary';
+import { UserMenu } from '@/components/layout/UserMenu';
 
 export const MainLayout = () => {
     const [mobileOpen, setMobileOpen] = useState(false);
@@ -102,6 +103,7 @@ export const MainLayout = () => {
                             Logout
                         </MenuItem>
                     </Menu>
+            <UserMenu />
                 </Toolbar>
             </AppBar>
 
