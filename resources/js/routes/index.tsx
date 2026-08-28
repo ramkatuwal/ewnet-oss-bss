@@ -22,6 +22,7 @@ const RolesPage = lazy(() => import('@/features/roles/pages/RolesPage').then(m =
 const RoleDetailPage = lazy(() => import('@/features/roles/pages/RoleDetailPage').then(m => ({ default: m.RoleDetailPage })));
 const PermissionsPage = lazy(() => import('@/features/permissions/pages/PermissionsPage').then(m => ({ default: m.PermissionsPage })));
 const SecurityActivityPage = lazy(() => import('@/features/audit/pages/SecurityActivityPage').then(m => ({ default: m.SecurityActivityPage })));
+const ProfilePage = lazy(() => import('@/features/account/pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 
 const PageLoader = () => (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 2 }}>
@@ -63,6 +64,7 @@ export const AppRouter = () => (
                     </Route>
                     <Route path="audit"><Route path="security" element={<SecurityActivityPage />} /></Route>
                     <Route path="account"><Route path="profile" element={<DashboardPage />} /></Route>
+                        <Route path="profile" element={<ProfilePage />} />
                     {/* Legacy redirects */}
                     <Route path="companies" element={<Navigate to="/manage/companies" replace />} />
                     <Route path="regions" element={<Navigate to="/manage/regions" replace />} />
