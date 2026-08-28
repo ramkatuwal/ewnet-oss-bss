@@ -6,7 +6,6 @@ import {
   CircularProgress,
   Alert,
   Snackbar,
-  Paper,
 } from '@mui/material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { systemApi } from '@/api/system';
@@ -62,7 +61,31 @@ export const SystemConfigurationPage: React.FC = () => {
 
   useEffect(() => {
     if (data) {
-      setConfig(data);
+      // Normalize data: ensure all fields have valid values
+      setConfig({
+        branding: {
+          app_name: data.branding?.app_name || 'EWNET',
+          browser_title: data.branding?.browser_title || 'EWNET OSS/BSS',
+          logo_path: data.branding?.logo_path || null,
+          favicon_path: data.branding?.favicon_path || null,
+          login_branding: data.branding?.login_branding || 'EWNET',
+        },
+        navigation: {
+          menu_visibility: data.navigation?.menu_visibility || {},
+          menu_ordering: data.navigation?.menu_ordering || {},
+        },
+        header: {
+          show_logo: data.header?.show_logo ?? true,
+          show_title: data.header?.show_title ?? true,
+          show_user_menu: data.header?.show_user_menu ?? true,
+          show_notifications: data.header?.show_notifications ?? true,
+        },
+        theme: {
+          compactness: data.theme?.compactness || 'compact',
+          dark_mode: data.theme?.dark_mode ?? false,
+          primary_color: data.theme?.primary_color || '#1976d2',
+        },
+      });
       setHasChanges(false);
     }
   }, [data]);
@@ -75,10 +98,19 @@ export const SystemConfigurationPage: React.FC = () => {
       setSnackbar({ open: true, message: result.message || 'Configuration updated successfully.', severity: 'success' });
     },
     onError: (err: unknown) => {
-      const error = err as { response?: { data?: { message?: string } } };
+      const error = err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } };
+      const errorData = error?.response?.data;
+      let message = errorData?.message || 'Failed to update configuration.';
+
+      // Show detailed validation errors if available
+      if (errorData?.errors) {
+        const errorMessages = Object.values(errorData.errors).flat().join('. ');
+        message = `${message}: ${errorMessages}`;
+      }
+
       setSnackbar({
         open: true,
-        message: error?.response?.data?.message || 'Failed to update configuration.',
+        message,
         severity: 'error',
       });
     },
@@ -100,12 +132,60 @@ export const SystemConfigurationPage: React.FC = () => {
   };
 
   const handleSave = () => {
-    updateMutation.mutate(config);
+    // Normalize values before sending to backend
+    const saveData = {
+      branding: {
+        app_name: config.branding.app_name || 'EWNET',
+        browser_title: config.branding.browser_title || 'EWNET OSS/BSS',
+        logo_path: config.branding.logo_path || null,
+        favicon_path: config.branding.favicon_path || null,
+        login_branding: config.branding.login_branding || 'EWNET',
+      },
+      navigation: {
+        menu_visibility: config.navigation.menu_visibility || {},
+        menu_ordering: config.navigation.menu_ordering || {},
+      },
+      header: {
+        show_logo: config.header.show_logo ?? true,
+        show_title: config.header.show_title ?? true,
+        show_user_menu: config.header.show_user_menu ?? true,
+        show_notifications: config.header.show_notifications ?? true,
+      },
+      theme: {
+        compactness: config.theme.compactness || 'compact',
+        dark_mode: config.theme.dark_mode ?? false,
+        primary_color: config.theme.primary_color || '#1976d2',
+      },
+    };
+    updateMutation.mutate(saveData);
   };
 
   const handleReset = () => {
     if (data) {
-      setConfig(data);
+      setConfig({
+        branding: {
+          app_name: data.branding?.app_name || 'EWNET',
+          browser_title: data.branding?.browser_title || 'EWNET OSS/BSS',
+          logo_path: data.branding?.logo_path || null,
+          favicon_path: data.branding?.favicon_path || null,
+          login_branding: data.branding?.login_branding || 'EWNET',
+        },
+        navigation: {
+          menu_visibility: data.navigation?.menu_visibility || {},
+          menu_ordering: data.navigation?.menu_ordering || {},
+        },
+        header: {
+          show_logo: data.header?.show_logo ?? true,
+          show_title: data.header?.show_title ?? true,
+          show_user_menu: data.header?.show_user_menu ?? true,
+          show_notifications: data.header?.show_notifications ?? true,
+        },
+        theme: {
+          compactness: data.theme?.compactness || 'compact',
+          dark_mode: data.theme?.dark_mode ?? false,
+          primary_color: data.theme?.primary_color || '#1976d2',
+        },
+      });
       setHasChanges(false);
     }
   };

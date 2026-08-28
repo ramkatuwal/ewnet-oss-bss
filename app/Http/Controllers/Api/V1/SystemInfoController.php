@@ -97,7 +97,7 @@ class SystemInfoController extends Controller
     {
         try {
             $output = shell_exec('php artisan horizon:status 2>&1');
-            if (str_contains($output, 'running')) {
+            if (str_contains($output, 'running') || str_contains($output, 'Horizon is running')) {
                 return ['status' => 'running'];
             }
             return ['status' => 'stopped'];
