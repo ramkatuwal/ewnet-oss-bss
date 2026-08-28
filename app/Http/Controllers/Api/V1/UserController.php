@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\UserRequest;
 use App\Http\Resources\V1\UserResource;
 use App\Models\User;
+use App\Models\UserManagementScope;
 use App\Services\AuditService;
 use App\Services\ManagementScopeService;
 use Illuminate\Http\Request;
@@ -95,6 +96,33 @@ class UserController extends Controller
 
         AuditService::log('user.create', 'success', $user);
 
+        // Handle management scopes
+        if ($request->has('management_scopes')) {
+            $scopes = $request->input('management_scopes', []);
+            foreach ($scopes as $scopeData) {
+                if (isset($scopeData['scope_type'], $scopeData['scope_id'])) {
+                    UserManagementScope::firstOrCreate(
+                        [
+                            'user_id' => $user->id,
+                            'scope_type' => $scopeData['scope_type'],
+                            'scope_id' => $scopeData['scope_id'],
+                        ],
+                        [
+                            'granted_by' => $authUser->id,
+                            'granted_at' => now(),
+                        ]
+                    );
+                    AuditService::log('scope.assign', 'success', $user, [
+                        'scope_type' => $scopeData['scope_type'],
+                        'scope_id' => $scopeData['scope_id'],
+                        'granted_by' => $authUser->id,
+                    ]);
+                }
+            }
+        }
+
+
+
         return new UserResource($user->load(['roles', 'company', 'branch.region', 'department']));
     }
 
@@ -155,6 +183,50 @@ class UserController extends Controller
             }
             $user->syncRoles($roleModels);
             AuditService::log('user.role.assign', 'success', $user, ['roles' => $roleModels->pluck('name')->toArray()]);
+        }
+
+        
+        // Handle management scopes if provided
+        if ($request->has('management_scopes')) {
+            $scopes = $request->input('management_scopes', []);
+            
+            // Remove scopes not in the new list
+            $existingScopes = $user->managementScopes;
+            foreach ($existingScopes as $existing) {
+                $stillExists = collect($scopes)->contains(function ($s) use ($existing) {
+                    return $s['scope_type'] === $existing->scope_type && $s['scope_id'] == $existing->scope_id;
+                });
+                if (!$stillExists) {
+                    $existing->delete();
+                    AuditService::log('scope.revoke', 'success', $user, [
+                        'scope_type' => $existing->scope_type,
+                        'scope_id' => $existing->scope_id,
+                        'revoked_by' => $authUser->id,
+                    ]);
+                }
+            }
+            
+            // Add new scopes
+            foreach ($scopes as $scopeData) {
+                if (isset($scopeData['scope_type'], $scopeData['scope_id'])) {
+                    UserManagementScope::firstOrCreate(
+                        [
+                            'user_id' => $user->id,
+                            'scope_type' => $scopeData['scope_type'],
+                            'scope_id' => $scopeData['scope_id'],
+                        ],
+                        [
+                            'granted_by' => $authUser->id,
+                            'granted_at' => now(),
+                        ]
+                    );
+                    AuditService::log('scope.assign', 'success', $user, [
+                        'scope_type' => $scopeData['scope_type'],
+                        'scope_id' => $scopeData['scope_id'],
+                        'granted_by' => $authUser->id,
+                    ]);
+                }
+            }
         }
 
         AuditService::log('user.update', 'success', $user);

@@ -8,6 +8,12 @@ export interface AuthOrgContext {
     name: string;
 }
 
+export interface ManagementScopeInfo {
+    scope_type: string;
+    scope_id: number;
+    scope_name?: string | null;
+}
+
 export interface AuthUser {
     id: number;
     name: string;
@@ -23,6 +29,7 @@ export interface AuthUser {
     department?: AuthOrgContext | null;
     roles: string[];
     permissions: string[];
+    management_scopes?: ManagementScopeInfo[];
 }
 
 interface AuthStore {
@@ -37,6 +44,7 @@ interface AuthStore {
     hasAnyPermission: (permissions: string[]) => boolean;
     isSuperAdmin: () => boolean;
     getDisplayRole: () => string;
+    getEffectiveScopes: () => ManagementScopeInfo[];
 }
 
 const initialState = {
@@ -77,7 +85,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
     logout: async () => {
         set({ isLoading: true });
-        try { await apiClient.post('/api/v1/auth/logout'); } catch {}
+        try { await apiClient.post('/api/v1/auth/logout'); } catch { /* ignore */ }
         set({ user: null, authState: 'anonymous', isLoading: false });
     },
 
@@ -115,5 +123,12 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         const { user } = get();
         if (!user?.roles?.length) return 'No Role';
         return user.roles.join(', ');
+    },
+
+    getEffectiveScopes: () => {
+        const { user, isSuperAdmin } = get();
+        if (!user) return [];
+        if (isSuperAdmin()) return [{ scope_type: 'global', scope_id: 0, scope_name: 'Global' }];
+        return user.management_scopes ?? [];
     },
 }));

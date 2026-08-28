@@ -11,6 +11,7 @@ export interface UserListItem {
     branch?: { id: number; name: string; region?: { id: number; name: string } | null } | null;
     department?: { id: number; name: string } | null;
     roles?: { id: number; name: string }[];
+    management_scopes?: ManagementScope[];
     last_login_at?: string | null;
     created_at?: string;
     updated_at?: string;
@@ -19,4 +20,20 @@ export interface UserListItem {
 export interface UserRole {
     id: number;
     name: string;
+}
+
+export interface ManagementScope {
+    id?: number;
+    scope_type: ScopeType;
+    scope_id: number;
+    scope_name?: string | null;
+    granted_by?: string | null;
+    granted_at?: string;
+}
+
+export type ScopeType = 'global' | 'company' | 'region' | 'branch' | 'department';
+
+export interface ScopeAssignment {
+    scope_type: ScopeType;
+    scope_id: number;
 }
