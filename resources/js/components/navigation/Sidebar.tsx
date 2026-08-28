@@ -127,9 +127,7 @@ const NavItemInner: React.FC<{
     );
 };
 
-export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onMobileClose }) => {
-    const theme = useTheme();
-    const drawerContent = (
+export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onMobileClose }) => {    const drawerContent = (
         <Box>
             <Toolbar>
                 <Typography variant="h6" noWrap fontWeight={700} color="primary">

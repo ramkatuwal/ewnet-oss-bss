@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Box, Button, Typography } from '@mui/material';
@@ -77,7 +77,7 @@ export const CompaniesPage = () => {
         navigate(`/manage/companies/${company.id}`);
     };
 
-    const handleSubmit = (formData: Partial<Company>) => {
+    const handleSubmit = (formData: FormData) => {
         if (editingCompany) updateMutation.mutate({ id: editingCompany.id, data: formData });
         else createMutation.mutate(formData);
     };
@@ -136,7 +136,7 @@ export const CompaniesPage = () => {
                 actions={actions} onRowClick={handleRowClick}
                 emptyMessage="No companies found. Create your first company to get started."
             />
-            <CompanyFormDrawer open={drawerOpen} onClose={() => { setDrawerOpen(false); setEditingCompany(null); }} company={editingCompany} onSubmit={handleSubmit} loading={createMutation.isPending || updateMutation.isPending} />
+            <CompanyFormDrawer open={drawerOpen} onClose={() => { setDrawerOpen(false); setEditingCompany(null); }} company={editingCompany} onSubmit={(data: FormData) => handleSubmit(data)} loading={createMutation.isPending || updateMutation.isPending} />
             <ConfirmDialog open={!!deleteTarget} title="Delete Company" message={`Are you sure you want to delete "${deleteTarget?.name}"? This will deactivate the company.`} confirmLabel="Delete" loading={deleteMutation.isPending} onConfirm={handleConfirmDelete} onCancel={() => setDeleteTarget(null)} />
         </>
     );
