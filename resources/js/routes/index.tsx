@@ -63,7 +63,7 @@ export const AppRouter = () => (
                         <Route path="permissions" element={<PermissionsPage />} />
                     </Route>
                     <Route path="audit"><Route path="security" element={<SecurityActivityPage />} /></Route>
-                    <Route path="account"><Route path="profile" element={<DashboardPage />} /></Route>
+                    
                         <Route path="profile" element={<ProfilePage />} />
                     {/* Legacy redirects */}
                     <Route path="companies" element={<Navigate to="/manage/companies" replace />} />

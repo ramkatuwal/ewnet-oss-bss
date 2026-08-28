@@ -25,7 +25,6 @@ import { UserMenu } from '@/components/layout/UserMenu';
 
 export const MainLayout = () => {
     const [mobileOpen, setMobileOpen] = useState(false);
-    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const navigate = useNavigate();
     const { user, logout, authState } = useAuthStore();
     const { mode, toggle } = useThemeStore();
@@ -72,37 +71,6 @@ export const MainLayout = () => {
                         {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
                     </IconButton>
                     <IconButton color="inherit" onClick={(e) => setAnchorEl(e.currentTarget)}>
-                        <Avatar sx={{ width: 34, height: 34, bgcolor: 'secondary.main' }}>
-                            {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-                        </Avatar>
-                    </IconButton>
-                    <Menu
-                        anchorEl={anchorEl}
-                        open={Boolean(anchorEl)}
-                        onClose={() => setAnchorEl(null)}
-                        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-                        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-                    >
-                        <MenuItem disabled>
-                            <Box>
-                                <Typography variant="body2" fontWeight={600}>
-                                    {user?.name || 'User'}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                    {user?.email || ''}
-                                </Typography>
-                            </Box>
-                        </MenuItem>
-                        <Divider />
-                        <MenuItem onClick={() => { setAnchorEl(null); navigate('/account/profile'); }}>
-                            <PersonIcon fontSize="small" sx={{ mr: 1 }} />
-                            Profile
-                        </MenuItem>
-                        <MenuItem onClick={handleLogout}>
-                            <LogoutIcon fontSize="small" sx={{ mr: 1 }} />
-                            Logout
-                        </MenuItem>
-                    </Menu>
             <UserMenu />
                 </Toolbar>
             </AppBar>
