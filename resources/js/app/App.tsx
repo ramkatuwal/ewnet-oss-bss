@@ -1,6 +1,6 @@
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
+import { ThemeProvider, CssBaseline } from '@mui/material';
 import { useEffect, useMemo } from 'react';
 import { AppRouter } from '@/routes';
 import { useAuthStore } from '@/stores/authStore';
@@ -22,32 +22,11 @@ export const App = () => {
     const { hydrate, authState } = useAuthStore();
     const { mode } = useThemeStore();
 
+    const theme = useMemo(() => createAppTheme(mode), [mode]);
+
     useEffect(() => {
         hydrate();
     }, [hydrate]);
-
-    const theme = useMemo(
-        () =>
-            createTheme({
-                palette: {
-                    mode,
-                    primary: { main: '#1976d2' },
-                    secondary: { main: '#dc004e' },
-                    background: {
-                        default: mode === 'dark' ? '#121212' : '#f5f5f5',
-                    },
-                },
-                typography: {
-                    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-                },
-                shape: { borderRadius: 8 },
-                components: {
-                    MuiButton: { styleOverrides: { root: { textTransform: 'none' } } },
-                    MuiCard: { styleOverrides: { root: { boxShadow: '0 1px 3px rgba(0,0,0,0.1)' } } },
-                },
-            }),
-        [mode]
-    );
 
     if (authState === 'booting') {
         return null; // MainLayout handles the loading state
@@ -55,7 +34,7 @@ export const App = () => {
 
     return (
         <QueryClientProvider client={queryClient}>
-            <ThemeProvider theme={createAppTheme(mode)}>
+            <ThemeProvider theme={theme}>
                 <CssBaseline />
                 <ToastProvider>
                     <BrowserRouter>
