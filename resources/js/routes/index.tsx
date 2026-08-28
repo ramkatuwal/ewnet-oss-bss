@@ -7,6 +7,8 @@ import { Box, CircularProgress, Typography } from '@mui/material';
 
 const LoginPage = lazy(() => import('@/features/auth/pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const DashboardPage = lazy(() => import('@/features/dashboard/pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
+const SystemInfoPage = lazy(() => import("@/features/system/pages/SystemInfoPage").then(m => ({ default: m.SystemInfoPage })));
+const SystemConfigurationPage = lazy(() => import("@/features/system/pages/SystemConfigurationPage").then(m => ({ default: m.SystemConfigurationPage })));
 
 const CompaniesPage = lazy(() => import('@/features/companies/pages/CompaniesPage').then(m => ({ default: m.CompaniesPage })));
 const CompanyDetailPage = lazy(() => import('@/features/companies/pages/CompanyDetailPage').then(m => ({ default: m.CompanyDetailPage })));
@@ -45,6 +47,8 @@ export const AppRouter = () => (
                 <Route element={<MainLayout />}>
                     <Route index element={<Navigate to="/dashboard" replace />} />
                     <Route path="dashboard" element={<DashboardPage />} />
+                    <Route path="audit/system-info" element={<SystemInfoPage />} />
+                    <Route path="system/configuration" element={<SystemConfigurationPage />} />
                     <Route path="manage">
                         <Route path="companies" element={<CompaniesPage />} />
                         <Route path="companies/:id" element={<CompanyDetailPage />} />

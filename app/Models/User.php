@@ -51,4 +51,11 @@ class User extends Authenticatable
     {
         return $this->hasMany(UserManagementScope::class);
     }
+
+    // ── Super Admin Check ────────────────────────────────────────
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->hasRole('Super Admin');
+    }
 }

@@ -9,6 +9,8 @@ import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import PolicyIcon from '@mui/icons-material/Policy';
 import ManageSearchIcon from '@mui/icons-material/ManageSearch';
 import ApartmentIcon from '@mui/icons-material/Apartment';
+import SettingsIcon from '@mui/icons-material/Settings';
+import InfoIcon from '@mui/icons-material/Info';
 import type { NavItem } from '@/types';
 
 export const navigationItems: NavItem[] = [
@@ -33,9 +35,16 @@ export const navigationItems: NavItem[] = [
     {
         label: 'Audit',
         icon: <ManageSearchIcon />,
-        permission: 'system.debug.view',
         children: [
             { label: 'Security Activity', path: '/audit/security', icon: <PolicyIcon />, permission: 'system.debug.view' },
+            { label: 'System Info', path: '/audit/system-info', icon: <InfoIcon />, permission: 'system.info.view' },
+        ],
+    },
+    {
+        label: 'System',
+        icon: <SettingsIcon />,
+        children: [
+            { label: 'Configuration', path: '/system/configuration', icon: <SettingsIcon />, permission: 'system.config.manage' },
         ],
     },
 ];

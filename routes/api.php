@@ -65,3 +65,10 @@ Route::prefix('v1/organization/users/{user}/management-scopes')->group(function 
     Route::post('/', [App\Http\Controllers\Api\V1\ManagementScopeController::class, 'store']);
     Route::delete('/{scope}', [App\Http\Controllers\Api\V1\ManagementScopeController::class, 'destroy']);
 });
+
+// System Info & Configuration
+Route::middleware('auth:sanctum')->prefix('v1/system')->group(function () {
+    Route::get('/info', [App\Http\Controllers\Api\V1\SystemInfoController::class, 'index']);
+    Route::get('/configuration', [App\Http\Controllers\Api\V1\SystemConfigController::class, 'index']);
+    Route::put('/configuration', [App\Http\Controllers\Api\V1\SystemConfigController::class, 'update']);
+});
