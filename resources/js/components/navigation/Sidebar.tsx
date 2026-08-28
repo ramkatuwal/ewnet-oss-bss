@@ -18,7 +18,6 @@ import {
 } from '@mui/material';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
-import MenuIcon from '@mui/icons-material/Menu';
 import { Can } from '@/components/auth/Can';
 import { navigationItems } from './navConfig';
 import type { NavItem } from '@/types';
@@ -130,8 +129,6 @@ const NavItemInner: React.FC<{
 
 export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onMobileClose }) => {
     const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-
     const drawerContent = (
         <Box>
             <Toolbar>

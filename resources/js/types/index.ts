@@ -131,3 +131,21 @@ export type { Company } from './company';
 export type { Region } from './region';
 export type { Branch } from './branch';
 export type { UserListItem, UserRole } from './user';
+
+// Management Scope types
+export interface ManagementScope {
+    id: number;
+    scope_type: 'company' | 'region' | 'branch' | 'department';
+    scope_id: number;
+    scope_name?: string;
+}
+
+export interface ScopeAssignment {
+    id: number;
+    user_id: number;
+    scope_type: string;
+    scope_id: number;
+    granted_by?: number;
+    created_at: string;
+    updated_at: string;
+}
