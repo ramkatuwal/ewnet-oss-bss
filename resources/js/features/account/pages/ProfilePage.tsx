@@ -152,16 +152,18 @@ export const ProfilePage = () => {
 
   if (!user) {
     return (
-              <PageHeader
-            title="My Profile"
-            breadcrumbs={[
-                { label: 'Dashboard', path: '/dashboard' },
-                { label: 'My Profile' },
-            ]}
+      <>
+        <PageHeader
+          title="My Profile"
+          breadcrumbs={[
+            { label: 'Dashboard', path: '/dashboard' },
+            { label: 'My Profile' },
+          ]}
         />
-<Box sx={{ p: 3 }}>
-        <Alert severity="error">User not authenticated</Alert>
-      </Box>
+        <Box sx={{ p: 3 }}>
+          <Alert severity="error">User not authenticated</Alert>
+        </Box>
+      </>
     );
   }
 
