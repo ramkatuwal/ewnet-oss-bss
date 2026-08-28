@@ -8,6 +8,7 @@ import SecurityIcon from '@mui/icons-material/Security';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import PolicyIcon from '@mui/icons-material/Policy';
 import ManageSearchIcon from '@mui/icons-material/ManageSearch';
+import ApartmentIcon from '@mui/icons-material/Apartment';
 import type { NavItem } from '@/types';
 
 export const navigationItems: NavItem[] = [
@@ -23,6 +24,7 @@ export const navigationItems: NavItem[] = [
             { label: 'Companies', path: '/manage/companies', icon: <BusinessIcon />, permission: 'companies.view' },
             { label: 'Regions', path: '/manage/regions', icon: <LocationOnIcon />, permission: 'regions.view' },
             { label: 'Branches', path: '/manage/branches', icon: <StorefrontIcon />, permission: 'branches.view' },
+            { label: 'Departments', path: '/manage/departments', icon: <ApartmentIcon />, permission: 'departments.view' },
             { label: 'Users', path: '/manage/users', icon: <PersonIcon />, permission: 'users.view' },
             { label: 'Roles', path: '/manage/roles', icon: <SecurityIcon />, permission: 'roles.view' },
             { label: 'Permissions', path: '/manage/permissions', icon: <VpnKeyIcon />, permission: 'permissions.view' },

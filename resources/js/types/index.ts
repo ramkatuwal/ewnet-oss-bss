@@ -27,10 +27,28 @@ export interface LoginResponse {
 export interface Department {
     id: number;
     name: string;
-    code?: string;
+    code: string;
+    description?: string | null;
+    company_id: number;
     branch_id: number;
-    branch?: Branch;
     is_active: boolean;
+    user_count?: number;
+    branch?: {
+        id: number;
+        name: string;
+        region?: {
+            id: number;
+            name: string;
+            company?: {
+                id: number;
+                name: string;
+            } | null;
+        } | null;
+    } | null;
+    company?: {
+        id: number;
+        name: string;
+    } | null;
     created_at?: string;
     updated_at?: string;
 }

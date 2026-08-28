@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Department extends Model
@@ -17,28 +19,30 @@ class Department extends Model
         'code',
         'description',
         'settings',
-        'is_active'
+        'is_active',
     ];
 
     protected $casts = [
         'settings' => 'array',
-        'is_active' => 'boolean'
+        'is_active' => 'boolean',
     ];
 
-    public function company()
+    public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
     }
 
-    public function branch()
+    public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
     }
 
-
-    public function employees()
+    /**
+     * Users assigned to this department (membership).
+     */
+    public function users(): HasMany
     {
-        return $this->hasMany(Employee::class);
+        return $this->hasMany(User::class);
     }
 
     public function scopeActive($query)

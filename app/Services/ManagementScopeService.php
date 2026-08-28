@@ -77,6 +77,16 @@ class ManagementScopeService
             return in_array($resource->id, static::getBranchIdsForScope($scopeType, $scopeId));
         }
         if ($resource instanceof Department) {
+            // For unsaved models (no ID), check by attributes directly
+            if (!$resource->exists) {
+                return match ($scopeType) {
+                    'company' => $resource->company_id === $scopeId,
+                    'branch' => $resource->branch_id === $scopeId,
+                    'region' => $resource->branch && $resource->branch->region_id === $scopeId,
+                    'department' => false, // Can't match unsaved model to existing dept scope
+                    default => false,
+                };
+            }
             return in_array($resource->id, static::getDepartmentIdsForScope($scopeType, $scopeId));
         }
         if ($resource instanceof User) {

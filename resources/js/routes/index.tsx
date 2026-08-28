@@ -15,6 +15,7 @@ const RegionDetailPage = lazy(() => import('@/features/regions/pages/RegionDetai
 const BranchesPage = lazy(() => import('@/features/branches/pages/BranchesPage').then(m => ({ default: m.BranchesPage })));
 const BranchDetailPage = lazy(() => import('@/features/branches/pages/BranchDetailPage').then(m => ({ default: m.BranchDetailPage })));
 const DepartmentsPage = lazy(() => import('@/features/departments/pages/DepartmentsPage').then(m => ({ default: m.DepartmentsPage })));
+const DepartmentDetailPage = lazy(() => import('@/features/departments/pages/DepartmentDetailPage').then(m => ({ default: m.DepartmentDetailPage })));
 const UsersPage = lazy(() => import('@/features/users/pages/UsersPage').then(m => ({ default: m.UsersPage })));
 const UserDetailPage = lazy(() => import('@/features/users/pages/UserDetailPage').then(m => ({ default: m.UserDetailPage })));
 const RolesPage = lazy(() => import('@/features/roles/pages/RolesPage').then(m => ({ default: m.RolesPage })));
@@ -50,6 +51,9 @@ export const AppRouter = () => (
                         <Route path="branches" element={<BranchesPage />} />
                         <Route path="branches/:id" element={<BranchDetailPage />} />
                         <Route path="departments" element={<DepartmentsPage />} />
+                        <Route path="branches/:branchId/departments" element={<DepartmentsPage />} />
+                        <Route path="branches/:branchId/departments/:departmentId" element={<DepartmentDetailPage />} />
+                        <Route path="departments/:departmentId" element={<DepartmentDetailPage />} />
                         <Route path="users" element={<UsersPage />} />
                         <Route path="users/:id" element={<UserDetailPage />} />
                         <Route path="roles" element={<RolesPage />} />
@@ -61,7 +65,6 @@ export const AppRouter = () => (
                     <Route path="companies" element={<Navigate to="/manage/companies" replace />} />
                     <Route path="regions" element={<Navigate to="/manage/regions" replace />} />
                     <Route path="branches" element={<Navigate to="/manage/branches" replace />} />
-                    <Route path="departments" element={<Navigate to="/manage/departments" replace />} />
                     <Route path="users" element={<Navigate to="/manage/users" replace />} />
                     <Route path="roles" element={<Navigate to="/manage/roles" replace />} />
                     <Route path="permissions" element={<Navigate to="/manage/permissions" replace />} />

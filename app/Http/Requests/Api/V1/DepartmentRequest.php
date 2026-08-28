@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Services\ManagementScopeService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -9,37 +10,83 @@ class DepartmentRequest extends FormRequest
 {
     public function authorize(): bool
     {
+        $user = auth()->user();
+
+        if ($user->hasRole('Super Admin')) {
+            return true;
+        }
+
+        // Validate that the actor has authority over the target branch
+        $branchId = $this->input('branch_id');
+
+        if ($branchId) {
+            $companyId = $this->input('company_id');
+            $tempDept = new \App\Models\Department([
+                'branch_id' => $branchId,
+                'company_id' => $companyId,
+            ]);
+            if (!ManagementScopeService::isInScope($user, $tempDept)) {
+                return false;
+            }
+        }
+
+        // For updates, also verify authority over existing resource
+        if ($this->route('department')) {
+            if (!ManagementScopeService::isInScope($user, $this->route('department'))) {
+                return false;
+            }
+        }
+
         return true;
     }
 
     public function rules(): array
     {
+        $deptId = $this->route('department')?->id;
+        $isUpdate = $this->isMethod('put') || $this->isMethod('patch');
+
         return [
             'name' => [
-                'required',
+                $isUpdate ? 'sometimes' : 'required',
                 'string',
                 'max:255',
-                Rule::unique('departments')->where(function ($query) {
-                    return $query->where('branch_id', $this->input('branch_id'));
-                })->ignore($this->route('department')),
+                Rule::unique('departments')->ignore($deptId)->where(function ($query) {
+                    $query->where('branch_id', $this->input('branch_id'));
+                }),
             ],
             'code' => [
-                'required',
+                $isUpdate ? 'sometimes' : 'required',
                 'string',
-                'max:50',
-                Rule::unique('departments')->ignore($this->route('department')),
+                'max:255',
+                Rule::unique('departments')->ignore($deptId),
             ],
-            'branch_id' => 'required|exists:branches,id',
-            'description' => 'nullable|string',
-            'is_active' => 'boolean',
+            'description' => 'sometimes|nullable|string|max:2000',
+            'company_id' => [
+                $isUpdate ? 'sometimes' : 'required',
+                'integer',
+                'exists:companies,id',
+            ],
+            'branch_id' => [
+                $isUpdate ? 'sometimes' : 'required',
+                'integer',
+                'exists:branches,id',
+            ],
+            'is_active' => 'sometimes|boolean',
         ];
     }
 
-    public function messages(): array
+    public function withValidator($validator)
     {
-        return [
-            'name.unique' => 'A department with this name already exists in the branch.',
-            'code.unique' => 'A department with this code already exists.',
-        ];
+        $validator->after(function ($validator) {
+            $branchId = $this->input('branch_id');
+            $companyId = $this->input('company_id');
+
+            if ($branchId && $companyId) {
+                $branch = \App\Models\Branch::with('region')->find($branchId);
+                if ($branch && $branch->region && $branch->region->company_id != $companyId) {
+                    $validator->errors()->add('branch_id', 'The selected branch does not belong to the specified company.');
+                }
+            }
+        });
     }
 }

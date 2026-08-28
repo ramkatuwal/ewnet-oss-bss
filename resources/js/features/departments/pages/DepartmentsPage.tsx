@@ -1,245 +1,253 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-    Box,
-    Button,
-    Typography,
-    Paper,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    IconButton,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    TextField,
-    Alert,
-    CircularProgress,
-    Chip,
-    Grid,
-    MenuItem,
+    Box, Button, Typography, Chip, FormControl, InputLabel, Select, MenuItem,
 } from '@mui/material';
-import { Add, Edit, Delete } from '@mui/icons-material';
-import { useAuthStore } from '@/stores/authStore';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import PeopleIcon from '@mui/icons-material/People';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { DataTable, StatusChip, type Column, type RowAction } from '@/components/tables/DataTable';
+import { SearchFilterBar } from '@/components/forms/SearchFilterBar';
+import { Can } from '@/components/auth/Can';
+import { ConfirmDialog } from '@/components/feedback/ConfirmDialog';
+import { useToast } from '@/components/feedback/ToastProvider';
+import { getErrorMessage, formatDateTime } from '@/utils';
 import { departmentsApi } from '@/api/departments';
 import { branchesApi } from '@/api/branches';
-import { Department, Branch } from '@/types';
+import { DepartmentFormDrawer } from '../components/DepartmentFormDrawer';
+import type { Department } from '@/types';
 
-export const DepartmentsPage: React.FC = () => {
-    const { authState, hasPermission } = useAuthStore();
-    const [departments, setDepartments] = useState<Department[]>([]);
-    const [branches, setBranches] = useState<Branch[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [dialogOpen, setDialogOpen] = useState(false);
-    const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
-    const [formData, setFormData] = useState<Partial<Department>>({});
-    const [submitting, setSubmitting] = useState(false);
+export const DepartmentsPage = () => {
+    const { branchId } = useParams<{ branchId: string }>();
+    const navigate = useNavigate();
+    const queryClient = useQueryClient();
+    const { showToast } = useToast();
 
-    const canView = hasPermission('departments.view');
-    const canCreate = hasPermission('departments.create');
-    const canUpdate = hasPermission('departments.update');
-    const canDelete = hasPermission('departments.delete');
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
+    const [search, setSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState<string>('');
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const [editingDept, setEditingDept] = useState<Department | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<Department | null>(null);
 
-    const fetchDepartments = async () => {
-        if (!canView) return;
-        setLoading(true);
-        setError(null);
+    // Fetch branch context for breadcrumb
+    const { data: branchData } = useQuery({
+        queryKey: ['branch', branchId],
+        queryFn: () => branchesApi.getById(Number(branchId)),
+        enabled: !!branchId,
+    });
+
+    const { data, isLoading } = useQuery({
+        queryKey: ['departments', branchId, page, rowsPerPage, search, statusFilter],
+        queryFn: () => departmentsApi.getAll({
+            page: page + 1,
+            per_page: rowsPerPage,
+            ...(branchId ? { branch_id: branchId } : {}),
+            ...(search ? { search } : {}),
+            ...(statusFilter !== '' ? { is_active: statusFilter } : {}),
+        }),
+    });
+
+    const createMutation = useMutation({
+        mutationFn: departmentsApi.create,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['departments'] });
+            showToast('Department created successfully', 'success');
+            setDrawerOpen(false);
+        },
+        onError: (err) => showToast(getErrorMessage(err), 'error'),
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: ({ id, data }: { id: number; data: Partial<Department> }) =>
+            departmentsApi.update(id, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['departments'] });
+            showToast('Department updated successfully', 'success');
+            setDrawerOpen(false);
+            setEditingDept(null);
+        },
+        onError: (err) => showToast(getErrorMessage(err), 'error'),
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: departmentsApi.delete,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['departments'] });
+            showToast('Department deleted successfully', 'success');
+            setDeleteTarget(null);
+        },
+        onError: (err) => showToast(getErrorMessage(err), 'error'),
+    });
+
+    const handleEdit = async (dept: Department) => {
         try {
-            const response = await departmentsApi.getAll();
-            setDepartments(response.data || []);
-        } catch (err: any) {
-            setError(err.message || 'Failed to load departments');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fetchBranches = async () => {
-        try {
-            const response = await branchesApi.getAll();
-            setBranches(response.data || []);
+            const fresh = await departmentsApi.getById(dept.id);
+            setEditingDept(fresh);
+            setDrawerOpen(true);
         } catch (err) {
-            console.error('Failed to load branches for dropdown', err);
+            showToast(getErrorMessage(err), 'error');
         }
     };
 
-
-    useEffect(() => {
-        if (authState === 'authenticated') {
-            fetchDepartments();
-            fetchBranches();
-        }
-    }, [authState]);
-
-    const handleSubmit = async () => {
-        setSubmitting(true);
-        setError(null);
-        try {
-            if (editingDepartment) {
-                await departmentsApi.update(editingDepartment.id, formData);
-            } else {
-                await departmentsApi.create(formData);
-            }
-            setDialogOpen(false);
-            fetchDepartments();
-        } catch (err: any) {
-            setError(err.response?.data?.message || err.message || 'Failed to save department');
-        } finally {
-            setSubmitting(false);
+    const handleSubmit = (formData: Partial<Department>) => {
+        if (editingDept) {
+            updateMutation.mutate({ id: editingDept.id, data: formData });
+        } else {
+            createMutation.mutate(formData);
         }
     };
 
-    const handleDelete = async (id: number) => {
-        if (!window.confirm('Are you sure you want to delete this department?')) return;
-        try {
-            await departmentsApi.delete(id);
-            fetchDepartments();
-        } catch (err: any) {
-            setError(err.message || 'Failed to delete department');
-        }
-    };
+    const branchName = (branchData as any)?.name;
+    const regionName = (branchData as any)?.region?.name;
+    const companyName = (branchData as any)?.region?.company?.name;
 
-    if (authState === 'booting') {
-        return (
-            <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
-                <CircularProgress />
-            </Box>
-        );
-    }
+    const columns: Column<Department>[] = useMemo(() => [
+        {
+            key: 'name',
+            label: 'Department',
+            width: '25%',
+            render: (row) => (
+                <Box>
+                    <Typography variant="body2" fontWeight={600}>{row.name}</Typography>
+                    <Typography variant="caption" color="text.secondary">{row.code}</Typography>
+                </Box>
+            ),
+        },
+        {
+            key: 'description',
+            label: 'Description',
+            width: '25%',
+            render: (row) => (
+                <Typography variant="body2" noWrap sx={{ maxWidth: 250 }}>
+                    {row.description || '—'}
+                </Typography>
+            ),
+        },
+        {
+            key: 'user_count',
+            label: 'Users',
+            align: 'center',
+            width: '10%',
+            render: (row) => (
+                <Chip
+                    icon={<PeopleIcon sx={{ fontSize: 14 }} />}
+                    label={row.user_count ?? 0}
+                    size="small"
+                    variant="outlined"
+                />
+            ),
+        },
+        {
+            key: 'is_active',
+            label: 'Status',
+            align: 'center',
+            width: '12%',
+            render: (row) => <StatusChip active={row.is_active} />,
+        },
+        {
+            key: 'created_at',
+            label: 'Created',
+            width: '15%',
+            render: (row) => (
+                <Typography variant="caption">{formatDateTime(row.created_at)}</Typography>
+            ),
+        },
+    ], []);
 
-    if (!canView) {
-        return (
-            <Box p={3}>
-                <Alert severity="warning">You do not have permission to view departments.</Alert>
-            </Box>
-        );
-    }
+    const actions: RowAction<Department>[] = useMemo(() => [
+        { icon: <EditIcon fontSize="small" />, label: 'Edit', onClick: handleEdit },
+        {
+            icon: <DeleteIcon fontSize="small" />,
+            label: 'Delete',
+            color: 'error',
+            onClick: (row) => setDeleteTarget(row),
+        },
+    ], []);
 
     return (
-        <Box>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                <Typography variant="h5">Departments</Typography>
-                {canCreate && (
-                    <Button variant="contained" startIcon={<Add />} onClick={() => { setEditingDepartment(null); setFormData({ is_active: true }); setDialogOpen(true); }}>
-                        Add Department
-                    </Button>
-                )}
-            </Box>
+        <>
+            <PageHeader
+                title="Departments"
+                subtitle={branchId ? `Managing departments under ${branchName}` : 'All departments across organization'}
+                breadcrumbs={[
+                    { label: 'Manage' },
+                    ...(branchId ? [
+                        { label: 'Branches', path: '/manage/branches' },
+                        ...(companyName ? [{ label: companyName }] : []),
+                        ...(regionName ? [{ label: regionName }] : []),
+                        { label: branchName ?? 'Branch' },
+                    ] : []),
+                    { label: 'Departments' },
+                ]}
+                actions={
+                    <Can permission="departments.create">
+                        <Button
+                            variant="contained"
+                            startIcon={<AddIcon />}
+                            onClick={() => { setEditingDept(null); setDrawerOpen(true); }}
+                        >
+                            Add Department
+                        </Button>
+                    </Can>
+                }
+            />
 
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+            <SearchFilterBar
+                searchValue={search}
+                onSearchChange={(v) => { setSearch(v); setPage(0); }}
+                placeholder="Search by name, code, or description..."
+            >
+                <FormControl size="small" sx={{ minWidth: 120 }}>
+                    <InputLabel>Status</InputLabel>
+                    <Select
+                        value={statusFilter}
+                        onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
+                        label="Status"
+                    >
+                        <MenuItem value="">All</MenuItem>
+                        <MenuItem value="true">Active</MenuItem>
+                        <MenuItem value="false">Inactive</MenuItem>
+                    </Select>
+                </FormControl>
+            </SearchFilterBar>
 
-            {loading ? (
-                <Box display="flex" justifyContent="center" py={4}>
-                    <CircularProgress />
-                </Box>
-            ) : (
-                <TableContainer component={Paper}>
-                    <Table>
-                        <TableHead>
-                            <TableRow>
-                                <TableCell>Name</TableCell>
-                                <TableCell>Code</TableCell>
-                                <TableCell>Branch</TableCell>
-                                <TableCell>Manager</TableCell>
-                                <TableCell>Status</TableCell>
-                                <TableCell align="right">Actions</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {departments.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={6} align="center">No departments found</TableCell>
-                                </TableRow>
-                            ) : (
-                                departments.map((department) => (
-                                    <TableRow key={department.id}>
-                                        <TableCell>{department.name}</TableCell>
-                                        <TableCell>{department.code}</TableCell>
-                                        <TableCell>{department.branch?.name || 'N/A'}</TableCell>
-                                        <TableCell>{department.manager?.name || '-'}</TableCell>
-                                        <TableCell>
-                                            <Chip label={department.is_active ? 'Active' : 'Inactive'} color={department.is_active ? 'success' : 'default'} size="small" />
-                                        </TableCell>
-                                        <TableCell align="right">
-                                            {canUpdate && (
-                                                <IconButton size="small" onClick={() => { setEditingDepartment(department); setFormData(department); setDialogOpen(true); }}>
-                                                    <Edit fontSize="small" />
-                                                </IconButton>
-                                            )}
-                                            {canDelete && (
-                                                <IconButton size="small" color="error" onClick={() => handleDelete(department.id)}>
-                                                    <Delete fontSize="small" />
-                                                </IconButton>
-                                            )}
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
-            )}
+            <DataTable<Department>
+                columns={columns}
+                data={data?.data ?? []}
+                loading={isLoading}
+                page={page}
+                rowsPerPage={rowsPerPage}
+                total={data?.total ?? 0}
+                onPageChange={setPage}
+                onRowsPerPageChange={(rpp) => { setRowsPerPage(rpp); setPage(0); }}
+                actions={actions}
+                onRowClick={(row) => navigate(`/manage/branches/${branchId}/departments/${row.id}`)}
+                emptyMessage="No departments found for this branch."
+            />
 
-            <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
-                <DialogTitle>{editingDepartment ? 'Edit Department' : 'Add Department'}</DialogTitle>
-                <DialogContent dividers>
-                    <Grid container spacing={2}>
-                        <Grid item xs={12} sm={6}>
-                            <TextField
-                                select
-                                fullWidth
-                                label="Branch"
-                                required
-                                value={formData.branch_id || ''}
-                                onChange={(e) => setFormData({ ...formData, branch_id: Number(e.target.value) })}
-                            >
-                                {branches.map((b) => (
-                                    <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                            <TextField
-                                fullWidth
-                                label="Name"
-                                required
-                                value={formData.name || ''}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                            <TextField
-                                fullWidth
-                                label="Code"
-                                required
-                                value={formData.code || ''}
-                                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                            />
-                        </Grid>
-                        
-                        <Grid item xs={12}>
-                            <TextField
-                                fullWidth
-                                label="Description"
-                                multiline
-                                rows={2}
-                                value={formData.description || ''}
-                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                            />
-                        </Grid>
-                    </Grid>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setDialogOpen(false)} disabled={submitting}>Cancel</Button>
-                    <Button variant="contained" onClick={handleSubmit} disabled={submitting}>
-                        {submitting ? <CircularProgress size={24} /> : (editingDepartment ? 'Update' : 'Create')}
-                    </Button>
-                </DialogActions>
-            </Dialog>
-        </Box>
+            <DepartmentFormDrawer
+                open={drawerOpen}
+                onClose={() => { setDrawerOpen(false); setEditingDept(null); }}
+                department={editingDept}
+                branchId={branchId ? Number(branchId) : undefined}
+                onSubmit={handleSubmit}
+                loading={createMutation.isPending || updateMutation.isPending}
+            />
+
+            <ConfirmDialog
+                open={!!deleteTarget}
+                title="Delete Department"
+                message={`Are you sure you want to delete "${deleteTarget?.name}"? This action cannot be undone.`}
+                confirmLabel="Delete"
+                loading={deleteMutation.isPending}
+                onConfirm={() => { if (deleteTarget) deleteMutation.mutate(deleteTarget.id); }}
+                onCancel={() => setDeleteTarget(null)}
+            />
+        </>
     );
 };

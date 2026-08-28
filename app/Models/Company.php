@@ -49,10 +49,6 @@ class Company extends Model
         return $this->hasMany(Department::class);
     }
 
-    public function employees(): HasMany
-    {
-        return $this->hasMany(Employee::class);
-    }
 
     public function scopeActive($query)
     {
