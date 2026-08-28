@@ -6,15 +6,9 @@ import {
     Toolbar,
     IconButton,
     Typography,
-    Avatar,
-    Menu,
-    MenuItem,
-    Divider,
     CircularProgress,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
-import LogoutIcon from '@mui/icons-material/Logout';
-import PersonIcon from '@mui/icons-material/Person';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import { useAuthStore } from '@/stores/authStore';
@@ -25,15 +19,8 @@ import { UserMenu } from '@/components/layout/UserMenu';
 
 export const MainLayout = () => {
     const [mobileOpen, setMobileOpen] = useState(false);
-    const navigate = useNavigate();
-    const { user, logout, authState } = useAuthStore();
+    const { authState } = useAuthStore();
     const { mode, toggle } = useThemeStore();
-
-    const handleLogout = async () => {
-        setAnchorEl(null);
-        await logout();
-        navigate('/login');
-    };
 
     if (authState === 'booting') {
         return (
@@ -70,8 +57,7 @@ export const MainLayout = () => {
                     <IconButton color="inherit" onClick={toggle} sx={{ mr: 1 }}>
                         {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
                     </IconButton>
-                    <IconButton color="inherit" onClick={(e) => setAnchorEl(e.currentTarget)}>
-            <UserMenu />
+                    <UserMenu />
                 </Toolbar>
             </AppBar>
 

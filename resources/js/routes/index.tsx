@@ -64,7 +64,6 @@ export const AppRouter = () => (
                     </Route>
                     <Route path="audit"><Route path="security" element={<SecurityActivityPage />} /></Route>
                     
-                        <Route path="profile" element={<ProfilePage />} />
                     {/* Legacy redirects */}
                     <Route path="companies" element={<Navigate to="/manage/companies" replace />} />
                     <Route path="regions" element={<Navigate to="/manage/regions" replace />} />
@@ -75,6 +74,9 @@ export const AppRouter = () => (
                     <Route path="debug" element={<Navigate to="/audit/security" replace />} />
                     <Route path="*" element={<NotFoundPage />} />
                 </Route>
+                    <Route path="account">
+                        <Route path="profile" element={<ProfilePage />} />
+                    </Route>
             </Route>
         </Routes>
     </Suspense>
