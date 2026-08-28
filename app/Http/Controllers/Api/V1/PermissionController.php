@@ -3,46 +3,94 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\V1\PermissionResource;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Spatie\Permission\Models\Permission;
 
 class PermissionController extends Controller
 {
-    use AuthorizesRequests;
-
-    public function index()
+    public function index(Request $request)
     {
         $this->authorize('viewAny', Permission::class);
-        return response()->json(Permission::orderBy('name')->get());
+
+        $query = Permission::withCount('roles');
+
+        if ($request->filled('search')) {
+            $search = $request->get('search');
+            $query->where('name', 'ilike', "%{$search}%");
+        }
+
+        if ($request->filled('domain')) {
+            $domain = $request->get('domain');
+            $query->where('name', 'like', "{$domain}.%");
+        }
+
+        $permissions = $query->orderBy('name')->paginate($request->get('per_page', 50));
+
+        return PermissionResource::collection($permissions);
     }
 
     public function store(Request $request)
     {
         $this->authorize('create', Permission::class);
-        $request->validate(['name' => 'required|string|unique:permissions,name']);
+        $authUser = $request->user();
+
+        $request->validate([
+            'name' => 'required|string|max:255|unique:permissions,name',
+        ]);
+
         $permission = Permission::create(['name' => $request->name, 'guard_name' => 'web']);
-        return response()->json($permission, 201);
+
+        AuditService::log('permission.create', 'success', null, [
+            'actor_id' => $authUser->id,
+            'permission_name' => $permission->name,
+        ]);
+
+        return new PermissionResource($permission->loadCount('roles'));
     }
 
-    public function show(Permission $permission)
+    public function show(Request $request, Permission $permission)
     {
         $this->authorize('view', $permission);
-        return response()->json($permission);
+
+        return new PermissionResource($permission->loadCount('roles'));
     }
 
     public function update(Request $request, Permission $permission)
     {
         $this->authorize('update', $permission);
-        $request->validate(['name' => 'required|string|unique:permissions,name,' . $permission->id]);
+        $authUser = $request->user();
+
+        $request->validate([
+            'name' => 'required|string|max:255|unique:permissions,name,' . $permission->id,
+        ]);
+
+        $oldName = $permission->name;
         $permission->update(['name' => $request->name]);
-        return response()->json($permission);
+
+        AuditService::log('permission.update', 'success', null, [
+            'actor_id' => $authUser->id,
+            'old_name' => $oldName,
+            'new_name' => $permission->name,
+        ]);
+
+        return new PermissionResource($permission->fresh()->loadCount('roles'));
     }
 
-    public function destroy(Permission $permission)
+    public function destroy(Request $request, Permission $permission)
     {
         $this->authorize('delete', $permission);
+        $authUser = $request->user();
+
+        $permName = $permission->name;
         $permission->delete();
+
+        AuditService::log('permission.delete', 'success', null, [
+            'actor_id' => $authUser->id,
+            'deleted_permission' => $permName,
+        ]);
+
         return response()->json(['message' => 'Permission deleted successfully']);
     }
 }

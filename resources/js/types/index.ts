@@ -57,7 +57,10 @@ export interface Role {
     id: number;
     name: string;
     guard_name: string;
-    permissions: Permission[];
+    is_protected: boolean;
+    permissions?: Permission[];
+    permission_count?: number;
+    user_count?: number;
     created_at?: string;
     updated_at?: string;
 }
@@ -66,6 +69,9 @@ export interface Permission {
     id: number;
     name: string;
     guard_name: string;
+    domain: string;
+    action: string;
+    role_count?: number;
     created_at?: string;
     updated_at?: string;
 }
