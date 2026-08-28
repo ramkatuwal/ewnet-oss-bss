@@ -5,6 +5,7 @@ import { useEffect, useMemo } from 'react';
 import { AppRouter } from '@/routes';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
+import { createAppTheme } from '@/theme/theme';
 import { ToastProvider } from '@/components/feedback/ToastProvider';
 
 const queryClient = new QueryClient({
