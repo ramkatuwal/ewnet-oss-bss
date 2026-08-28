@@ -55,7 +55,7 @@ export const App = () => {
 
     return (
         <QueryClientProvider client={queryClient}>
-            <ThemeProvider theme={theme}>
+            <ThemeProvider theme={createAppTheme(mode)}>
                 <CssBaseline />
                 <ToastProvider>
                     <BrowserRouter>
