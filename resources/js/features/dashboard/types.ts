@@ -1,3 +1,5 @@
+import type { ComponentType } from 'react';
+
 export type WidgetSize = 'small' | 'medium' | 'large' | 'full';
 export type WidgetCategory = 'organization' | 'security' | 'system' | 'account' | 'future';
 
@@ -9,7 +11,7 @@ export interface DashboardWidget {
     order: number;
     size: WidgetSize;
     permission?: string;
-    component: React.ComponentType<{ data?: any }>;
+    component: ComponentType<{ data?: unknown }>;
 }
 
 export interface WidgetRegistry {

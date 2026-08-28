@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Box, Typography, Grid, Button, Divider, Avatar, CircularProgress, Card, CardContent, Stack, Chip, Link as MuiLink } from '@mui/material';
+import { Box, Typography, Grid, Button, Divider, CircularProgress, Card, CardContent, Stack, Chip, Link as MuiLink } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LocationOnIcon from '@mui/icons-material/LocationOn';

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     Drawer, Box, Typography, TextField, Button, Divider, IconButton, Grid,
     FormControlLabel, Switch, Alert, FormControl, InputLabel, Select, MenuItem,
@@ -37,7 +37,7 @@ interface Props {
 export const DepartmentFormDrawer = ({ open, onClose, department, branchId, onSubmit, loading }: Props) => {
     const isEdit = !!department;
     const isContextual = !!branchId; // true when opened from branch detail
-    const { isSuperAdmin } = useAuthStore();
+    // const { isSuperAdmin } = useAuthStore();
 
     const [selectedCompany, setSelectedCompany] = useState<number>(0);
     const [selectedRegion, setSelectedRegion] = useState<number>(0);
@@ -50,8 +50,8 @@ export const DepartmentFormDrawer = ({ open, onClose, department, branchId, onSu
         },
     });
 
-    const watchedCompanyId = watch('company_id');
-    const watchedBranchId = watch('branch_id');
+    // const watchedCompanyId = watch('company_id');
+    // const watchedBranchId = watch('branch_id');
 
     // ── Reference Data Queries ──────────────────────────────────
 
@@ -134,7 +134,7 @@ export const DepartmentFormDrawer = ({ open, onClose, department, branchId, onSu
     const branches = branchesByCompanyData?.data ?? [];
 
     // In contextual mode, show only the fixed branch
-    const availableBranches = isContextual
+    // const availableBranches = isContextual
         ? (contextBranchData ? [contextBranchData] : [])
         : branches;
 

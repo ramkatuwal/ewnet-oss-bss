@@ -42,7 +42,7 @@ export const CompaniesPage = () => {
     });
 
     const updateMutation = useMutation({
-        mutationFn: ({ id, data }: { id: number; data: Partial<Company> }) => companiesApi.update(id, data),
+        mutationFn: ({ id, data }: { id: number; data: FormData }) => companiesApi.update(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['companies'] });
             if (editingCompany) queryClient.invalidateQueries({ queryKey: ['company', editingCompany.id] });

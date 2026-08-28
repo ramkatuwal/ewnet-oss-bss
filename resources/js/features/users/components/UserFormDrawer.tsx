@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     Drawer, Box, Typography, TextField, Button, Divider, IconButton, Grid,
     FormControl, InputLabel, Select, MenuItem, Chip, OutlinedInput, Alert,
@@ -6,7 +6,6 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -79,7 +78,7 @@ export const UserFormDrawer = ({ open, onClose, user, onSubmit, loading }: Props
         queryFn: () => companiesApi.getAll({ per_page: 100 }),
     });
 
-    const { data: regionsData } = useQuery({
+    useQuery({
         queryKey: ['regions', 'filter', selectedCompany],
         queryFn: () => regionsApi.getAll({ per_page: 100, ...(selectedCompany ? { company_id: selectedCompany } : {}) }),
         enabled: !!selectedCompany,

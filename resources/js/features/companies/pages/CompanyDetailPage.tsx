@@ -25,7 +25,6 @@ import { regionsApi } from '@/api/regions';
 import { branchesApi } from '@/api/branches';
 import { formatDateTime, getErrorMessage } from '@/utils';
 import { useToast } from '@/components/feedback/ToastProvider';
-import type { Company } from '@/types';
 
 export const CompanyDetailPage = () => {
     const { id } = useParams<{ id: string }>();
