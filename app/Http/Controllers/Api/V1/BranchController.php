@@ -7,6 +7,7 @@ use App\Http\Requests\Api\V1\BranchRequest;
 use App\Http\Resources\V1\BranchResource;
 use App\Models\Branch;
 use App\Services\AuditService;
+use App\Services\ManagementScopeService;
 use Illuminate\Http\Request;
 
 class BranchController extends Controller
@@ -17,11 +18,8 @@ class BranchController extends Controller
 
         $query = Branch::with('region.company');
 
-        if (!$request->user()->hasRole('Super Admin')) {
-            $query->whereHas('region', function ($q) use ($request) {
-                $q->where('company_id', $request->user()->company_id);
-            });
-        }
+        // Apply centralized scope filtering
+        $query = ManagementScopeService::applyScopeToQuery($query, $request->user(), Branch::class);
 
         if ($request->filled('region_id')) {
             $query->where('region_id', $request->get('region_id'));

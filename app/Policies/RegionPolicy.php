@@ -4,9 +4,12 @@ namespace App\Policies;
 
 use App\Models\Region;
 use App\Models\User;
+use App\Policies\Concerns\ChecksManagementScope;
 
 class RegionPolicy
 {
+    use ChecksManagementScope;
+
     public function viewAny(User $user): bool
     {
         return $user->hasPermissionTo('regions.view');
@@ -14,8 +17,7 @@ class RegionPolicy
 
     public function view(User $user, Region $region): bool
     {
-        return $user->hasPermissionTo('regions.view') && 
-               $this->userBelongsToRegion($user, $region);
+        return $this->hasPermissionAndInScope($user, 'regions.view', $region);
     }
 
     public function create(User $user): bool
@@ -25,24 +27,11 @@ class RegionPolicy
 
     public function update(User $user, Region $region): bool
     {
-        return $user->hasPermissionTo('regions.update') && 
-               $this->userBelongsToRegion($user, $region);
+        return $this->hasPermissionAndInScope($user, 'regions.update', $region);
     }
 
     public function delete(User $user, Region $region): bool
     {
-        return $user->hasPermissionTo('regions.delete') && 
-               $this->userBelongsToRegion($user, $region);
-    }
-
-    protected function userBelongsToRegion(User $user, Region $region): bool
-    {
-        if ($user->hasRole('Super Admin')) {
-            return true;
-        }
-
-        return $user->branch?->region_id === $region->id ||
-               $user->department?->branch?->region_id === $region->id ||
-               $user->company_id === $region->company_id;
+        return $this->hasPermissionAndInScope($user, 'regions.delete', $region);
     }
 }

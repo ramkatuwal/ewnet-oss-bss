@@ -7,6 +7,7 @@ use App\Http\Requests\Api\V1\UserRequest;
 use App\Http\Resources\V1\UserResource;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\ManagementScopeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
@@ -21,18 +22,8 @@ class UserController extends Controller
         $query = User::with(['roles', 'company', 'branch.region', 'department']);
         $authUser = $request->user();
 
-        // Organizational scoping
-        if (!$authUser->hasRole('Super Admin')) {
-            if ($authUser->company_id && !$authUser->branch_id) {
-                $query->where('company_id', $authUser->company_id);
-            } elseif ($authUser->branch_id && !$authUser->department_id) {
-                $query->where('branch_id', $authUser->branch_id);
-            } elseif ($authUser->department_id) {
-                $query->where('department_id', $authUser->department_id);
-            } else {
-                $query->where('id', $authUser->id);
-            }
-        }
+        // Apply centralized scope filtering
+        $query = ManagementScopeService::applyScopeToQuery($query, $authUser, User::class);
 
         // Filters
         if ($request->filled('search')) {
@@ -75,15 +66,12 @@ class UserController extends Controller
         $data['branch_id'] = $data['branch_id'] ?? $authUser->branch_id;
         $data['department_id'] = $data['department_id'] ?? $authUser->department_id;
 
-        // Scope validation
-        if (!$authUser->hasRole('Super Admin')) {
-            if ($authUser->company_id && isset($data['company_id']) && $data['company_id'] != $authUser->company_id) {
-                AuditService::log('user.create.attempt', 'failure', null, ['reason' => 'company_scope_violation']);
-                abort(403, 'Cannot create user in another company.');
-            }
-            if ($authUser->branch_id && isset($data['branch_id']) && $data['branch_id'] != $authUser->branch_id) {
-                AuditService::log('user.create.attempt', 'failure', null, ['reason' => 'branch_scope_violation']);
-                abort(403, 'Can only create users within your branch.');
+        // Scope validation via centralized service
+        if (!ManagementScopeService::hasGlobalScope($authUser)) {
+            $tempUser = new User($data);
+            if (!ManagementScopeService::isInScope($authUser, $tempUser)) {
+                AuditService::log('user.create.attempt', 'failure', null, ['reason' => 'scope_violation']);
+                abort(403, 'Cannot create user outside your management scope.');
             }
         }
 
@@ -93,7 +81,6 @@ class UserController extends Controller
 
         $user = User::create($data);
 
-        // Role assignment with privilege check
         if (!empty($roles)) {
             $roleModels = Role::whereIn('id', $roles)->get();
             foreach ($roleModels as $role) {
@@ -114,7 +101,7 @@ class UserController extends Controller
     public function show(Request $request, User $user)
     {
         $this->authorize('view', $user);
-        return new UserResource($user->load(['roles', 'company', 'branch.region', 'department']));
+        return new UserResource($user->load(['roles', 'company', 'branch.region', 'department', 'managementScopes']));
     }
 
     public function update(UserRequest $request, User $user)
@@ -131,15 +118,15 @@ class UserController extends Controller
             $data['password'] = Hash::make($data['password']);
         }
 
-        // Scope validation
-        if (!$authUser->hasRole('Super Admin')) {
-            if (isset($data['company_id']) && $data['company_id'] != $authUser->company_id) {
-                AuditService::log('user.update.attempt', 'failure', $user, ['reason' => 'company_scope_violation']);
-                abort(403, 'Cannot move user to another company.');
-            }
-            if ($authUser->branch_id && isset($data['branch_id']) && $data['branch_id'] != $authUser->branch_id) {
-                AuditService::log('user.update.attempt', 'failure', $user, ['reason' => 'branch_scope_violation']);
-                abort(403, 'Cannot move user to another branch.');
+        // Scope validation for org changes
+        if (!ManagementScopeService::hasGlobalScope($authUser)) {
+            if (isset($data['company_id']) || isset($data['branch_id']) || isset($data['department_id'])) {
+                $tempUser = clone $user;
+                $tempUser->fill(array_intersect_key($data, array_flip(['company_id', 'branch_id', 'department_id'])));
+                if (!ManagementScopeService::isInScope($authUser, $tempUser)) {
+                    AuditService::log('user.update.attempt', 'failure', $user, ['reason' => 'scope_violation']);
+                    abort(403, 'Cannot move user outside your management scope.');
+                }
             }
         }
 
@@ -148,11 +135,9 @@ class UserController extends Controller
 
         $user->update($data);
 
-        // Role assignment
         if ($roles !== null) {
             $roleModels = Role::whereIn('id', $roles)->get();
 
-            // Self-escalation prevention
             if ($user->id === $authUser->id) {
                 $currentRoles = $authUser->getRoleNames()->toArray();
                 $newRoles = $roleModels->pluck('name')->toArray();
@@ -174,7 +159,7 @@ class UserController extends Controller
 
         AuditService::log('user.update', 'success', $user);
 
-        return new UserResource($user->fresh()->load(['roles', 'company', 'branch.region', 'department']));
+        return new UserResource($user->fresh()->load(['roles', 'company', 'branch.region', 'department', 'managementScopes']));
     }
 
     public function destroy(Request $request, User $user)

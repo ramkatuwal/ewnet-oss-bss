@@ -145,9 +145,10 @@ class OrganizationHardeningTest extends TestCase
         $regionIds = array_column($responseData, 'id');
         $companyIds = array_column($responseData, 'company_id');
         
-        $this->assertContains($ownRegion->id, $regionIds, 'User should see their own region');
+        // Department-scoped user should NOT see ANY regions (no upward access)
+        $this->assertNotContains($ownRegion->id, $regionIds, 'Department-scoped user should NOT see regions in own company');
         $this->assertNotContains($otherRegion->id, $regionIds, 'User should NOT see other company region');
-        $this->assertNotContains($this->otherCompany->id, $companyIds, 'Response should contain NO regions from other company');
+        $this->assertEmpty($regionIds, 'Department-scoped user should see no regions at all');
     }
 
     public function test_super_admin_sees_all_regions()

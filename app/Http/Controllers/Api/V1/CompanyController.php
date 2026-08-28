@@ -7,6 +7,7 @@ use App\Http\Requests\Api\V1\CompanyRequest;
 use App\Http\Resources\V1\CompanyResource;
 use App\Models\Company;
 use App\Services\AuditService;
+use App\Services\ManagementScopeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -18,9 +19,8 @@ class CompanyController extends Controller
 
         $query = Company::query();
 
-        if (!$request->user()->hasRole('Super Admin')) {
-            $query->where('id', $request->user()->company_id);
-        }
+        // Apply centralized scope filtering
+        $query = ManagementScopeService::applyScopeToQuery($query, $request->user(), \App\Models\Company::class);
 
         if ($request->filled('search')) {
             $search = $request->get('search');

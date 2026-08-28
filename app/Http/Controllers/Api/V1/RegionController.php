@@ -7,6 +7,7 @@ use App\Http\Requests\Api\V1\RegionRequest;
 use App\Http\Resources\V1\RegionResource;
 use App\Models\Region;
 use App\Services\AuditService;
+use App\Services\ManagementScopeService;
 use Illuminate\Http\Request;
 
 class RegionController extends Controller
@@ -17,9 +18,8 @@ class RegionController extends Controller
 
         $query = Region::with('company')->withCount('branches');
 
-        if (!$request->user()->hasRole('Super Admin')) {
-            $query->where('company_id', $request->user()->company_id);
-        }
+        // Apply centralized scope filtering
+        $query = ManagementScopeService::applyScopeToQuery($query, $request->user(), Region::class);
 
         if ($request->filled('company_id')) {
             $query->where('company_id', $request->get('company_id'));
@@ -83,7 +83,7 @@ class RegionController extends Controller
         $this->authorize('delete', $region);
 
         if ($region->branches()->exists()) {
-            abort(422, 'Cannot delete region with existing branches. Delete or reassign branches first.');
+            abort(422, 'Cannot delete region with existing branches.');
         }
 
         $region->delete();

@@ -4,9 +4,12 @@ namespace App\Policies;
 
 use App\Models\Company;
 use App\Models\User;
+use App\Policies\Concerns\ChecksManagementScope;
 
 class CompanyPolicy
 {
+    use ChecksManagementScope;
+
     public function viewAny(User $user): bool
     {
         return $user->hasPermissionTo('companies.view');
@@ -14,8 +17,7 @@ class CompanyPolicy
 
     public function view(User $user, Company $company): bool
     {
-        return $user->hasPermissionTo('companies.view') && 
-               $this->userBelongsToCompany($user, $company);
+        return $this->hasPermissionAndInScope($user, 'companies.view', $company);
     }
 
     public function create(User $user): bool
@@ -25,26 +27,11 @@ class CompanyPolicy
 
     public function update(User $user, Company $company): bool
     {
-        return $user->hasPermissionTo('companies.update') && 
-               $this->userBelongsToCompany($user, $company);
+        return $this->hasPermissionAndInScope($user, 'companies.update', $company);
     }
 
     public function delete(User $user, Company $company): bool
     {
-        return $user->hasPermissionTo('companies.delete') && 
-               $this->userBelongsToCompany($user, $company);
-    }
-
-    protected function userBelongsToCompany(User $user, Company $company): bool
-    {
-        // Super Admin can access all companies
-        if ($user->hasRole('Super Admin')) {
-            return true;
-        }
-
-        // Check if user belongs to this company through any relationship
-        return $user->company_id === $company->id ||
-               $user->branch?->region?->company_id === $company->id ||
-               $user->department?->branch?->region?->company_id === $company->id;
+        return $this->hasPermissionAndInScope($user, 'companies.delete', $company);
     }
 }

@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Company extends Model
@@ -24,30 +26,30 @@ class Company extends Model
         'country',
         'website',
         'settings',
-        'is_active'
+        'is_active',
     ];
 
     protected $casts = [
         'settings' => 'array',
-        'is_active' => 'boolean'
+        'is_active' => 'boolean',
     ];
 
-    public function regions()
+    public function regions(): HasMany
     {
         return $this->hasMany(Region::class);
     }
 
-    public function branches()
+    public function branches(): HasManyThrough
     {
         return $this->hasManyThrough(Branch::class, Region::class);
     }
 
-    public function departments()
+    public function departments(): HasMany
     {
         return $this->hasMany(Department::class);
     }
 
-    public function employees()
+    public function employees(): HasMany
     {
         return $this->hasMany(Employee::class);
     }

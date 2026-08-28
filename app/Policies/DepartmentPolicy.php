@@ -4,9 +4,12 @@ namespace App\Policies;
 
 use App\Models\Department;
 use App\Models\User;
+use App\Policies\Concerns\ChecksManagementScope;
 
 class DepartmentPolicy
 {
+    use ChecksManagementScope;
+
     public function viewAny(User $user): bool
     {
         return $user->hasPermissionTo('departments.view');
@@ -14,8 +17,7 @@ class DepartmentPolicy
 
     public function view(User $user, Department $department): bool
     {
-        return $user->hasPermissionTo('departments.view') && 
-               $this->userBelongsToDepartment($user, $department);
+        return $this->hasPermissionAndInScope($user, 'departments.view', $department);
     }
 
     public function create(User $user): bool
@@ -25,22 +27,11 @@ class DepartmentPolicy
 
     public function update(User $user, Department $department): bool
     {
-        return $user->hasPermissionTo('departments.update') && 
-               $this->userBelongsToDepartment($user, $department);
+        return $this->hasPermissionAndInScope($user, 'departments.update', $department);
     }
 
     public function delete(User $user, Department $department): bool
     {
-        return $user->hasPermissionTo('departments.delete') && 
-               $this->userBelongsToDepartment($user, $department);
-    }
-
-    protected function userBelongsToDepartment(User $user, Department $department): bool
-    {
-        if ($user->hasRole('Super Admin')) {
-            return true;
-        }
-
-        return $user->department_id === $department->id;
+        return $this->hasPermissionAndInScope($user, 'departments.delete', $department);
     }
 }

@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Branch extends Model
@@ -11,50 +13,29 @@ class Branch extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'region_id',
-        'name',
-        'code',
-        'address',
-        'city',
-        'state',
-        'postal_code',
-        'country',
-        'phone',
-        'email',
-        'latitude',
-        'longitude',
-        'settings',
-        'is_active'
+        'region_id', 'name', 'code', 'address', 'city', 'state',
+        'postal_code', 'country', 'phone', 'email', 'latitude',
+        'longitude', 'settings', 'is_active',
     ];
 
     protected $casts = [
         'settings' => 'array',
-        'is_active' => 'boolean'
+        'is_active' => 'boolean',
     ];
 
-    protected $attributes = [
-        'country' => 'Nepal',
-        'is_active' => true,
-    ];
-
-    public function region()
+    public function region(): BelongsTo
     {
         return $this->belongsTo(Region::class);
     }
 
-    public function company()
+    public function company(): BelongsTo
     {
-        return $this->hasOneThrough(Company::class, Region::class);
+        return $this->belongsTo(Company::class, 'company_id');
     }
 
-    public function departments()
+    public function departments(): HasMany
     {
         return $this->hasMany(Department::class);
-    }
-
-    public function employees()
-    {
-        return $this->hasMany(Employee::class);
     }
 
     public function scopeActive($query)

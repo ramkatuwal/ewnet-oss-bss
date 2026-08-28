@@ -101,6 +101,13 @@ class AuthController extends Controller
                 'department' => $user->department ? ['id' => $user->department->id, 'name' => $user->department->name] : null,
                 'roles' => $roles,
                 'permissions' => $permissions,
+                'management_scopes' => \App\Services\ManagementScopeService::hasGlobalScope($user)
+                    ? [['scope_type' => 'global', 'scope_id' => 0, 'scope_name' => 'Global']]
+                    : $user->managementScopes->map(fn($s) => [
+                        'scope_type' => $s->scope_type,
+                        'scope_id' => $s->scope_id,
+                        'scope_name' => $s->scope_name,
+                    ])->values()->toArray(),
             ],
         ]);
     }

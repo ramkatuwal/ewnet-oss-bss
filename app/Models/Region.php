@@ -4,6 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Region extends Model
@@ -19,27 +22,27 @@ class Region extends Model
         'state',
         'country',
         'settings',
-        'is_active'
+        'is_active',
     ];
 
     protected $casts = [
         'settings' => 'array',
-        'is_active' => 'boolean'
+        'is_active' => 'boolean',
     ];
 
-    public function company()
+    public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
     }
 
-    public function branches()
+    public function branches(): HasMany
     {
         return $this->hasMany(Branch::class);
     }
 
-    public function employees()
+    public function departments(): HasManyThrough
     {
-        return $this->hasMany(Employee::class);
+        return $this->hasManyThrough(Department::class, Branch::class);
     }
 
     public function scopeActive($query)

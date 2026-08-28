@@ -41,3 +41,10 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::middleware(['auth:sanctum', 'can:system.debug.view'])->get('/debug/status', [DebugController::class, 'status']);
     Route::middleware(['auth:sanctum', 'can:system.debug.view'])->get('/debug/logs', [DebugController::class, 'logs']);
 });
+
+// Management Scopes
+Route::prefix('v1/organization/users/{user}/management-scopes')->group(function () {
+    Route::get('/', [App\Http\Controllers\Api\V1\ManagementScopeController::class, 'index']);
+    Route::post('/', [App\Http\Controllers\Api\V1\ManagementScopeController::class, 'store']);
+    Route::delete('/{scope}', [App\Http\Controllers\Api\V1\ManagementScopeController::class, 'destroy']);
+});

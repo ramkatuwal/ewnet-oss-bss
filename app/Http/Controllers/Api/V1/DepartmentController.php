@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\DepartmentRequest;
 use App\Http\Resources\V1\DepartmentResource;
 use App\Models\Department;
+use App\Services\AuditService;
+use App\Services\ManagementScopeService;
 use Illuminate\Http\Request;
 
 class DepartmentController extends Controller
@@ -14,14 +16,24 @@ class DepartmentController extends Controller
     {
         $this->authorize('viewAny', Department::class);
 
-        $query = Department::query();
+        $query = Department::with(['branch', 'company']);
 
-        // Scope to user's branch if not Super Admin
-        if (!$request->user()->hasRole('Super Admin')) {
-            $query->where('branch_id', $request->user()->branch_id);
+        // Apply centralized scope filtering
+        $query = ManagementScopeService::applyScopeToQuery($query, $request->user(), Department::class);
+
+        if ($request->filled('branch_id')) {
+            $query->where('branch_id', $request->get('branch_id'));
         }
 
-        $departments = $query->paginate($request->get('per_page', 15));
+        if ($request->filled('search')) {
+            $search = $request->get('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'ilike', "%{$search}%")
+                  ->orWhere('code', 'ilike', "%{$search}%");
+            });
+        }
+
+        $departments = $query->orderBy('name')->paginate($request->get('per_page', 15));
 
         return DepartmentResource::collection($departments);
     }
@@ -30,7 +42,6 @@ class DepartmentController extends Controller
     {
         $this->authorize('create', Department::class);
 
-        // Validate branch_id is within user's scope
         if (!$request->user()->hasRole('Super Admin')) {
             if ($request->branch_id !== $request->user()->branch_id) {
                 abort(403, 'Cannot create department in another branch');
@@ -38,22 +49,22 @@ class DepartmentController extends Controller
         }
 
         $department = Department::create($request->validated());
+        AuditService::log('department.create', 'success', $department);
 
-        return new DepartmentResource($department);
+        return new DepartmentResource($department->load(['branch', 'company']));
     }
 
     public function show(Request $request, Department $department)
     {
         $this->authorize('view', $department);
 
-        return new DepartmentResource($department);
+        return new DepartmentResource($department->load(['branch', 'company']));
     }
 
     public function update(DepartmentRequest $request, Department $department)
     {
         $this->authorize('update', $department);
 
-        // Validate branch_id if being changed
         if ($request->has('branch_id') && !$request->user()->hasRole('Super Admin')) {
             if ($request->branch_id !== $request->user()->branch_id) {
                 abort(403, 'Cannot move department to another branch');
@@ -61,17 +72,18 @@ class DepartmentController extends Controller
         }
 
         $department->update($request->validated());
+        AuditService::log('department.update', 'success', $department);
 
-        return new DepartmentResource($department);
+        return new DepartmentResource($department->fresh()->load(['branch', 'company']));
     }
 
     public function destroy(Request $request, Department $department)
     {
         $this->authorize('delete', $department);
 
-        $department->update(['is_active' => false]);
         $department->delete();
+        AuditService::log('department.delete', 'success', $department);
 
-        return response()->noContent();
+        return response()->json(['message' => 'Department deleted successfully']);
     }
 }
