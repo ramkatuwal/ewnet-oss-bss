@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-    Box, Typography, Grid, Button, Divider, Avatar,
-    CircularProgress, Card, CardContent, Stack, Link as MuiLink, Chip,
-} from '@mui/material';
+import { Box, Typography, Grid, Button, Divider, Avatar,
+    CircularProgress, Card, CardContent, Stack, Link as MuiLink  } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EmailIcon from '@mui/icons-material/Email';
@@ -36,22 +34,19 @@ export const CompanyDetailPage = () => {
     const { data: company, isLoading } = useQuery({
         queryKey: ['company', id],
         queryFn: () => companiesApi.getById(Number(id)),
-        enabled: !!id,
-    });
+        enabled: !!id});
 
     // Fetch region count for this company
     const { data: regionsData } = useQuery({
         queryKey: ['regions', 'byCompany', id],
         queryFn: () => regionsApi.getAll({ company_id: Number(id), per_page: 1 }),
-        enabled: !!id,
-    });
+        enabled: !!id});
 
     // Fetch branch count for this company
     const { data: branchesData } = useQuery({
         queryKey: ['branches', 'byCompany', id],
         queryFn: () => branchesApi.getAll({ company_id: Number(id), per_page: 1 }),
-        enabled: !!id,
-    });
+        enabled: !!id});
 
     const updateMutation = useMutation({
         mutationFn: (formData: FormData) => companiesApi.update(Number(id), formData),
@@ -61,8 +56,7 @@ export const CompanyDetailPage = () => {
             showToast('Company updated successfully', 'success');
             setEditOpen(false);
         },
-        onError: (err) => showToast(getErrorMessage(err), 'error'),
-    });
+        onError: (err) => showToast(getErrorMessage(err), 'error')});
 
     if (isLoading) {
         return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>;

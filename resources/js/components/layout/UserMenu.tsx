@@ -14,7 +14,6 @@ import {
 import {
   Person as PersonIcon,
   Logout as LogoutIcon,
-  Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { useAuthStore } from '@/stores/authStore';
 

@@ -1,5 +1,5 @@
 import { Box, Typography, Breadcrumbs, Link as MuiLink, Skeleton } from '@mui/material';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 interface BreadcrumbItem {
     label: string;

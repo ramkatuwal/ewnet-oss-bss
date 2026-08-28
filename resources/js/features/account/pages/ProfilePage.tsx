@@ -291,8 +291,8 @@ export const ProfilePage = () => {
                 <Box sx={{ flex: 1 }}>
                   <Typography variant="body1">Password</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {user.password_changed_at
-                      ? `Last changed ${new Date(user.password_changed_at).toLocaleDateString()}`
+                    {(user as any).password_changed_at
+                      ? `Last changed ${new Date((user as any).password_changed_at).toLocaleDateString()}`
                       : 'Set a strong password to protect your account'}
                   </Typography>
                 </Box>
@@ -342,8 +342,8 @@ export const ProfilePage = () => {
                     Last Login
                   </Typography>
                   <Typography variant="body1">
-                    {user.last_login_at
-                      ? new Date(user.last_login_at).toLocaleString()
+                    {(user as any).last_login_at
+                      ? new Date((user as any).last_login_at).toLocaleString()
                       : 'Never'}
                   </Typography>
                 </Grid>

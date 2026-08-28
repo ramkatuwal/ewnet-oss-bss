@@ -15,7 +15,6 @@ export interface DashboardWidget {
 }
 
 export interface WidgetRegistry {
-    widgets: DashboardWidget[];
     register(widget: DashboardWidget): void;
     getByCategory(category: WidgetCategory): DashboardWidget[];
     getAll(): DashboardWidget[];

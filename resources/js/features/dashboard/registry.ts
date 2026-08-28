@@ -1,19 +1,19 @@
-import { DashboardWidget, WidgetCategory, WidgetRegistry } from './types';
+import type { DashboardWidget, WidgetCategory, WidgetRegistry } from './types';
 
 class WidgetRegistryImpl implements WidgetRegistry {
-    private widgets: DashboardWidget[] = [];
+    private widgetList: DashboardWidget[] = [];
 
     register(widget: DashboardWidget): void {
-        this.widgets.push(widget);
-        this.widgets.sort((a, b) => a.order - b.order);
+        const existing = this.widgetList.filter((item) => item.id !== widget.id);
+        this.widgetList = [...existing, widget].sort((a, b) => a.order - b.order);
     }
 
     getByCategory(category: WidgetCategory): DashboardWidget[] {
-        return this.widgets.filter(w => w.category === category);
+        return this.widgetList.filter((widget) => widget.category === category);
     }
 
     getAll(): DashboardWidget[] {
-        return this.widgets;
+        return [...this.widgetList];
     }
 }
 

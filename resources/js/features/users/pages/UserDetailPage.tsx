@@ -20,7 +20,7 @@ import { UserFormDrawer } from '../components/UserFormDrawer';
 import { usersApi } from '@/api/users';
 import { scopesApi } from '@/api/scopes';
 import { formatDateTime, getErrorMessage } from '@/utils';
-import type { UserListItem, ManagementScope } from '@/types';
+import type { ManagementScope } from '@/types';
 
 export const UserDetailPage = () => {
     const { id } = useParams<{ id: string }>();
@@ -207,7 +207,7 @@ export const UserDetailPage = () => {
                                                 </Typography>
                                                 <Typography variant="caption" color="text.secondary">
                                                     Type: {scope.scope_type}
-                                                    {scope.granted_by && ` • Granted by: ${scope.granted_by}`}
+                                                    {(scope as any).granted_by && ` • Granted by: ${(scope as any).granted_by}`}
                                                 </Typography>
                                             </Box>
                                             <Can permission="users.update">

@@ -8,7 +8,6 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useQuery } from '@tanstack/react-query';
-import { useAuthStore } from '@/stores/authStore';
 import { companiesApi } from '@/api/companies';
 import { regionsApi } from '@/api/regions';
 import { branchesApi } from '@/api/branches';
@@ -42,7 +41,7 @@ export const DepartmentFormDrawer = ({ open, onClose, department, branchId, onSu
     const [selectedCompany, setSelectedCompany] = useState<number>(0);
     const [selectedRegion, setSelectedRegion] = useState<number>(0);
 
-    const { control, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<DeptFormData>({
+    const { control, handleSubmit, reset, setValue, formState: { errors } } = useForm<DeptFormData>({
         resolver: zodResolver(deptSchema),
         defaultValues: {
             name: '', code: '', description: '',

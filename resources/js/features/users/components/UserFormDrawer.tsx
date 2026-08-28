@@ -15,9 +15,10 @@ import { companiesApi } from '@/api/companies';
 import { regionsApi } from '@/api/regions';
 import { branchesApi } from '@/api/branches';
 import { departmentsApi } from '@/api/departments';
-import { scopesApi } from '@/api/scopes';
 import { apiClient } from '@/api/client';
-import type { UserListItem, ManagementScope, ScopeType } from '@/types';
+import type { UserListItem } from '@/types';
+
+type ScopeType = 'company' | 'region' | 'branch' | 'department';
 
 const userSchema = z.object({
     name: z.string().min(1, 'Name is required').max(255),
@@ -34,7 +35,7 @@ const userSchema = z.object({
 type UserFormData = z.infer<typeof userSchema>;
 
 interface PendingScope {
-    scope_type: ScopeType;
+    scope_type: 'company' | 'region' | 'branch' | 'department';
     scope_id: number;
     scope_name?: string;
 }
@@ -101,11 +102,11 @@ export const UserFormDrawer = ({ open, onClose, user, onSubmit, loading }: Props
         queryFn: () => apiClient.get('/api/v1/security/roles').then(r => r.data),
     });
 
-    const { data: userScopes } = useQuery({
-        queryKey: ['userScopes', user?.id],
-        queryFn: () => scopesApi.getUserScopes(user!.id),
-        enabled: !!user?.id,
-    });
+    // const { data: userScopes } = useQuery({
+    //     queryKey: ['userScopes', user?.id],
+    //     queryFn: () => scopesApi.getUserScopes(user!.id),
+    //     enabled: !!user?.id,
+    // });
 
     // ── Scope Cascading Queries ─────────────────────────────────
 
@@ -135,8 +136,8 @@ export const UserFormDrawer = ({ open, onClose, user, onSubmit, loading }: Props
             const branchId = user?.branch_id ?? authUser?.branch_id ?? 0;
             setSelectedCompany(companyId);
             setSelectedBranch(branchId);
-            setPendingScopes((user?.management_scopes ?? []).map(s => ({
-                scope_type: s.scope_type as ScopeType,
+            setPendingScopes((user?.management_scopes ?? []).map((s: any) => ({
+                scope_type: s.scope_type as 'company' | 'region' | 'branch' | 'department',
                 scope_id: s.scope_id,
                 scope_name: s.scope_name,
             })));
@@ -431,7 +432,7 @@ export const UserFormDrawer = ({ open, onClose, user, onSubmit, loading }: Props
                                     <InputLabel>Scope Type</InputLabel>
                                     <Select value={scopeType} label="Scope Type"
                                         onChange={(e) => {
-                                            setScopeType(e.target.value as ScopeType);
+                                            setScopeType(e.target.value as any);
                                             setScopeCompany(0);
                                             setScopeRegion(0);
                                             setScopeBranch(0);
