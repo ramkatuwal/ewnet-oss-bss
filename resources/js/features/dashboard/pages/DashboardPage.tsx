@@ -1,46 +1,135 @@
 import React from 'react';
-import { Typography, Box, Card, CardContent, Grid } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
+import { Grid, Box, CircularProgress, Typography, Alert } from '@mui/material';
+import BusinessIcon from '@mui/icons-material/Business';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+import StorefrontIcon from '@mui/icons-material/Storefront';
+import ApartmentIcon from '@mui/icons-material/Apartment';
+import PeopleIcon from '@mui/icons-material/People';
+import SecurityIcon from '@mui/icons-material/Security';
+import VpnKeyIcon from '@mui/icons-material/VpnKey';
+import { dashboardApi } from '@/api/dashboard';
+import { StatCard } from '../widgets/StatCard';
+import { RecentActivity } from '../widgets/RecentActivity';
+import { QuickActions } from '../widgets/QuickActions';
 
 export const DashboardPage: React.FC = () => {
-    const stats = [
-        { title: 'Total Companies', value: 0, color: '#1976d2' },
-        { title: 'Total Regions', value: 0, color: '#2e7d32' },
-        { title: 'Total Branches', value: 0, color: '#ed6c02' },
-        { title: 'Total Employees', value: 0, color: '#9c27b0' },
-    ];
+    const { data, isLoading, error } = useQuery({
+        queryKey: ['dashboard'],
+        queryFn: dashboardApi.getData,
+        staleTime: 30000, // 30 seconds
+    });
+
+    if (isLoading) {
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
+
+    if (error) {
+        return (
+            <Box sx={{ p: 3 }}>
+                <Alert severity="error">
+                    Failed to load dashboard data. Please try again.
+                </Alert>
+            </Box>
+        );
+    }
+
+    if (!data) {
+        return null;
+    }
+
+    const { organization, security, activity, account } = data;
 
     return (
         <Box>
-            <Typography variant="h4" gutterBottom>
-                Dashboard
-            </Typography>
-            <Typography variant="body1" color="text.secondary" paragraph>
-                Welcome to EWNET OSS/BSS Dashboard
+            <Typography variant="h5" gutterBottom fontWeight={600}>
+                Welcome back, {account.user.name}
             </Typography>
 
-            <Grid container spacing={3}>
-                {stats.map((stat) => (
-                    <Grid key={stat.title} xs={12} sm={6} md={3}>
-                        <Card>
-                            <CardContent>
-                                <Typography color="text.secondary" variant="subtitle2">
-                                    {stat.title}
-                                </Typography>
-                                <Typography variant="h4">{stat.value}</Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                ))}
+            {/* Organization Stats */}
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} sm={6} md={4} lg={2.4}>
+                    <StatCard
+                        title="Companies"
+                        value={organization.companies}
+                        icon={<BusinessIcon />}
+                        color="primary.main"
+                        link="/manage/companies"
+                    />
+                </Grid>
+                <Grid item xs={12} sm={6} md={4} lg={2.4}>
+                    <StatCard
+                        title="Regions"
+                        value={organization.regions}
+                        icon={<LocationOnIcon />}
+                        color="success.main"
+                        link="/manage/regions"
+                    />
+                </Grid>
+                <Grid item xs={12} sm={6} md={4} lg={2.4}>
+                    <StatCard
+                        title="Branches"
+                        value={organization.branches}
+                        icon={<StorefrontIcon />}
+                        color="warning.main"
+                        link="/manage/branches"
+                    />
+                </Grid>
+                <Grid item xs={12} sm={6} md={4} lg={2.4}>
+                    <StatCard
+                        title="Departments"
+                        value={organization.departments}
+                        icon={<ApartmentIcon />}
+                        color="info.main"
+                        link="/manage/departments"
+                    />
+                </Grid>
+                <Grid item xs={12} sm={6} md={4} lg={2.4}>
+                    <StatCard
+                        title="Users"
+                        value={organization.users}
+                        icon={<PeopleIcon />}
+                        color="secondary.main"
+                        link="/manage/users"
+                    />
+                </Grid>
             </Grid>
 
-            <Box sx={{ mt: 4 }}>
-                <Typography variant="h6" gutterBottom>
-                    Quick Actions
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                    Use the sidebar to navigate to different modules.
-                </Typography>
-            </Box>
+            {/* Security Stats */}
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} sm={6} md={3}>
+                    <StatCard
+                        title="Roles"
+                        value={security.roles}
+                        icon={<SecurityIcon />}
+                        color="primary.main"
+                        link="/manage/roles"
+                    />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                    <StatCard
+                        title="Permissions"
+                        value={security.permissions}
+                        icon={<VpnKeyIcon />}
+                        color="secondary.main"
+                        link="/manage/permissions"
+                    />
+                </Grid>
+            </Grid>
+
+            {/* Activity and Quick Actions */}
+            <Grid container spacing={2}>
+                <Grid item xs={12} md={8}>
+                    <RecentActivity activities={activity} />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                    <QuickActions />
+                </Grid>
+            </Grid>
         </Box>
     );
 };
