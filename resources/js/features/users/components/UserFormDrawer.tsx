@@ -63,6 +63,21 @@ export const UserFormDrawer = ({ open, onClose, user, onSubmit, loading }: Props
     const [scopeBranch, setScopeBranch] = useState<number>(0);
     const [scopeDepartment, setScopeDepartment] = useState<number>(0);
 
+    
+    // Load existing scopes when editing a user
+    useEffect(() => {
+        if (open && user) {
+            const existingScopes = (user as any).management_scopes || [];
+            setPendingScopes(existingScopes.map((s: any) => ({
+                scope_type: s.scope_type,
+                scope_id: s.scope_id,
+                scope_name: s.scope_name,
+            })));
+        } else if (!open) {
+            setPendingScopes([]);
+        }
+    }, [user, open]);
+
     const { control, handleSubmit, reset, formState: { errors } } = useForm<UserFormData>({
         resolver: zodResolver(userSchema),
         defaultValues: {

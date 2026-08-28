@@ -50,6 +50,7 @@ class UserRequest extends FormRequest
 
         return [
             'name' => $nameRule,
+            'phone_number' => ['nullable', 'string', 'max:255'],
             'email' => $emailRule,
             'password' => $passwordRule,
             'company_id' => 'sometimes|exists:companies,id',

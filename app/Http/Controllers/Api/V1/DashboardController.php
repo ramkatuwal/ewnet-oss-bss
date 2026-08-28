@@ -26,26 +26,61 @@ class DashboardController extends Controller
         }
 
         $isSuperAdmin = $user->hasRole('Super Admin');
-        $scopeQuery = $isSuperAdmin ? null : function($query) use ($user) {
-            if ($user->company_id) {
-                $query->where('company_id', $user->company_id);
-            }
-            if ($user->branch_id) {
-                $query->where('branch_id', $user->branch_id);
-            }
-            if ($user->department_id) {
-                $query->where('department_id', $user->department_id);
-            }
-        };
 
-        // Organization metrics
+        // SAFE Organization metrics (Respects actual DB relationships)
         $organization = [
-            'companies' => $isSuperAdmin ? Company::count() : 0,
-            'regions' => $isSuperAdmin ? Region::count() : Region::when($user->company_id, fn($q) => $q->where('company_id', $user->company_id))->count(),
-            'branches' => Branch::when($scopeQuery, fn($q) => $scopeQuery($q))->count(),
-            'departments' => Department::when($scopeQuery, fn($q) => $scopeQuery($q))->count(),
-            'users' => User::when($scopeQuery, fn($q) => $scopeQuery($q))->count(),
+            'companies' => 0,
+            'regions' => 0,
+            'branches' => 0,
+            'departments' => 0,
+            'users' => 0,
         ];
+
+        if ($isSuperAdmin) {
+            $organization['companies'] = Company::count();
+            $organization['regions'] = Region::count();
+            $organization['branches'] = Branch::count();
+            $organization['departments'] = Department::count();
+            $organization['users'] = User::count();
+        } else {
+            $companyIds = [];
+            $regionIds = [];
+            $branchIds = [];
+            $departmentIds = [];
+
+            // Traverse relationships safely
+            if ($user->company_id) {
+                $companyIds[] = $user->company_id;
+                $regionIds = Region::where('company_id', $user->company_id)->pluck('id')->toArray();
+                $branchIds = Branch::whereIn('region_id', $regionIds)->pluck('id')->toArray();
+                $departmentIds = Department::whereIn('branch_id', $branchIds)->pluck('id')->toArray();
+            }
+            
+            if ($user->branch_id && !in_array($user->branch_id, $branchIds)) {
+                $branchIds[] = $user->branch_id;
+                $departmentIds = array_merge($departmentIds, Department::where('branch_id', $user->branch_id)->pluck('id')->toArray());
+                $branch = Branch::find($user->branch_id);
+                if ($branch && $branch->region_id && !in_array($branch->region_id, $regionIds)) {
+                    $regionIds[] = $branch->region_id;
+                }
+            }
+            
+            if ($user->department_id && !in_array($user->department_id, $departmentIds)) {
+                $departmentIds[] = $user->department_id;
+            }
+
+            $organization['companies'] = Company::whereIn('id', $companyIds)->count();
+            $organization['regions'] = Region::whereIn('id', $regionIds)->count();
+            $organization['branches'] = Branch::whereIn('id', $branchIds)->count();
+            $organization['departments'] = Department::whereIn('id', $departmentIds)->count();
+            
+            $organization['users'] = User::where(function($q) use ($companyIds, $branchIds, $departmentIds, $user) {
+                $q->whereIn('company_id', $companyIds)
+                  ->orWhereIn('branch_id', $branchIds)
+                  ->orWhereIn('department_id', $departmentIds)
+                  ->orWhere('id', $user->id); // Always include self
+            })->count();
+        }
 
         // Security metrics
         $security = [
@@ -58,11 +93,14 @@ class DashboardController extends Controller
             ->orderBy('created_at', 'desc')
             ->take(10);
 
-        if (!$isSuperAdmin && $scopeQuery) {
-            // For non-super-admin, filter by scope
-            $activityQuery->where(function($q) use ($user) {
+        if (!$isSuperAdmin) {
+            // For non-super-admin, filter by scope (actor or target is the user, or within their org)
+            $activityQuery->where(function($q) use ($user, $companyIds, $branchIds, $departmentIds) {
                 $q->where('actor_id', $user->id)
-                  ->orWhere('target_id', $user->id);
+                  ->orWhere('target_id', $user->id)
+                  ->orWhereIn('company_id', $companyIds)
+                  ->orWhereIn('branch_id', $branchIds)
+                  ->orWhereIn('department_id', $departmentIds);
             });
         }
 
