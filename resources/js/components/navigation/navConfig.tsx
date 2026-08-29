@@ -45,6 +45,7 @@ export const navigationItems: NavItem[] = [
         icon: <SettingsIcon />,
         children: [
             { label: 'Configuration', path: '/system/configuration', icon: <SettingsIcon />, permission: 'system.config.manage' },
+            { label: 'Integrations', path: '/system/integrations', icon: <SettingsIcon />, permission: 'integrations.view' },
         ],
     },
 ];

@@ -9,6 +9,8 @@ const LoginPage = lazy(() => import('@/features/auth/pages/LoginPage').then(m =>
 const DashboardPage = lazy(() => import('@/features/dashboard/pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
 const SystemInfoPage = lazy(() => import("@/features/system/pages/SystemInfoPage").then(m => ({ default: m.SystemInfoPage })));
 const SystemConfigurationPage = lazy(() => import("@/features/system/pages/SystemConfigurationPage").then(m => ({ default: m.SystemConfigurationPage })));
+const IntegrationsPage = lazy(() => import("@/features/integrations/pages/IntegrationsPage").then(m => ({ default: m.IntegrationsPage })));
+const IntegrationDetailPage = lazy(() => import("@/features/integrations/pages/IntegrationDetailPage").then(m => ({ default: m.IntegrationDetailPage })));
 
 const CompaniesPage = lazy(() => import('@/features/companies/pages/CompaniesPage').then(m => ({ default: m.CompaniesPage })));
 const CompanyDetailPage = lazy(() => import('@/features/companies/pages/CompanyDetailPage').then(m => ({ default: m.CompanyDetailPage })));
@@ -49,6 +51,8 @@ export const AppRouter = () => (
                     <Route path="dashboard" element={<DashboardPage />} />
                     <Route path="audit/system-info" element={<SystemInfoPage />} />
                     <Route path="system/configuration" element={<SystemConfigurationPage />} />
+                    <Route path="system/integrations" element={<IntegrationsPage />} />
+                    <Route path="system/integrations/:id" element={<IntegrationDetailPage />} />
                     <Route path="manage">
                         <Route path="companies" element={<CompaniesPage />} />
                         <Route path="companies/:id" element={<CompanyDetailPage />} />
@@ -67,7 +71,6 @@ export const AppRouter = () => (
                         <Route path="permissions" element={<PermissionsPage />} />
                     </Route>
                     <Route path="audit"><Route path="security" element={<SecurityActivityPage />} /></Route>
-                    
                     {/* Legacy redirects */}
                     <Route path="companies" element={<Navigate to="/manage/companies" replace />} />
                     <Route path="regions" element={<Navigate to="/manage/regions" replace />} />

@@ -76,3 +76,21 @@ Route::middleware('auth:sanctum')->prefix('v1/system')->group(function () {
     Route::get('/configuration', [App\Http\Controllers\Api\V1\SystemConfigController::class, 'index']);
     Route::put('/configuration', [App\Http\Controllers\Api\V1\SystemConfigController::class, 'update']);
 });
+
+// Integrations
+Route::middleware('auth:sanctum')->prefix('v1/integrations')->group(function () {
+    Route::get('/', [App\Http\Controllers\Api\V1\IntegrationController::class, 'index']);
+    Route::post('/', [App\Http\Controllers\Api\V1\IntegrationController::class, 'store']);
+    Route::get('/{integration}', [App\Http\Controllers\Api\V1\IntegrationController::class, 'show']);
+    Route::put('/{integration}', [App\Http\Controllers\Api\V1\IntegrationController::class, 'update']);
+    Route::delete('/{integration}', [App\Http\Controllers\Api\V1\IntegrationController::class, 'destroy']);
+    Route::post('/{integration}/test', [App\Http\Controllers\Api\V1\IntegrationController::class, 'testConnection']);
+    Route::post('/{integration}/health-check', [App\Http\Controllers\Api\V1\IntegrationController::class, 'healthCheck']);
+    Route::post('/{integration}/sync', [App\Http\Controllers\Api\V1\IntegrationController::class, 'sync']);
+    Route::get('/{integration}/syncs', [App\Http\Controllers\Api\V1\IntegrationController::class, 'syncs']);
+
+    // Credentials (nested under integration)
+    Route::get('/{integration}/credentials', [App\Http\Controllers\Api\V1\IntegrationCredentialController::class, 'index']);
+    Route::post('/{integration}/credentials', [App\Http\Controllers\Api\V1\IntegrationCredentialController::class, 'store']);
+    Route::delete('/{integration}/credentials/{credential}', [App\Http\Controllers\Api\V1\IntegrationCredentialController::class, 'destroy']);
+});
