@@ -110,9 +110,7 @@ docker compose exec app php artisan route:cache
 docker compose exec app php artisan view:cache
 
 # --- 10. Frontend Build ---
-echo -e "${YELLOW}Building frontend assets...${NC}"
-docker compose exec app npm install
-docker compose exec app npm run build
+# Frontend assets are compiled during the Docker image build stage.
 
 # --- 11. Final Verification ---
 echo -e "${GREEN}========================================${NC}"

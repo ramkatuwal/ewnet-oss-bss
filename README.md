@@ -46,7 +46,7 @@ docker compose exec app php artisan key:generate
 docker compose exec app php artisan migrate --force
 docker compose exec app php artisan db:seed --force
 docker compose exec app php artisan storage:link
-docker compose exec app npm install && npm run build
+docker compose build # Includes frontend asset compilation
 
 🔒 Security & TLS
 The application uses Let's Encrypt for TLS. Ensure your Nginx configuration points to the correct certificate paths in /etc/letsencrypt.

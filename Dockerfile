@@ -1,6 +1,17 @@
+# Stage 1: Build Frontend Assets
+FROM node:20-alpine AS frontend-builder
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY resources/js ./resources/js
+COPY resources/css ./resources/css
+COPY vite.config.ts tailwind.config.js postcss.config.cjs ./
+RUN npm run build
+
+# Stage 2: PHP Runtime
 FROM php:8.4-fpm-alpine
 
-# Install system dependencies and build tools
+# Install system dependencies
 RUN apk add --no-cache \
     autoconf \
     build-base \
@@ -38,6 +49,9 @@ WORKDIR /var/www/html
 
 # Copy application files
 COPY . /var/www/html
+
+# Copy built frontend assets from Stage 1
+COPY --from=frontend-builder /app/public/build ./public/build
 
 # Fix Git ownership issue and install dependencies
 RUN git config --global --add safe.directory /var/www/html \
