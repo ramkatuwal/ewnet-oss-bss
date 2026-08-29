@@ -1,12 +1,8 @@
 # Stage 1: Build Frontend Assets
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
-COPY resources/js ./resources/js
-COPY resources/css ./resources/css
-COPY vite.config.ts tailwind.config.js postcss.config.cjs ./
-RUN npm run build
+COPY . .
+RUN npm ci && npm run build
 
 # Stage 2: PHP Runtime
 FROM php:8.4-fpm-alpine
@@ -50,7 +46,7 @@ WORKDIR /var/www/html
 # Copy application files
 COPY . /var/www/html
 
-# Copy built frontend assets from Stage 1
+# Copy built frontend assets from Stage 1 (Overwriting any host-generated ones)
 COPY --from=frontend-builder /app/public/build ./public/build
 
 # Fix Git ownership issue and install dependencies
