@@ -2,8 +2,8 @@
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app
 COPY . .
-RUN npm ci && npm run build
-
+#RUN npm ci && npm run build
+RUN npm ci --legacy-peer-deps && npm run build
 # Stage 2: PHP Runtime
 FROM php:8.4-fpm-alpine
 
