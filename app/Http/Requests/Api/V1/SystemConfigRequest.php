@@ -36,9 +36,9 @@ class SystemConfigRequest extends FormRequest
         $rules['header.show_user_menu'] = 'sometimes|boolean';
         $rules['header.show_notifications'] = 'sometimes|boolean';
 
-        $rules['theme.compactness'] = 'sometimes|in:compact,comfortable,spacious';
+        $rules['theme.compactness'] = 'sometimes|nullable|in:compact,comfortable,spacious';
         $rules['theme.dark_mode'] = 'sometimes|boolean';
-        $rules['theme.primary_color'] = 'sometimes|regex:/^#[0-9a-fA-F]{6}$/';
+        $rules['theme.primary_color'] = 'sometimes|nullable|regex:/^#[0-9a-fA-F]{6}$/';
 
         return $rules;
     }

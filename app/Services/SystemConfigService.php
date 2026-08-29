@@ -139,11 +139,14 @@ class SystemConfigService
 
                 // Clear cache for this key
                 Cache::forget('system_settings');
+                Cache::forget('system_settings_cache');
             }
         }
 
-        // Clear cache
+        // Clear all possible cache keys
         Cache::forget('system_settings');
+        Cache::forget('system_settings_cache');
+        Cache::tags(['system', 'settings', 'config'])->flush();
 
         return [
             'updated' => $updated,
@@ -153,6 +156,9 @@ class SystemConfigService
 
     protected static function getSettingsFromCache(): array
     {
+        // Always clear cache before fetching to ensure fresh data
+        Cache::forget('system_settings');
+        
         return Cache::remember('system_settings', self::CACHE_TTL, function () {
             $settings = SystemSetting::all();
             $result = [];

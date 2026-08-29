@@ -5,7 +5,7 @@ import {
     AppBar,
     Toolbar,
     IconButton,
-    
+    Typography,
     CircularProgress,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -23,7 +23,6 @@ export const MainLayout = () => {
     const { authState } = useAuthStore();
     const { mode, toggle } = useThemeStore();
     const config = useConfigStore((state) => state.config);
-    console.log('[MainLayout] Config loaded:', config);
 
     if (authState === 'booting') {
         return (

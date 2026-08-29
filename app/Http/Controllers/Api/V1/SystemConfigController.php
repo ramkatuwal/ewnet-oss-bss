@@ -13,6 +13,11 @@ class SystemConfigController extends Controller
 {
     public function index(Request $request)
     {
+        // Check authorization
+        if (!$request->user() || !$request->user()->can('system.info.view')) {
+            abort(403, 'Unauthorized to view configuration');
+        }
+
         $this->authorize('viewConfiguration', \App\Models\SystemSetting::class);
 
         $config = SystemConfigService::getAll();

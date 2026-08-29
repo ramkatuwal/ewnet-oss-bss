@@ -9,6 +9,7 @@ import {
 } from '@mui/material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { systemApi } from '@/api/system';
+import { useConfigStore } from '@/stores/configStore';
 import { PageHeader } from '@/components/layout/PageHeader';
 import {
   ConfigurationSection,
@@ -46,6 +47,7 @@ const defaultConfig: SystemConfig = {
 
 export const SystemConfigurationPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const setGlobalConfig = useConfigStore((state) => state.setConfig);
   const [config, setConfig] = useState<SystemConfig>(defaultConfig);
   const [hasChanges, setHasChanges] = useState(false);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
@@ -92,8 +94,12 @@ export const SystemConfigurationPage: React.FC = () => {
 
   const updateMutation = useMutation({
     mutationFn: systemApi.updateConfig,
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['systemConfig'] });
+    onSuccess: async (result) => {
+      setGlobalConfig(config);
+
+      await queryClient.invalidateQueries({ queryKey: ['systemConfig'] });
+      await queryClient.refetchQueries({ queryKey: ['systemConfig'] });
+
       setHasChanges(false);
       setSnackbar({ open: true, message: result.message || 'Configuration updated successfully.', severity: 'success' });
     },
@@ -132,14 +138,22 @@ export const SystemConfigurationPage: React.FC = () => {
   };
 
   const handleSave = () => {
-    // Normalize values before sending to backend
+    // Strict validation: ensure critical fields have valid values
+    const validCompactness = ['compact', 'comfortable', 'spacious'].includes(config.theme.compactness)
+      ? config.theme.compactness
+      : 'compact';
+    
+    const validPrimaryColor = /^#[0-9a-fA-F]{6}$/.test(config.theme.primary_color || '')
+      ? config.theme.primary_color
+      : '#1976d2';
+
     const saveData = {
       branding: {
-        app_name: config.branding.app_name || 'EWNET',
-        browser_title: config.branding.browser_title || 'EWNET OSS/BSS',
-        logo_path: config.branding.logo_path || null,
-        favicon_path: config.branding.favicon_path || null,
-        login_branding: config.branding.login_branding || 'EWNET',
+        app_name: config.branding.app_name?.trim() || 'EWNET',
+        browser_title: config.branding.browser_title?.trim() || 'EWNET OSS/BSS',
+        logo_path: config.branding.logo_path?.trim() || null,
+        favicon_path: config.branding.favicon_path?.trim() || null,
+        login_branding: config.branding.login_branding?.trim() || 'EWNET',
       },
       navigation: {
         menu_visibility: config.navigation.menu_visibility || {},
@@ -152,11 +166,15 @@ export const SystemConfigurationPage: React.FC = () => {
         show_notifications: config.header.show_notifications ?? true,
       },
       theme: {
-        compactness: config.theme.compactness || 'compact',
+        compactness: validCompactness,
         dark_mode: config.theme.dark_mode ?? false,
-        primary_color: config.theme.primary_color || '#1976d2',
+        primary_color: validPrimaryColor,
       },
     };
+
+    // Debug: log what we're sending
+    console.log('Saving configuration:', JSON.stringify(saveData, null, 2));
+    
     updateMutation.mutate(saveData);
   };
 

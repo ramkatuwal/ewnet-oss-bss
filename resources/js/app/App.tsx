@@ -4,6 +4,7 @@ import { ThemeProvider, CssBaseline } from '@mui/material';
 import { useEffect, useMemo } from 'react';
 import { AppRouter } from '@/routes';
 import { useAuthStore } from '@/stores/authStore';
+import { useConfigStore } from '@/stores/configStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { createAppTheme } from '@/theme/theme';
 import { ToastProvider } from '@/components/feedback/ToastProvider';
@@ -20,13 +21,15 @@ const queryClient = new QueryClient({
 
 export const App = () => {
     const { hydrate, authState } = useAuthStore();
+    const fetchConfig = useConfigStore((state) => state.fetchConfig);
     const { mode } = useThemeStore();
 
     const theme = useMemo(() => createAppTheme(mode), [mode]);
 
     useEffect(() => {
         hydrate();
-    }, [hydrate]);
+        fetchConfig();
+    }, [hydrate, fetchConfig]);
 
     if (authState === 'booting') {
         return null; // MainLayout handles the loading state

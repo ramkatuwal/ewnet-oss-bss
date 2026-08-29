@@ -16,6 +16,7 @@ import {
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { Can } from '@/components/auth/Can';
+import { useConfigStore } from '@/stores/configStore';
 import { navigationItems } from './navConfig';
 import type { NavItem } from '@/types';
 
@@ -124,13 +125,25 @@ const NavItemInner: React.FC<{
     );
 };
 
-export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onMobileClose }) => {    const drawerContent = (
+export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onMobileClose }) => {
+    const config = useConfigStore((state) => state.config);
+
+    const drawerContent = (
         <Box>
-            <Toolbar>
-                <Typography variant="h6" noWrap fontWeight={700} color="primary">
-                    EWNET OSS/BSS
-                </Typography>
-            </Toolbar>
+            <Toolbar sx={{ justifyContent: 'center', minHeight: '64px !important' }}>
+                        {config?.branding?.logo_path ? (
+                            <Box
+                                component="img"
+                                src={config.branding.logo_path}
+                                alt="Sidebar Logo"
+                                sx={{ height: 40, width: 'auto', objectFit: 'contain' }}
+                            />
+                        ) : (
+                            <Typography variant="h6" fontWeight={700} color="primary">
+                                {config?.branding?.app_name || 'Navigation'}
+                            </Typography>
+                        )}
+                    </Toolbar>
             <Divider />
             <List sx={{ pt: 1 }}>
                 {navigationItems.map((item) => (
