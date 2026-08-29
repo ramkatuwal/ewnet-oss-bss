@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { systemApi } from '@/api/system';
+import { apiClient } from '@/api/client';
 import type { SystemConfig } from '@/features/system/types';
 
 const defaultConfig: SystemConfig = {
@@ -28,35 +28,6 @@ const defaultConfig: SystemConfig = {
   },
 };
 
-const normalizeConfig = (config?: Partial<SystemConfig> | null): SystemConfig => ({
-  branding: {
-    app_name: config?.branding?.app_name || defaultConfig.branding.app_name,
-    browser_title: config?.branding?.browser_title || defaultConfig.branding.browser_title,
-    logo_path: config?.branding?.logo_path || null,
-    favicon_path: config?.branding?.favicon_path || null,
-    login_branding: config?.branding?.login_branding || defaultConfig.branding.login_branding,
-  },
-  navigation: {
-    menu_visibility: config?.navigation?.menu_visibility || {},
-    menu_ordering: config?.navigation?.menu_ordering || {},
-  },
-  header: {
-    show_logo: config?.header?.show_logo ?? true,
-    show_title: config?.header?.show_title ?? true,
-    show_user_menu: config?.header?.show_user_menu ?? true,
-    show_notifications: config?.header?.show_notifications ?? true,
-  },
-  theme: {
-    compactness: ['compact', 'comfortable', 'spacious'].includes(config?.theme?.compactness || '')
-      ? config!.theme!.compactness
-      : 'compact',
-    dark_mode: config?.theme?.dark_mode ?? false,
-    primary_color: /^#[0-9a-fA-F]{6}$/.test(config?.theme?.primary_color || '')
-      ? config!.theme!.primary_color
-      : '#1976d2',
-  },
-});
-
 const applyBrandingToDocument = (config: SystemConfig) => {
   if (config.branding.browser_title) {
     document.title = config.branding.browser_title;
@@ -64,13 +35,11 @@ const applyBrandingToDocument = (config: SystemConfig) => {
 
   if (config.branding.favicon_path) {
     let link = document.querySelector<HTMLLinkElement>("link[rel='icon'], link[rel='shortcut icon']");
-
     if (!link) {
       link = document.createElement('link');
       link.rel = 'icon';
       document.head.appendChild(link);
     }
-
     link.href = config.branding.favicon_path;
   }
 };
@@ -85,7 +54,7 @@ interface ConfigState {
 
 export const useConfigStore = create<ConfigState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       config: defaultConfig,
       loading: false,
       error: null,
@@ -94,47 +63,47 @@ export const useConfigStore = create<ConfigState>()(
         set({ loading: true, error: null });
 
         try {
-          const response = await systemApi.getConfig();
-          const config = normalizeConfig(response);
+          // Fetch from the PUBLIC branding endpoint (no auth required)
+          const response = await apiClient.get<{ data: Partial<SystemConfig['branding']> }>('/api/v1/branding');
+          const brandingData = response.data.data;
 
-          applyBrandingToDocument(config);
+          const currentConfig = get().config;
+          const newConfig: SystemConfig = {
+            ...currentConfig,
+            branding: {
+              ...currentConfig.branding,
+              app_name: brandingData.app_name || currentConfig.branding.app_name,
+              logo_path: brandingData.logo_path || null,
+              login_branding: brandingData.login_branding || currentConfig.branding.login_branding,
+            },
+          };
+
+          applyBrandingToDocument(newConfig);
 
           set({
-            config,
+            config: newConfig,
             loading: false,
             error: null,
           });
         } catch (error) {
-          console.error('Failed to fetch system configuration:', error);
+          console.warn('Failed to fetch public branding:', error);
           set({
             loading: false,
-            error: 'Failed to load system configuration',
+            error: null, // Don't show error for public branding failure
           });
         }
       },
 
       setConfig: (partialConfig) => {
         set((state) => {
-          const config = normalizeConfig({
+          const config: SystemConfig = {
             ...state.config,
             ...partialConfig,
             branding: {
               ...state.config.branding,
               ...partialConfig.branding,
             },
-            navigation: {
-              ...state.config.navigation,
-              ...partialConfig.navigation,
-            },
-            header: {
-              ...state.config.header,
-              ...partialConfig.header,
-            },
-            theme: {
-              ...state.config.theme,
-              ...partialConfig.theme,
-            },
-          });
+          };
 
           applyBrandingToDocument(config);
 
@@ -143,8 +112,7 @@ export const useConfigStore = create<ConfigState>()(
       },
     }),
     {
-      name: 'ewnet-config-storage-v3',
-      version: 2, // Bumped to force cache refresh for logo
+      name: 'ewnet-config-storage-v4', // Bumped version to clear old cache
     }
   )
 );

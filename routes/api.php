@@ -24,6 +24,10 @@ use App\Http\Controllers\Api\V1\DebugController;
 Route::post('/v1/auth/login', [AuthController::class, 'login']);
 
 // Authenticated routes
+
+// PUBLIC ROUTES (No Authentication Required)
+Route::get('/v1/branding', [\App\Http\Controllers\Api\V1\PublicBrandingController::class, 'index']);
+
 Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     // Auth
     Route::post('/auth/logout', [AuthController::class, 'logout']);
