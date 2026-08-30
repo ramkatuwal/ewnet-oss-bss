@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-    Box, Button, IconButton, Tooltip, Chip, 
+import {
+    Box, Button, IconButton, Tooltip, Chip,
     Dialog, DialogTitle, DialogContent, DialogActions,
     TextField, Grid, Card, CardContent, Typography, MenuItem
 } from '@mui/material';
 import { Add, Delete, Edit, UploadFile, Download } from '@mui/icons-material';
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridRenderCellParams, GridRowParams } from '@mui/x-data-grid';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { SearchFilterBar } from '@/components/forms/SearchFilterBar';
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog';
@@ -28,6 +29,7 @@ interface DashboardData {
 }
 
 const AssetsPage: React.FC = () => {
+    const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [openForm, setOpenForm] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -46,11 +48,11 @@ const AssetsPage: React.FC = () => {
 
     const { data, isLoading } = useQuery<PaginatedResponse<any>>({
         queryKey: ['assets', page, pageSize, searchValue, filters],
-        queryFn: () => getAssets({ 
-            page: page + 1, 
-            per_page: pageSize, 
+        queryFn: () => getAssets({
+            page: page + 1,
+            per_page: pageSize,
             search: searchValue,
-            ...filters 
+            ...filters
         }),
     });
 
@@ -92,6 +94,10 @@ const AssetsPage: React.FC = () => {
         }
     };
 
+    const handleRowClick = (params: GridRowParams) => {
+        navigate(`/network/assets/${params.id}`);
+    };
+
     const columns: GridColDef[] = [
         { field: 'asset_tag', headerName: 'Asset Tag', flex: 1 },
         { field: 'type', headerName: 'Type', flex: 1 },
@@ -99,27 +105,28 @@ const AssetsPage: React.FC = () => {
         { field: 'model', headerName: 'Model', flex: 1 },
         { field: 'serial_number', headerName: 'Serial', flex: 1 },
         { field: 'quantity', headerName: 'Qty', width: 80 },
-        { 
-            field: 'status', 
-            headerName: 'Status', 
+        {
+            field: 'status',
+            headerName: 'Status',
             width: 120,
             renderCell: (params: GridRenderCellParams) => (
-                <Chip 
-                    label={params.value} 
-                    size="small" 
-                    color={params.value === 'OPERATIONAL' ? 'success' : 'default'} 
+                <Chip
+                    label={params.value}
+                    size="small"
+                    color={params.value === 'OPERATIONAL' ? 'success' : 'default'}
                 />
             )
         },
-        { 
-            field: 'actions', 
-            headerName: 'Actions', 
+        {
+            field: 'actions',
+            headerName: 'Actions',
             width: 120,
             renderCell: (params: GridRenderCellParams) => (
                 <Box>
                     <Can permission="assets.update">
                         <Tooltip title="Edit">
-                            <IconButton size="small" onClick={() => {
+                            <IconButton size="small" onClick={(e) => {
+                                e.stopPropagation();
                                 setEditingId(params.row.id);
                                 setOpenForm(true);
                             }}>
@@ -129,7 +136,10 @@ const AssetsPage: React.FC = () => {
                     </Can>
                     <Can permission="assets.delete">
                         <Tooltip title="Delete">
-                            <IconButton size="small" color="error" onClick={() => setDeleteId(params.row.id)}>
+                            <IconButton size="small" color="error" onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteId(params.row.id);
+                            }}>
                                 <Delete fontSize="small" />
                             </IconButton>
                         </Tooltip>
@@ -141,11 +151,11 @@ const AssetsPage: React.FC = () => {
 
     return (
         <Box sx={{ p: 3 }}>
-            <PageHeader 
-                title="Asset Management" 
-                breadcrumbs={[{ label: 'Network', path: '/network' }, { label: 'Assets' }]} 
+            <PageHeader
+                title="Asset Management"
+                breadcrumbs={[{ label: 'Network', path: '/network' }, { label: 'Assets' }]}
             />
-            
+
             {/* Dashboard Cards */}
             {dashboard && (
                 <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -185,15 +195,15 @@ const AssetsPage: React.FC = () => {
             )}
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <SearchFilterBar 
+                <SearchFilterBar
                     searchValue={searchValue}
                     onSearchChange={setSearchValue}
                     placeholder="Search assets..."
                 >
-                    <TextField 
-                        select 
-                        label="Category" 
-                        size="small" 
+                    <TextField
+                        select
+                        label="Category"
+                        size="small"
                         sx={{ minWidth: 120, mr: 1 }}
                         value={filters.category || ''}
                         onChange={(e) => setFilters({ ...filters, category: e.target.value })}
@@ -203,10 +213,10 @@ const AssetsPage: React.FC = () => {
                         <MenuItem value="NETWORK">Network</MenuItem>
                         <MenuItem value="INFRASTRUCTURE">Infrastructure</MenuItem>
                     </TextField>
-                    <TextField 
-                        select 
-                        label="Status" 
-                        size="small" 
+                    <TextField
+                        select
+                        label="Status"
+                        size="small"
                         sx={{ minWidth: 120 }}
                         value={filters.status || ''}
                         onChange={(e) => setFilters({ ...filters, status: e.target.value })}
@@ -226,10 +236,10 @@ const AssetsPage: React.FC = () => {
                         <Button startIcon={<Download />} onClick={() => handleExport('xlsx')}>XLSX</Button>
                     </Can>
                     <Can permission="assets.create">
-                        <Button 
-                            variant="contained" 
-                            startIcon={<Add />} 
-                            onClick={() => { setEditingId(null); setOpenForm(true); }} 
+                        <Button
+                            variant="contained"
+                            startIcon={<Add />}
+                            onClick={() => { setEditingId(null); setOpenForm(true); }}
                             sx={{ ml: 2 }}
                         >
                             Add Asset
@@ -249,13 +259,20 @@ const AssetsPage: React.FC = () => {
                     setPage(model.page);
                     setPageSize(model.pageSize);
                 }}
+                onRowClick={handleRowClick}
                 autoHeight
+                sx={{
+                    cursor: 'pointer',
+                    '& .MuiDataGrid-row:hover': {
+                        backgroundColor: 'action.hover',
+                    },
+                }}
             />
 
-            <AssetFormDrawer 
-                open={openForm} 
-                onClose={() => { setOpenForm(false); setEditingId(null); }} 
-                assetId={editingId} 
+            <AssetFormDrawer
+                open={openForm}
+                onClose={() => { setOpenForm(false); setEditingId(null); }}
+                assetId={editingId}
             />
 
             <ConfirmDialog
@@ -269,10 +286,10 @@ const AssetsPage: React.FC = () => {
             <Dialog open={importOpen} onClose={() => setImportOpen(false)}>
                 <DialogTitle>Import Assets</DialogTitle>
                 <DialogContent>
-                    <TextField 
-                        type="file" 
-                        fullWidth 
-                        onChange={(e: any) => setImportFile(e.target.files?.[0] || null)} 
+                    <TextField
+                        type="file"
+                        fullWidth
+                        onChange={(e: any) => setImportFile(e.target.files?.[0] || null)}
                         sx={{ mt: 2 }}
                     />
                 </DialogContent>
