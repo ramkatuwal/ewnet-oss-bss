@@ -11,6 +11,7 @@ import ManageSearchIcon from '@mui/icons-material/ManageSearch';
 import ApartmentIcon from '@mui/icons-material/Apartment';
 import SettingsIcon from '@mui/icons-material/Settings';
 import InfoIcon from '@mui/icons-material/Info';
+import InventoryIcon from '@mui/icons-material/Inventory';
 import type { NavItem } from '@/types';
 
 export const navigationItems: NavItem[] = [
@@ -45,6 +46,7 @@ export const navigationItems: NavItem[] = [
         icon: <LocationOnIcon />,
         children: [
             { label: 'Sites', path: '/network/sites', icon: <LocationOnIcon />, permission: 'sites.view' },
+            { label: 'Assets', path: '/network/assets', icon: <InventoryIcon />, permission: 'assets.view' },
         ],
     },
     {

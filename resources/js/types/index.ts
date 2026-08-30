@@ -149,3 +149,71 @@ export interface ScopeAssignment {
     created_at: string;
     updated_at: string;
 }
+
+export interface Asset {
+    id: number;
+    site_id: number;
+    asset_tag: string;
+    serial_number: string | null;
+    category: string;
+    type: string;
+    manufacturer: string | null;
+    model: string | null;
+    quantity: number;
+    unit: string;
+    status: string;
+    condition: string | null;
+    purchase_date: string | null;
+    installation_date: string | null;
+    warranty_expiry: string | null;
+    specifications: Record<string, any> | null;
+    description: string | null;
+    notes: string | null;
+    created_by: number | null;
+    updated_by: number | null;
+    created_at: string;
+    updated_at: string;
+    deleted_at: string | null;
+    site?: {
+        id: number;
+        site_code: string;
+        name: string;
+        company?: { name: string };
+        region?: { name: string };
+        branch?: { name: string };
+    };
+}
+
+export interface Asset {
+    id: number;
+    site_id: number;
+    asset_tag: string;
+    serial_number: string | null;
+    category: string;
+    type: string;
+    manufacturer: string | null;
+    model: string | null;
+    quantity: number;
+    unit: string;
+    status: string;
+    condition: string | null;
+    purchase_date: string | null;
+    installation_date: string | null;
+    warranty_expiry: string | null;
+    specifications: Record<string, any> | null;
+    description: string | null;
+    notes: string | null;
+    created_by: number | null;
+    updated_by: number | null;
+    created_at: string;
+    updated_at: string;
+    deleted_at: string | null;
+    site?: {
+        id: number;
+        site_code: string;
+        name: string;
+        company?: { name: string };
+        region?: { name: string };
+        branch?: { name: string };
+    };
+}

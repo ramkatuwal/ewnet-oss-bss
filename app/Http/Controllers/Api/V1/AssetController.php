@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreAssetRequest;
 use App\Http\Requests\Api\V1\UpdateAssetRequest;
+use App\Http\Requests\Api\V1\ImportAssetsRequest;
 use App\Models\Asset;
 use App\Models\Site;
 use App\Services\AuditService;
 use App\Services\AssetExportService;
+use App\Services\AssetImportService;
+use App\Jobs\ProcessAssetImport;
 use App\Services\ManagementScopeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -170,11 +173,14 @@ class AssetController extends Controller
         ]);
     }
 
-    public function import(Request $request)
+    public function import(ImportAssetsRequest $request, AssetImportService $importService)
     {
-        $this->authorize('assets.import');
-        // Placeholder: Will implement queued import job similar to SiteImport
-        return response()->json(['message' => 'Import functionality pending implementation in next iteration'], 202);
+        $path = $request->file('file')->store('imports', 'local');
+        $fullPath = storage_path('app/' . $path);
+
+        ProcessAssetImport::dispatch($fullPath, $request->user()->id);
+
+        return response()->json(['message' => 'Import queued successfully. Check Horizon for status.'], 202);
     }
 
     public function export(Request $request, AssetExportService $exportService)
