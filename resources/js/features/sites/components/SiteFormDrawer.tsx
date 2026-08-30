@@ -39,18 +39,18 @@ export const SiteFormDrawer = ({ open, siteId, onClose, onSuccess }: SiteFormDra
 
     const { data: companies } = useQuery({
         queryKey: ['companies'],
-        queryFn: () => companiesApi.list({ per_page: 100 }),
+        queryFn: () => companiesApi.getAll({ per_page: 100 }),
     });
 
     const { data: regions } = useQuery({
         queryKey: ['regions', companyId],
-        queryFn: () => regionsApi.list({ company_id: companyId, per_page: 100 }),
+        queryFn: () => regionsApi.getAll({ company_id: companyId, per_page: 100 }),
         enabled: !!companyId,
     });
 
     const { data: branches } = useQuery({
         queryKey: ['branches', regionId],
-        queryFn: () => branchesApi.list({ region_id: regionId, per_page: 100 }),
+        queryFn: () => branchesApi.getAll({ region_id: regionId, per_page: 100 }),
         enabled: !!regionId,
     });
 

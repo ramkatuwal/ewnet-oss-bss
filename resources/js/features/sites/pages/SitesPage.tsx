@@ -23,12 +23,10 @@ import AddIcon from '@mui/icons-material/Add';
 import { sitesApi, Site } from '@/api/sites';
 import { SearchFilterBar } from '@/components/forms/SearchFilterBar';
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog';
-import { useNavigate } from 'react-router-dom';
 import { Can } from '@/components/auth/Can';
 import { SiteFormDrawer } from '../components/SiteFormDrawer';
 
 export const SitesPage = () => {
-    const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [search, setSearch] = useState('');
     const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -88,7 +86,7 @@ export const SitesPage = () => {
             </Box>
 
             <SearchFilterBar
-                search={search}
+                searchValue={search}
                 onSearchChange={setSearch}
                 placeholder="Search sites by code or name..."
             />
@@ -140,7 +138,7 @@ export const SitesPage = () => {
             <ConfirmDialog
                 open={!!deleteId}
                 title="Delete Site"
-                description="Are you sure you want to delete this site? This action cannot be undone."
+                message="Are you sure you want to delete this site? This action cannot be undone."
                 onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
                 onCancel={() => setDeleteId(null)}
             />
