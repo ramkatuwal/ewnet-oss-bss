@@ -35,14 +35,13 @@ class SiteMappingService
         if ($explicitRef) {
             $site = $explicitRef->site;
             if ($site) {
-                // Enrich GPS if available and Site allows
                 $this->enrichGps($site, $lat, $lng);
                 return ['status' => 'mapped', 'message' => 'Explicitly mapped', 'site_id' => $site->id];
             }
         }
 
-        // 2. Heuristic Matching: By Hostname/Site Code
-        $siteByCode = Site::where('site_code', strtoupper($hostname))->first();
+        // 2. Heuristic Matching: By Hostname/Site Code (Case-Insensitive)
+        $siteByCode = Site::whereRaw('LOWER(site_code) = ?', [strtolower($hostname)])->first();
         if ($siteByCode) {
             $this->createOrUpdateReference($siteByCode, 'librenms', 'device', $deviceId, $deviceData);
             $this->enrichGps($siteByCode, $lat, $lng);
@@ -68,7 +67,6 @@ class SiteMappingService
                 ->first();
             
             if ($nearbySite) {
-                // Only map if not already mapped to another device to avoid ambiguity
                 $existingRef = $nearbySite->externalReferences()->where('provider', 'librenms')->exists();
                 if (!$existingRef) {
                     $this->createOrUpdateReference($nearbySite, 'librenms', 'device', $deviceId, $deviceData);
@@ -97,8 +95,7 @@ class SiteMappingService
 
     private function enrichGps(Site $site, $lat, $lng): void
     {
-        // Conservative enrichment: only update if Site has no GPS or if explicitly configured
-        // For now, we only update if the Site's GPS is null to avoid overwriting manual entries
+        // Conservative enrichment: only update if Site has no GPS
         if (($site->latitude === null || $site->longitude === null) && $lat && $lng) {
             $site->update([
                 'latitude' => $lat,

@@ -16,15 +16,23 @@ import {
     CircularProgress,
     Alert,
     Stack,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    TextField,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import UploadIcon from '@mui/icons-material/Upload';
+import DownloadIcon from '@mui/icons-material/Download';
 import { sitesApi, Site } from '@/api/sites';
 import { SearchFilterBar } from '@/components/forms/SearchFilterBar';
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog';
 import { Can } from '@/components/auth/Can';
 import { SiteFormDrawer } from '../components/SiteFormDrawer';
+import axios from 'axios';
 
 export const SitesPage = () => {
     const queryClient = useQueryClient();
@@ -32,6 +40,9 @@ export const SitesPage = () => {
     const [deleteId, setDeleteId] = useState<number | null>(null);
     const [formOpen, setFormOpen] = useState(false);
     const [editingId, setEditingId] = useState<number | undefined>();
+    const [importOpen, setImportOpen] = useState(false);
+    const [importFile, setImportFile] = useState<File | null>(null);
+    const [importStatus, setImportStatus] = useState<string>('');
 
     const { data, isLoading, error } = useQuery({
         queryKey: ['sites', search],
@@ -45,6 +56,32 @@ export const SitesPage = () => {
             setDeleteId(null);
         },
     });
+
+    const handleImport = async () => {
+        if (!importFile) return;
+        setImportStatus('Uploading...');
+        
+        const formData = new FormData();
+        formData.append('file', importFile);
+
+        try {
+            await axios.post('/api/v1/sites/import', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            setImportStatus('Import queued successfully! Check Horizon for status.');
+            setTimeout(() => {
+                setImportOpen(false);
+                setImportStatus('');
+                setImportFile(null);
+            }, 3000);
+        } catch (err) {
+            setImportStatus('Import failed. Please check file format.');
+        }
+    };
+
+    const handleExport = (format: 'csv' | 'xlsx') => {
+        window.location.href = `/api/v1/sites/export?format=${format}&search=${search}`;
+    };
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -74,15 +111,35 @@ export const SitesPage = () => {
         <Box sx={{ p: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                 <Typography variant="h4">Sites</Typography>
-                <Can permission="sites.create">
-                    <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={handleAdd}
-                    >
-                        Add Site
-                    </Button>
-                </Can>
+                <Stack direction="row" spacing={1}>
+                    <Can permission="sites.import">
+                        <Button
+                            variant="outlined"
+                            startIcon={<UploadIcon />}
+                            onClick={() => setImportOpen(true)}
+                        >
+                            Import
+                        </Button>
+                    </Can>
+                    <Can permission="sites.export">
+                        <Button
+                            variant="outlined"
+                            startIcon={<DownloadIcon />}
+                            onClick={() => handleExport('csv')}
+                        >
+                            Export CSV
+                        </Button>
+                    </Can>
+                    <Can permission="sites.create">
+                        <Button
+                            variant="contained"
+                            startIcon={<AddIcon />}
+                            onClick={handleAdd}
+                        >
+                            Add Site
+                        </Button>
+                    </Can>
+                </Stack>
             </Box>
 
             <SearchFilterBar
@@ -134,6 +191,25 @@ export const SitesPage = () => {
                     </TableBody>
                 </Table>
             </TableContainer>
+
+            {/* Import Dialog */}
+            <Dialog open={importOpen} onClose={() => setImportOpen(false)}>
+                <DialogTitle>Import Sites</DialogTitle>
+                <DialogContent>
+                    <TextField
+                        type="file"
+                        fullWidth
+                        inputProps={{ accept: '.csv,.xlsx' }}
+                        onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                        sx={{ mt: 2 }}
+                    />
+                    {importStatus && <Typography sx={{ mt: 2, color: 'primary.main' }}>{importStatus}</Typography>}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setImportOpen(false)}>Cancel</Button>
+                    <Button onClick={handleImport} variant="contained" disabled={!importFile}>Upload</Button>
+                </DialogActions>
+            </Dialog>
 
             <ConfirmDialog
                 open={!!deleteId}

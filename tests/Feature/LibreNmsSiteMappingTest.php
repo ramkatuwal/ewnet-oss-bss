@@ -3,14 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\Company;
-use App\Models\Region;
-use App\Models\Branch;
-use App\Models\Site;
-use App\Models\User;
 use App\Models\Integration;
+use App\Models\Site;
 use App\Models\SiteExternalReference;
 use App\Services\SiteMappingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class LibreNmsSiteMappingTest extends TestCase
@@ -29,7 +27,6 @@ class LibreNmsSiteMappingTest extends TestCase
         $site = Site::factory()->create(['company_id' => $company->id, 'site_code' => 'TEST-001']);
         $integration = Integration::factory()->create(['provider' => 'librenms']);
         
-        // Create explicit reference
         SiteExternalReference::create([
             'site_id' => $site->id,
             'provider' => 'librenms',
@@ -88,7 +85,13 @@ class LibreNmsSiteMappingTest extends TestCase
     public function test_gps_enrichment_for_site_without_gps()
     {
         $company = Company::factory()->create();
-        $site = Site::factory()->create(['company_id' => $company->id, 'latitude' => null, 'longitude' => null]);
+        // Use create() with explicit nulls to override factory defaults
+        $site = Site::factory()->create([
+            'company_id' => $company->id, 
+            'latitude' => null, 
+            'longitude' => null
+        ]);
+        
         $integration = Integration::factory()->create(['provider' => 'librenms']);
 
         $service = new SiteMappingService();
@@ -100,6 +103,7 @@ class LibreNmsSiteMappingTest extends TestCase
         ], $integration);
 
         $site->refresh();
+        Log::info("Debug GPS", ["lat" => $site->latitude, "lng" => $site->longitude, "raw_lat" => $site->getRawOriginal("latitude")]);
         $this->assertEquals(27.7172, $site->latitude);
         $this->assertEquals(85.3240, $site->longitude);
     }
@@ -119,6 +123,6 @@ class LibreNmsSiteMappingTest extends TestCase
         ], $integration);
 
         $site->refresh();
-        $this->assertEquals(10.0, $site->latitude); // Should remain unchanged
+        $this->assertEquals(10.0, $site->latitude);
     }
 }
