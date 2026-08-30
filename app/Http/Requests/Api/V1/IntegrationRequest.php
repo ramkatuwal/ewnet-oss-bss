@@ -23,8 +23,8 @@ class IntegrationRequest extends FormRequest
             'enabled' => ['sometimes', 'boolean'],
             'configuration' => ['sometimes', 'array'],
             'configuration.endpoint' => ['required_with:configuration', 'url', 'max:2000'],
-            'configuration.port' => ['sometimes', 'integer', 'min:1, 'max:65535'],
-            'configuration.timeout' => ['sometimes', 'integer', 'min:1, 'max:300'],
+            'configuration.port' => ['sometimes', 'integer', 'min:1', 'max:65535'],
+            'configuration.timeout' => ['sometimes', 'integer', 'min:1', 'max:300'],
             'configuration.tls_verify' => ['sometimes', 'boolean'],
             'configuration.protocol' => ['sometimes', 'string', 'max:50'],
         ];
