@@ -89,9 +89,6 @@ class ManagementScopeService
             }
             return in_array($resource->id, static::getDepartmentIdsForScope($scopeType, $scopeId));
         }
-        if ($resource instanceof \App\Models\Site) {
-            return static::isSiteInScope($resource, $scopeType, $scopeId);
-        }
         if ($resource instanceof User) {
             return static::isUserInScope($resource, $scopeType, $scopeId);
         }
@@ -140,8 +137,6 @@ class ManagementScopeService
                 $ids = array_merge($ids, static::getBranchIdsForScope($type, $id));
             } elseif ($modelClass === Department::class) {
                 $ids = array_merge($ids, static::getDepartmentIdsForScope($type, $id));
-            } elseif ($modelClass === \App\Models\Site::class) {
-                $ids = array_merge($ids, static::getSiteIdsForScope($type, $id));
             } elseif ($modelClass === User::class) {
                 $ids = array_merge($ids, static::getUserIdsForScope($type, $id));
             }
@@ -246,32 +241,5 @@ class ManagementScopeService
         }
 
         return false;
-    }
-
-    protected static function isSiteInScope(Model $resource, string $scopeType, int $scopeId): bool
-    {
-        // A site is in scope if its organizational ownership matches the scope
-        if ($scopeType === 'company') {
-            return $resource->company_id === $scopeId;
-        }
-        if ($scopeType === 'region') {
-            return $resource->region_id === $scopeId;
-        }
-        if ($scopeType === 'branch') {
-            return $resource->branch_id === $scopeId;
-        }
-        // Department scope does not directly apply to Sites unless we add department_id to Sites later
-        return false;
-    }
-
-    protected static function getSiteIdsForScope(string $type, int $id): array
-    {
-        return match ($type) {
-            'company' => \App\Models\Site::where('company_id', $id)->pluck('id')->toArray(),
-            'region' => \App\Models\Site::where('region_id', $id)->pluck('id')->toArray(),
-            'branch' => \App\Models\Site::where('branch_id', $id)->pluck('id')->toArray(),
-            'department' => [], // Sites are not scoped to departments in this foundation
-            default => [],
-        };
     }
 }

@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\DepartmentController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\RoleController;
 use App\Http\Controllers\Api\V1\PermissionController;
+use App\Http\Controllers\Api\V1\SiteController;
 use App\Http\Controllers\Api\V1\DebugController;
 
 /*
@@ -48,6 +49,7 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::apiResource('/organization/branches', BranchController::class);
     Route::apiResource('/organization/departments', DepartmentController::class);
     Route::apiResource('/organization/users', UserController::class);
+    Route::apiResource('/sites', SiteController::class);
 
     // Security
     Route::apiResource('/security/roles', RoleController::class);

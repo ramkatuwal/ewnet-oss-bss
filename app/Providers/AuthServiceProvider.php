@@ -8,6 +8,8 @@ use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 use App\Policies\RolePolicy;
 use App\Policies\PermissionPolicy;
+use App\Models\Site;
+use App\Policies\SitePolicy;
 
 class AuthServiceProvider extends ServiceProvider
 {
@@ -17,9 +19,10 @@ class AuthServiceProvider extends ServiceProvider
      * @var array<class-string, class-string>
      */
     protected $policies = [
-            'App\Models\SystemSetting' => 'App\Policies\SystemSettingPolicy',
+        'App\Models\SystemSetting' => 'App\Policies\SystemSettingPolicy',
         Role::class => RolePolicy::class,
         Permission::class => PermissionPolicy::class,
+        Site::class => SitePolicy::class,
     ];
 
     /**
@@ -29,8 +32,9 @@ class AuthServiceProvider extends ServiceProvider
     {
         $this->registerPolicies();
 
-        // Explicitly register policies for Spatie models
+        // Explicitly register policies for Spatie models and Site
         Gate::policy(Role::class, RolePolicy::class);
         Gate::policy(Permission::class, PermissionPolicy::class);
+        Gate::policy(Site::class, SitePolicy::class);
     }
 }

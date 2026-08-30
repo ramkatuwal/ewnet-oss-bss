@@ -23,6 +23,10 @@ class SystemPermissionSeeder extends Seeder
             'integrations.sync',
             'integrations.credentials.manage',
             'integrations.logs.view',
+            'sites.view',
+            'sites.create',
+            'sites.update',
+            'sites.delete',
         ];
 
         foreach ($permissions as $permission) {
