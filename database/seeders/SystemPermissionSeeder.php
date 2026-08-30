@@ -41,6 +41,7 @@ class SystemPermissionSeeder extends Seeder
             'assets.transfer',
             'assets.retire',
             'assets.dispose',
+            'librenms.import',
         ];
 
         foreach ($permissions as $permission) {

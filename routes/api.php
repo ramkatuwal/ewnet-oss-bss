@@ -127,3 +127,10 @@ Route::middleware('auth:sanctum')->prefix('v1/integrations')->group(function () 
 
     // Site Assets (must be inside auth:sanctum group)
     Route::get('/sites/{site}/assets', [\App\Http\Controllers\Api\V1\AssetController::class, 'bySite']);
+
+    // LibreNMS Import
+    Route::middleware('auth:sanctum')->prefix('v1/integrations/librenms')->group(function () {
+        Route::get('/{integration}/devices', [\App\Http\Controllers\Api\V1\LibreNMSImportController::class, 'devices']);
+        Route::get('/{integration}/preview', [\App\Http\Controllers\Api\V1\LibreNMSImportController::class, 'preview']);
+        Route::post('/{integration}/import', [\App\Http\Controllers\Api\V1\LibreNMSImportController::class, 'import']);
+    });
