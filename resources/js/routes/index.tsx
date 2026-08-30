@@ -30,7 +30,8 @@ const ProfilePage = lazy(() => import('@/features/account/pages/ProfilePage').th
 
 // Network Sites
 const SitesPage = lazy(() => import('@/features/sites/pages/SitesPage').then(m => ({ default: m.SitesPage })));
-const AssetsPage = lazy(() => import('@/features/assets/pages/AssetsPage').then(m => ({ default: m.AssetsPage })));
+const AssetsPage = lazy(() => import('@/features/assets/pages/AssetsPage'));
+
 
 const PageLoader = () => (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 2 }}>

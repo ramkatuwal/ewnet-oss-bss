@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
     Box, Button, IconButton, Tooltip, Chip, 
     Dialog, DialogTitle, DialogContent, DialogActions,
-    TextField, Grid, Card, CardContent, Typography
+    TextField, Grid, Card, CardContent, Typography, MenuItem
 } from '@mui/material';
 import { Add, Delete, Edit, UploadFile, Download } from '@mui/icons-material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
@@ -14,29 +14,42 @@ import { Can } from '@/components/auth/Can';
 import AssetFormDrawer from '../components/AssetFormDrawer';
 import { getAssets, getAssetDashboard, deleteAsset, exportAssets, importAssets } from '../api/assets';
 import toast from 'react-hot-toast';
-import type { Asset } from '@/types';
+import type { PaginatedResponse } from '@/types';
+
+interface DashboardData {
+    total_records: number;
+    total_units: number;
+    by_status: {
+        operational: number;
+        maintenance: number;
+        faulty: number;
+        retired: number;
+    };
+}
 
 const AssetsPage: React.FC = () => {
     const queryClient = useQueryClient();
     const [openForm, setOpenForm] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [searchValue, setSearchValue] = useState('');
     const [filters, setFilters] = useState<any>({});
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(15);
     const [importOpen, setImportOpen] = useState(false);
     const [importFile, setImportFile] = useState<File | null>(null);
 
-    const { data: dashboard } = useQuery({
+    const { data: dashboard } = useQuery<{ data: DashboardData }>({
         queryKey: ['asset-dashboard'],
         queryFn: getAssetDashboard,
     });
 
-    const { data, isLoading } = useQuery({
-        queryKey: ['assets', page, pageSize, filters],
+    const { data, isLoading } = useQuery<{ data: PaginatedResponse<any> }>({
+        queryKey: ['assets', page, pageSize, searchValue, filters],
         queryFn: () => getAssets({ 
             page: page + 1, 
             per_page: pageSize, 
+            search: searchValue,
             ...filters 
         }),
     });
@@ -54,7 +67,7 @@ const AssetsPage: React.FC = () => {
 
     const handleExport = async (format: string) => {
         try {
-            const response = await exportAssets(format, filters);
+            const response = await exportAssets(format, { ...filters, search: searchValue });
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
@@ -128,7 +141,10 @@ const AssetsPage: React.FC = () => {
 
     return (
         <Box sx={{ p: 3 }}>
-            <PageHeader title="Asset Management" breadcrumbs={['Network', 'Assets']} />
+            <PageHeader 
+                title="Asset Management" 
+                breadcrumbs={[{ label: 'Network', path: '/network' }, { label: 'Assets' }]} 
+            />
             
             {/* Dashboard Cards */}
             {dashboard && (
@@ -170,13 +186,37 @@ const AssetsPage: React.FC = () => {
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                 <SearchFilterBar 
-                    onSearch={(value: string) => setFilters({ ...filters, search: value })}
-                    onFilterChange={(key: string, value: string) => setFilters({ ...filters, [key]: value })}
-                    filters={[
-                        { key: 'category', label: 'Category', options: ['POWER', 'NETWORK', 'INFRASTRUCTURE', 'OTHER'] },
-                        { key: 'status', label: 'Status', options: ['OPERATIONAL', 'SPARE', 'MAINTENANCE', 'FAULTY', 'RETIRED'] },
-                    ]}
-                />
+                    searchValue={searchValue}
+                    onSearchChange={setSearchValue}
+                    placeholder="Search assets..."
+                >
+                    <TextField 
+                        select 
+                        label="Category" 
+                        size="small" 
+                        sx={{ minWidth: 120, mr: 1 }}
+                        value={filters.category || ''}
+                        onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+                    >
+                        <MenuItem value="">All</MenuItem>
+                        <MenuItem value="POWER">Power</MenuItem>
+                        <MenuItem value="NETWORK">Network</MenuItem>
+                        <MenuItem value="INFRASTRUCTURE">Infrastructure</MenuItem>
+                    </TextField>
+                    <TextField 
+                        select 
+                        label="Status" 
+                        size="small" 
+                        sx={{ minWidth: 120 }}
+                        value={filters.status || ''}
+                        onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                    >
+                        <MenuItem value="">All</MenuItem>
+                        <MenuItem value="OPERATIONAL">Operational</MenuItem>
+                        <MenuItem value="MAINTENANCE">Maintenance</MenuItem>
+                        <MenuItem value="FAULTY">Faulty</MenuItem>
+                    </TextField>
+                </SearchFilterBar>
                 <Box>
                     <Can permission="assets.import">
                         <Button startIcon={<UploadFile />} onClick={() => setImportOpen(true)} sx={{ mr: 1 }}>Import</Button>
@@ -203,7 +243,7 @@ const AssetsPage: React.FC = () => {
                 columns={columns}
                 loading={isLoading}
                 paginationMode="server"
-                rowCount={data?.data.meta.total || 0}
+                rowCount={data?.data.total || 0}
                 paginationModel={{ page, pageSize }}
                 onPaginationModelChange={(model) => {
                     setPage(model.page);
@@ -221,7 +261,7 @@ const AssetsPage: React.FC = () => {
             <ConfirmDialog
                 open={!!deleteId}
                 title="Delete Asset"
-                content="Are you sure you want to delete this asset?"
+                message="Are you sure you want to delete this asset?"
                 onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
                 onCancel={() => setDeleteId(null)}
             />
