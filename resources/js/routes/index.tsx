@@ -28,6 +28,9 @@ const PermissionsPage = lazy(() => import('@/features/permissions/pages/Permissi
 const SecurityActivityPage = lazy(() => import('@/features/audit/pages/SecurityActivityPage').then(m => ({ default: m.SecurityActivityPage })));
 const ProfilePage = lazy(() => import('@/features/account/pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 
+// Network Sites
+const SitesPage = lazy(() => import('@/features/sites/pages/SitesPage').then(m => ({ default: m.SitesPage })));
+
 const PageLoader = () => (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 2 }}>
         <CircularProgress /><Typography variant="body2" color="text.secondary">Loading...</Typography>
@@ -53,6 +56,12 @@ export const AppRouter = () => (
                     <Route path="system/configuration" element={<SystemConfigurationPage />} />
                     <Route path="system/integrations" element={<IntegrationsPage />} />
                     <Route path="system/integrations/:id" element={<IntegrationDetailPage />} />
+                    
+                    {/* Network Section */}
+                    <Route path="network">
+                        <Route path="sites" element={<SitesPage />} />
+                    </Route>
+
                     <Route path="manage">
                         <Route path="companies" element={<CompaniesPage />} />
                         <Route path="companies/:id" element={<CompanyDetailPage />} />

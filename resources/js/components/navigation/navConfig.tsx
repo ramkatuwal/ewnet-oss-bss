@@ -41,6 +41,13 @@ export const navigationItems: NavItem[] = [
         ],
     },
     {
+        label: 'Network',
+        icon: <LocationOnIcon />,
+        children: [
+            { label: 'Sites', path: '/network/sites', icon: <LocationOnIcon />, permission: 'sites.view' },
+        ],
+    },
+    {
         label: 'System',
         icon: <SettingsIcon />,
         children: [
