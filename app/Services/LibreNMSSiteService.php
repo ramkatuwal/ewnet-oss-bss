@@ -236,7 +236,7 @@ class LibreNMSSiteService
 
             // Create site
             try {
-                $site = DB::transaction(function () use ($locationName, $user, $integration) {
+                $site = DB::transaction(function () use ($locationName, $user, $integration, $location) {
                     $site = Site::create([
                         'site_code' => $this->generateSiteCode($locationName),
                         'name' => $locationName,
