@@ -31,6 +31,7 @@ const ProfilePage = lazy(() => import('@/features/account/pages/ProfilePage').th
 // Network Sites
 const SitesPage = lazy(() => import('@/features/sites/pages/SitesPage').then(m => ({ default: m.SitesPage })));
 const SiteDetailPage = lazy(() => import('@/features/sites/pages/SiteDetailPage'));
+const AssetDetailPage = lazy(() => import('@/features/assets/pages/AssetDetailPage'));
 const AssetsPage = lazy(() => import('@/features/assets/pages/AssetsPage'));
 
 const PageLoader = () => (
@@ -64,6 +65,7 @@ export const AppRouter = () => (
                         <Route path="sites" element={<SitesPage />} />
                         <Route path="sites/:id" element={<SiteDetailPage />} />
                         <Route path="assets" element={<AssetsPage />} />
+                        <Route path="assets/:id" element={<AssetDetailPage />} />
                     </Route>
 
                     <Route path="manage">

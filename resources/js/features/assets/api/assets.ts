@@ -35,3 +35,19 @@ export const importAssets = (file: File) => {
 
 export const getSiteAssets = (siteId: number, params?: any) =>
     axios.get<PaginatedResponse<Asset>>(`/api/v1/sites/${siteId}/assets`, { params }).then(res => res.data);
+
+// Asset Lifecycle
+export const getAssetLifecycle = (assetId: number) =>
+    axios.get<{ data: any[] }>(`/api/v1/assets/${assetId}/lifecycle`).then(res => res.data);
+
+export const createAssetLifecycleEvent = (assetId: number, data: any) =>
+    axios.post(`/api/v1/assets/${assetId}/lifecycle`, data).then(res => res.data);
+
+export const transferAsset = (assetId: number, data: { to_site_id: number; notes?: string }) =>
+    axios.post(`/api/v1/assets/${assetId}/transfer`, data).then(res => res.data);
+
+export const retireAsset = (assetId: number, data?: { notes?: string }) =>
+    axios.post(`/api/v1/assets/${assetId}/retire`, data || {}).then(res => res.data);
+
+export const disposeAsset = (assetId: number, data?: { notes?: string }) =>
+    axios.post(`/api/v1/assets/${assetId}/dispose`, data || {}).then(res => res.data);
