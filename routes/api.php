@@ -52,6 +52,12 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::post('/sites/import', [SiteController::class, 'import']);
     Route::get('/sites/export', [SiteController::class, 'export']);
     Route::apiResource('/sites', SiteController::class);
+    
+    // Assets
+    Route::get('/assets/dashboard', [\App\Http\Controllers\Api\V1\AssetController::class, 'dashboard']);
+    Route::post('/assets/import', [\App\Http\Controllers\Api\V1\AssetController::class, 'import']);
+    Route::get('/assets/export', [\App\Http\Controllers\Api\V1\AssetController::class, 'export']);
+    Route::apiResource('/assets', \App\Http\Controllers\Api\V1\AssetController::class);
 
     // Security
     Route::apiResource('/security/roles', RoleController::class);
@@ -98,3 +104,6 @@ Route::middleware('auth:sanctum')->prefix('v1/integrations')->group(function () 
     Route::post('/{integration}/credentials', [App\Http\Controllers\Api\V1\IntegrationCredentialController::class, 'store']);
     Route::delete('/{integration}/credentials/{credential}', [App\Http\Controllers\Api\V1\IntegrationCredentialController::class, 'destroy']);
 });
+
+
+    // Assets (Specific routes MUST come before apiResource to avoid implicit binding conflicts)

@@ -142,12 +142,6 @@ class ManagementScopeService
                 $ids = array_merge($ids, static::getDepartmentIdsForScope($type, $id));
             } elseif ($modelClass === \App\Models\Site::class) {
                 $ids = array_merge($ids, static::getSiteIdsForScope($type, $id));
-            } elseif ($modelClass === \App\Models\Asset::class) {
-                $siteIds = static::getSiteIdsForScope($type, $id);
-                if (!empty($siteIds)) {
-                    $assetIds = \App\Models\Asset::whereIn('site_id', $siteIds)->pluck('id')->toArray();
-                    $ids = array_merge($ids, $assetIds);
-                }
             } elseif ($modelClass === User::class) {
                 $ids = array_merge($ids, static::getUserIdsForScope($type, $id));
             }
