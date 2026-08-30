@@ -27,6 +27,8 @@ class SystemPermissionSeeder extends Seeder
             'sites.create',
             'sites.update',
             'sites.delete',
+            'sites.import',
+            'sites.export',
         ];
 
         foreach ($permissions as $permission) {

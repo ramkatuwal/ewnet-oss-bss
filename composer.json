@@ -11,6 +11,8 @@
         "laravel/horizon": "^5.48",
         "laravel/sanctum": "^4.3",
         "laravel/tinker": "^3.0",
+        "league/csv": "^9.28",
+        "phpoffice/phpspreadsheet": "^5.9",
         "spatie/laravel-permission": "^8.3"
     },
     "require-dev": {

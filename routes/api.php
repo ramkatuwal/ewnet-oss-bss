@@ -50,6 +50,8 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::apiResource('/organization/departments', DepartmentController::class);
     Route::apiResource('/organization/users', UserController::class);
     Route::apiResource('/sites', SiteController::class);
+    Route::post('/sites/import', [SiteController::class, 'import']);
+    Route::get('/sites/export', [SiteController::class, 'export']);
 
     // Security
     Route::apiResource('/security/roles', RoleController::class);
