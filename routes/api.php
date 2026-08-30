@@ -134,3 +134,11 @@ Route::middleware('auth:sanctum')->prefix('v1/integrations')->group(function () 
         Route::get('/{integration}/preview', [\App\Http\Controllers\Api\V1\LibreNMSImportController::class, 'preview']);
         Route::post('/{integration}/import', [\App\Http\Controllers\Api\V1\LibreNMSImportController::class, 'import']);
     });
+
+    // LibreNMS Site Import
+    Route::middleware('auth:sanctum')->prefix('v1/integrations/librenms')->group(function () {
+        Route::get('/{integration}/locations', [\App\Http\Controllers\Api\V1\LibreNMSSiteController::class, 'locations']);
+        Route::get('/{integration}/sites/preview', [\App\Http\Controllers\Api\V1\LibreNMSSiteController::class, 'preview']);
+        Route::post('/{integration}/sites/map', [\App\Http\Controllers\Api\V1\LibreNMSSiteController::class, 'map']);
+        Route::post('/{integration}/sites/import', [\App\Http\Controllers\Api\V1\LibreNMSSiteController::class, 'import']);
+    });

@@ -4,31 +4,14 @@ import {
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
     Chip, CircularProgress, Alert, Paper, Grid,
     Dialog, DialogTitle, DialogContent, DialogActions,
-    LinearProgress
+    LinearProgress, FormControl, InputLabel, Select, MenuItem
 } from '@mui/material';
-import {
-    Refresh, Download, CheckCircle, Warning,
-    Error, Pending
-} from '@mui/icons-material';
+import { Refresh, CheckCircle, Warning, Sync } from '@mui/icons-material';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Can } from '@/components/auth/Can';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-
-interface PreviewItem {
-    device_id: string;
-    hostname: string;
-    status: string;
-    exists: boolean;
-    existing_asset_id?: number;
-    existing_asset_tag?: string;
-    site_mapped: boolean;
-    site_id?: number;
-    site_message: string;
-    action: string;
-    device_data: any;
-}
 
 interface Integration {
     id: number;
@@ -39,11 +22,24 @@ interface Integration {
     status: string;
 }
 
-const LibreNMSImportPage: React.FC = () => {
+interface LocationPreview {
+    location_name: string;
+    device_count: number;
+    devices: any[];
+    mapped: boolean;
+    site_id?: number;
+    site_name?: string;
+    site_code?: string;
+    action: string;
+}
+
+const LibreNMSSiteImportPage: React.FC = () => {
+    const queryClient = useQueryClient();
     const [integrationId, setIntegrationId] = useState<number | null>(null);
     const [importResults, setImportResults] = useState<any | null>(null);
     const [isImporting, setIsImporting] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
+    const [selectedLocations, setSelectedLocations] = useState<Set<string>>(new Set());
 
     const { data: integrations, isLoading: integrationsLoading } = useQuery({
         queryKey: ['integrations'],
@@ -52,13 +48,13 @@ const LibreNMSImportPage: React.FC = () => {
 
     const librenmsIntegrations = (integrations || []).filter(
         (i: Integration) => i.provider === 'librenms'
-    ) || [];
+    );
 
     const { data: preview, isLoading: previewLoading, refetch: refetchPreview } = useQuery({
-        queryKey: ['librenms-preview', integrationId],
+        queryKey: ['librenms-sites-preview', integrationId],
         queryFn: () => {
             if (!integrationId) return null;
-            return axios.get(`/api/v1/integrations/librenms/${integrationId}/preview`)
+            return axios.get(`/api/v1/integrations/librenms/${integrationId}/sites/preview`)
                 .then(res => res.data);
         },
         enabled: !!integrationId,
@@ -67,16 +63,21 @@ const LibreNMSImportPage: React.FC = () => {
     const importMutation = useMutation({
         mutationFn: () => {
             if (!integrationId) return Promise.reject('No integration selected');
-            return axios.post(`/api/v1/integrations/librenms/${integrationId}/import`);
+            const locations = Array.from(selectedLocations);
+            return axios.post(`/api/v1/integrations/librenms/${integrationId}/sites/import`, {
+                locations: locations.length > 0 ? locations : undefined,
+            });
         },
         onSuccess: (response) => {
             setImportResults(response.data.results);
             toast.success('Import completed successfully');
             setConfirmOpen(false);
             setIsImporting(false);
+            queryClient.invalidateQueries({ queryKey: ['librenms-sites-preview'] });
+            queryClient.invalidateQueries({ queryKey: ['sites'] });
         },
         onError: (err: any) => {
-            toast.error(err.response?.data?.message || 'Import failed');
+            toast.error(err.response?.data?.error || 'Import failed');
             setIsImporting(false);
         },
     });
@@ -93,35 +94,39 @@ const LibreNMSImportPage: React.FC = () => {
         importMutation.mutate();
     };
 
-    const getStatusChip = (status: string) => {
-        const statusMap: Record<string, { label: string; color: any }> = {
-            '1': { label: 'Up', color: 'success' },
-            '0': { label: 'Down', color: 'error' },
-            '2': { label: 'Warning', color: 'warning' },
-        };
-        const s = statusMap[status] || { label: status, color: 'default' };
-        return <Chip label={s.label} size="small" color={s.color} />;
+    const handleToggleSelect = (locationName: string) => {
+        const newSet = new Set(selectedLocations);
+        if (newSet.has(locationName)) {
+            newSet.delete(locationName);
+        } else {
+            newSet.add(locationName);
+        }
+        setSelectedLocations(newSet);
     };
 
-    const getActionChip = (action: string) => {
-        const actionMap: Record<string, { label: string; color: any; icon: any }> = {
-            'create': { label: 'New Asset', color: 'success', icon: <CheckCircle fontSize="small" /> },
-            'update': { label: 'Update Asset', color: 'info', icon: <Refresh fontSize="small" /> },
-            'skip_unmapped': { label: 'No Site', color: 'warning', icon: <Warning fontSize="small" /> },
-            'skip_duplicate': { label: 'Duplicate', color: 'error', icon: <Error fontSize="small" /> },
-        };
-        const a = actionMap[action] || { label: action, color: 'default', icon: <Pending fontSize="small" /> };
-        return <Chip label={a.label} size="small" color={a.color} icon={a.icon} />;
+    const handleSelectAll = () => {
+        if (!preview?.preview) return;
+        if (selectedLocations.size === preview.preview.length) {
+            setSelectedLocations(new Set());
+        } else {
+            setSelectedLocations(new Set(preview.preview.map((p: LocationPreview) => p.location_name)));
+        }
+    };
+
+    const getStatusChip = (mapped: boolean) => {
+        return mapped 
+            ? <Chip label="Mapped" size="small" color="success" icon={<CheckCircle />} />
+            : <Chip label="Unmapped" size="small" color="warning" icon={<Warning />} />;
     };
 
     return (
         <Box sx={{ p: 3 }}>
             <PageHeader
-                title="LibreNMS Import"
+                title="LibreNMS Site Import"
                 breadcrumbs={[
                     { label: 'System', path: '/system' },
                     { label: 'Integrations', path: '/system/integrations' },
-                    { label: 'LibreNMS Import' }
+                    { label: 'LibreNMS Site Import' }
                 ]}
             />
 
@@ -141,24 +146,21 @@ const LibreNMSImportPage: React.FC = () => {
                             ) : (
                                 <Stack direction="row" spacing={2} alignItems="center">
                                     <Box sx={{ minWidth: 200 }}>
-                                        <select
-                                            className="form-select"
-                                            style={{
-                                                width: '100%',
-                                                padding: '8px 12px',
-                                                borderRadius: '4px',
-                                                border: '1px solid #ccc',
-                                            }}
-                                            value={integrationId || ''}
-                                            onChange={(e) => setIntegrationId(Number(e.target.value))}
-                                        >
-                                            <option value="">Select Integration...</option>
-                                            {librenmsIntegrations.map((integration: Integration) => (
-                                                <option key={integration.id} value={integration.id}>
-                                                    {integration.name}
-                                                </option>
-                                            ))}
-                                        </select>
+                                        <FormControl fullWidth size="small">
+                                            <InputLabel>Integration</InputLabel>
+                                            <Select
+                                                value={integrationId || ''}
+                                                label="Integration"
+                                                onChange={(e) => setIntegrationId(Number(e.target.value))}
+                                            >
+                                                <MenuItem value="">Select Integration...</MenuItem>
+                                                {librenmsIntegrations.map((integration: Integration) => (
+                                                    <MenuItem key={integration.id} value={integration.id}>
+                                                        {integration.name}
+                                                    </MenuItem>
+                                                ))}
+                                            </Select>
+                                        </FormControl>
                                     </Box>
                                     <Button
                                         variant="contained"
@@ -166,7 +168,7 @@ const LibreNMSImportPage: React.FC = () => {
                                         onClick={handlePreview}
                                         disabled={!integrationId || previewLoading}
                                     >
-                                        Fetch Devices
+                                        Fetch Sites
                                     </Button>
                                     {previewLoading && <CircularProgress size={24} />}
                                 </Stack>
@@ -179,35 +181,29 @@ const LibreNMSImportPage: React.FC = () => {
                             <Card>
                                 <CardContent>
                                     <Typography variant="h6" gutterBottom>
-                                        Preview Summary
+                                        Site Preview Summary
                                     </Typography>
                                     <Grid container spacing={2}>
-                                        <Grid item xs={6} sm={2}>
-                                            <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'success.light' }}>
-                                                <Typography variant="h6">{preview.summary.create}</Typography>
-                                                <Typography variant="caption">New</Typography>
-                                            </Paper>
-                                        </Grid>
-                                        <Grid item xs={6} sm={2}>
+                                        <Grid item xs={6} sm={3}>
                                             <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'info.light' }}>
-                                                <Typography variant="h6">{preview.summary.update}</Typography>
-                                                <Typography variant="caption">Update</Typography>
+                                                <Typography variant="h6">{preview.total}</Typography>
+                                                <Typography variant="caption">Total Locations</Typography>
                                             </Paper>
                                         </Grid>
-                                        <Grid item xs={6} sm={2}>
+                                        <Grid item xs={6} sm={3}>
+                                            <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'success.light' }}>
+                                                <Typography variant="h6">{preview.summary.mapped}</Typography>
+                                                <Typography variant="caption">Mapped</Typography>
+                                            </Paper>
+                                        </Grid>
+                                        <Grid item xs={6} sm={3}>
                                             <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'warning.light' }}>
-                                                <Typography variant="h6">{preview.summary.skip_unmapped}</Typography>
+                                                <Typography variant="h6">{preview.summary.unmapped}</Typography>
                                                 <Typography variant="caption">Unmapped</Typography>
                                             </Paper>
                                         </Grid>
-                                        <Grid item xs={6} sm={2}>
-                                            <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'error.light' }}>
-                                                <Typography variant="h6">{preview.summary.skip_duplicate || 0}</Typography>
-                                                <Typography variant="caption">Duplicate</Typography>
-                                            </Paper>
-                                        </Grid>
-                                        <Grid item xs={6} sm={2}>
-                                            <Paper sx={{ p: 2, textAlign: 'center' }}>
+                                        <Grid item xs={6} sm={3}>
+                                            <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'primary.light' }}>
                                                 <Typography variant="h6">{preview.total}</Typography>
                                                 <Typography variant="caption">Total</Typography>
                                             </Paper>
@@ -218,32 +214,63 @@ const LibreNMSImportPage: React.FC = () => {
 
                             <Card>
                                 <CardContent>
-                                    <Typography variant="h6" gutterBottom>
-                                        Device Preview
-                                    </Typography>
+                                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+                                        <Typography variant="h6">Locations</Typography>
+                                        <Stack direction="row" spacing={1}>
+                                            <Button
+                                                size="small"
+                                                onClick={handleSelectAll}
+                                            >
+                                                {selectedLocations.size === preview.preview.length ? 'Deselect All' : 'Select All'}
+                                            </Button>
+                                            {selectedLocations.size > 0 && (
+                                                <Button
+                                                    variant="contained"
+                                                    size="small"
+                                                    startIcon={<Sync />}
+                                                    onClick={() => setConfirmOpen(true)}
+                                                >
+                                                    Import {selectedLocations.size} Sites
+                                                </Button>
+                                            )}
+                                        </Stack>
+                                    </Stack>
                                     <TableContainer component={Paper} variant="outlined">
                                         <Table size="small">
                                             <TableHead>
                                                 <TableRow>
-                                                    <TableCell>Device ID</TableCell>
-                                                    <TableCell>Hostname</TableCell>
+                                                    <TableCell padding="checkbox">
+                                                        <input type="checkbox" />
+                                                    </TableCell>
+                                                    <TableCell>Location Name</TableCell>
+                                                    <TableCell>Devices</TableCell>
                                                     <TableCell>Status</TableCell>
+                                                    <TableCell>Mapped Site</TableCell>
                                                     <TableCell>Action</TableCell>
-                                                    <TableCell>Site Status</TableCell>
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
-                                                {preview.preview.map((item: PreviewItem) => (
-                                                    <TableRow key={item.device_id}>
-                                                        <TableCell>{item.device_id}</TableCell>
-                                                        <TableCell>{item.hostname}</TableCell>
-                                                        <TableCell>{getStatusChip(item.status)}</TableCell>
-                                                        <TableCell>{getActionChip(item.action)}</TableCell>
+                                                {preview.preview.map((item: LocationPreview) => (
+                                                    <TableRow key={item.location_name}>
+                                                        <TableCell padding="checkbox">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedLocations.has(item.location_name)}
+                                                                onChange={() => handleToggleSelect(item.location_name)}
+                                                                disabled={item.mapped}
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell>{item.location_name}</TableCell>
+                                                        <TableCell>{item.device_count}</TableCell>
+                                                        <TableCell>{getStatusChip(item.mapped)}</TableCell>
+                                                        <TableCell>
+                                                            {item.site_name || item.site_code || '—'}
+                                                        </TableCell>
                                                         <TableCell>
                                                             <Chip
-                                                                label={item.site_mapped ? 'Mapped' : item.site_message}
+                                                                label={item.mapped ? 'Update' : 'Create'}
                                                                 size="small"
-                                                                color={item.site_mapped ? 'success' : 'warning'}
+                                                                color={item.mapped ? 'info' : 'primary'}
                                                             />
                                                         </TableCell>
                                                     </TableRow>
@@ -251,19 +278,6 @@ const LibreNMSImportPage: React.FC = () => {
                                             </TableBody>
                                         </Table>
                                     </TableContainer>
-
-                                    {preview.summary.create > 0 && (
-                                        <Box sx={{ mt: 2 }}>
-                                            <Button
-                                                variant="contained"
-                                                color="primary"
-                                                onClick={() => setConfirmOpen(true)}
-                                                startIcon={<Download />}
-                                            >
-                                                Import {preview.summary.create} New Devices
-                                            </Button>
-                                        </Box>
-                                    )}
                                 </CardContent>
                             </Card>
                         </>
@@ -276,34 +290,28 @@ const LibreNMSImportPage: React.FC = () => {
                                     Import Results
                                 </Typography>
                                 <Grid container spacing={2}>
-                                    <Grid item xs={6} sm={2}>
+                                    <Grid item xs={6} sm={3}>
                                         <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'success.light' }}>
                                             <Typography variant="h6">{importResults.created || 0}</Typography>
                                             <Typography variant="caption">Created</Typography>
                                         </Paper>
                                     </Grid>
-                                    <Grid item xs={6} sm={2}>
+                                    <Grid item xs={6} sm={3}>
                                         <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'info.light' }}>
                                             <Typography variant="h6">{importResults.updated || 0}</Typography>
                                             <Typography variant="caption">Updated</Typography>
                                         </Paper>
                                     </Grid>
-                                    <Grid item xs={6} sm={2}>
+                                    <Grid item xs={6} sm={3}>
                                         <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'warning.light' }}>
-                                            <Typography variant="h6">{importResults.unmapped || 0}</Typography>
-                                            <Typography variant="caption">Unmapped</Typography>
+                                            <Typography variant="h6">{importResults.skipped || 0}</Typography>
+                                            <Typography variant="caption">Skipped</Typography>
                                         </Paper>
                                     </Grid>
-                                    <Grid item xs={6} sm={2}>
+                                    <Grid item xs={6} sm={3}>
                                         <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'error.light' }}>
                                             <Typography variant="h6">{importResults.failed || 0}</Typography>
                                             <Typography variant="caption">Failed</Typography>
-                                        </Paper>
-                                    </Grid>
-                                    <Grid item xs={6} sm={2}>
-                                        <Paper sx={{ p: 2, textAlign: 'center' }}>
-                                            <Typography variant="h6">{importResults.skipped || 0}</Typography>
-                                            <Typography variant="caption">Skipped</Typography>
                                         </Paper>
                                     </Grid>
                                 </Grid>
@@ -315,7 +323,7 @@ const LibreNMSImportPage: React.FC = () => {
                         <Box sx={{ width: '100%' }}>
                             <LinearProgress />
                             <Typography variant="body2" sx={{ mt: 1 }}>
-                                Importing devices...
+                                Importing sites...
                             </Typography>
                         </Box>
                     )}
@@ -323,15 +331,13 @@ const LibreNMSImportPage: React.FC = () => {
             </Can>
 
             <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
-                <DialogTitle>Confirm Import</DialogTitle>
+                <DialogTitle>Confirm Site Import</DialogTitle>
                 <DialogContent>
                     <Typography>
-                        This will import {preview?.summary.create || 0} new devices as Assets.
-                        Existing devices will be updated.
-                        Unmapped devices will be skipped.
+                        This will import {selectedLocations.size} location(s) as EWNET Sites.
                     </Typography>
                     <Alert severity="warning" sx={{ mt: 2 }}>
-                        This action cannot be undone. Please review the preview before confirming.
+                        Sites will be created with default settings. You can edit them later.
                     </Alert>
                 </DialogContent>
                 <DialogActions>
@@ -350,4 +356,4 @@ const LibreNMSImportPage: React.FC = () => {
     );
 };
 
-export default LibreNMSImportPage;
+export default LibreNMSSiteImportPage;

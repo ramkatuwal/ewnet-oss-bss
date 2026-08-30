@@ -25,6 +25,15 @@ class RunIntegrationSync implements ShouldQueue
 
     public function handle(): void
     {
+        $this->sync->refresh();
+        $this->sync->load('integration');
+
+        if (!$this->sync->integration) {
+            Log::error("RunIntegrationSync: Integration not found for sync ID {$this->sync->id}");
+            $this->sync->markFailed('Integration not found');
+            return;
+        }
+
         $this->sync->markRunning();
 
         try {
