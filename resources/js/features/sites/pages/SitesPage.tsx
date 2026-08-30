@@ -33,6 +33,7 @@ import { SearchFilterBar } from '@/components/forms/SearchFilterBar';
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog';
 import { Can } from '@/components/auth/Can';
 import { SiteFormDrawer } from '../components/SiteFormDrawer';
+import { formatCoordinates } from '@/utils/format';
 import axios from 'axios';
 
 export const SitesPage = () => {
@@ -190,7 +191,7 @@ export const SitesPage = () => {
                                     <Chip label={site.status} color={getStatusColor(site.status) as any} size="small" />
                                 </TableCell>
                                 <TableCell>
-                                    {site.latitude && site.longitude ? `${site.latitude.toFixed(4)}, ${site.longitude.toFixed(4)}` : '-'}
+                                    {formatCoordinates(site.latitude, site.longitude)}
                                 </TableCell>
                                 <TableCell align="right">
                                     <Stack direction="row" justifyContent="flex-end" spacing={1}>
@@ -212,7 +213,6 @@ export const SitesPage = () => {
                 </Table>
             </TableContainer>
 
-            {/* Import Dialog */}
             <Dialog open={importOpen} onClose={() => setImportOpen(false)}>
                 <DialogTitle>Import Sites</DialogTitle>
                 <DialogContent>
