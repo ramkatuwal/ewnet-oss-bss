@@ -14,6 +14,7 @@ interface Props {
     open: boolean;
     onClose: () => void;
     assetId: number | null;
+    siteId?: number | null;  // NEW: pre-select site when creating from Site Detail
 }
 
 interface SiteWithRelations {
@@ -25,7 +26,7 @@ interface SiteWithRelations {
     branch?: { id: number; name: string };
 }
 
-const AssetFormDrawer: React.FC<Props> = ({ open, onClose, assetId }) => {
+const AssetFormDrawer: React.FC<Props> = ({ open, onClose, assetId, siteId }) => {
     const queryClient = useQueryClient();
     const [formData, setFormData] = useState<any>({
         asset_tag: '',
@@ -34,7 +35,7 @@ const AssetFormDrawer: React.FC<Props> = ({ open, onClose, assetId }) => {
         quantity: 1,
         status: 'OPERATIONAL',
         unit: 'pcs',
-        site_id: undefined,
+        site_id: siteId || undefined,
     });
     const [selectedSite, setSelectedSite] = useState<SiteWithRelations | null>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -61,12 +62,21 @@ const AssetFormDrawer: React.FC<Props> = ({ open, onClose, assetId }) => {
                 quantity: 1,
                 status: 'OPERATIONAL',
                 unit: 'pcs',
-                site_id: undefined,
+                site_id: siteId || undefined,
             });
-            setSelectedSite(null);
+            // Load site details if siteId is provided
+            if (siteId) {
+                sitesApi.get(siteId).then((site: SiteWithRelations) => {
+                    setSelectedSite(site);
+                }).catch(() => {
+                    // ignore
+                });
+            } else {
+                setSelectedSite(null);
+            }
         }
         setErrors({});
-    }, [assetId, open]);
+    }, [assetId, open, siteId]);
 
     // Queries for site list (scope-filtered by backend)
     const { data: sites } = useQuery({

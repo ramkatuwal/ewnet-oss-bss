@@ -189,11 +189,12 @@ export const SiteAssetsTab: React.FC<SiteAssetsTabProps> = ({ siteId }) => {
                 sx={{ minHeight: 300 }}
             />
 
-            {/* Asset Form Drawer */}
+            {/* Asset Form Drawer - Pass siteId for pre-selection */}
             <AssetFormDrawer
                 open={openForm}
                 onClose={() => { setOpenForm(false); setEditingId(null); }}
                 assetId={editingId}
+                siteId={siteId}
             />
 
             {/* Delete Confirmation */}

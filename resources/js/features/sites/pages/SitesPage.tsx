@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Box,
@@ -35,6 +36,7 @@ import { SiteFormDrawer } from '../components/SiteFormDrawer';
 import axios from 'axios';
 
 export const SitesPage = () => {
+    const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [search, setSearch] = useState('');
     const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -60,7 +62,7 @@ export const SitesPage = () => {
     const handleImport = async () => {
         if (!importFile) return;
         setImportStatus('Uploading...');
-        
+
         const formData = new FormData();
         formData.append('file', importFile);
 
@@ -94,14 +96,24 @@ export const SitesPage = () => {
         }
     };
 
-    const handleEdit = (id: number) => {
+    const handleEdit = (id: number, e: React.MouseEvent) => {
+        e.stopPropagation();
         setEditingId(id);
         setFormOpen(true);
+    };
+
+    const handleDelete = (id: number, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setDeleteId(id);
     };
 
     const handleAdd = () => {
         setEditingId(undefined);
         setFormOpen(true);
+    };
+
+    const handleRowClick = (id: number) => {
+        navigate(`/network/sites/${id}`);
     };
 
     if (isLoading) return <CircularProgress />;
@@ -162,7 +174,15 @@ export const SitesPage = () => {
                     </TableHead>
                     <TableBody>
                         {data?.data.map((site: Site) => (
-                            <TableRow key={site.id} hover>
+                            <TableRow 
+                                key={site.id} 
+                                hover 
+                                onClick={() => handleRowClick(site.id)}
+                                sx={{ 
+                                    cursor: 'pointer',
+                                    '&:hover': { backgroundColor: 'action.hover' }
+                                }}
+                            >
                                 <TableCell>{site.site_code}</TableCell>
                                 <TableCell>{site.name}</TableCell>
                                 <TableCell>{site.type}</TableCell>
@@ -175,12 +195,12 @@ export const SitesPage = () => {
                                 <TableCell align="right">
                                     <Stack direction="row" justifyContent="flex-end" spacing={1}>
                                         <Can permission="sites.update">
-                                            <IconButton size="small" onClick={() => handleEdit(site.id)}>
+                                            <IconButton size="small" onClick={(e) => handleEdit(site.id, e)}>
                                                 <EditIcon />
                                             </IconButton>
                                         </Can>
                                         <Can permission="sites.delete">
-                                            <IconButton size="small" color="error" onClick={() => setDeleteId(site.id)}>
+                                            <IconButton size="small" color="error" onClick={(e) => handleDelete(site.id, e)}>
                                                 <DeleteIcon />
                                             </IconButton>
                                         </Can>
