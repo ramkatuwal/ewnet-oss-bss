@@ -39,12 +39,12 @@ const AssetsPage: React.FC = () => {
     const [importOpen, setImportOpen] = useState(false);
     const [importFile, setImportFile] = useState<File | null>(null);
 
-    const { data: dashboard } = useQuery<{ data: DashboardData }>({
+    const { data: dashboard } = useQuery<DashboardData>({
         queryKey: ['asset-dashboard'],
         queryFn: getAssetDashboard,
     });
 
-    const { data, isLoading } = useQuery<{ data: PaginatedResponse<any> }>({
+    const { data, isLoading } = useQuery<PaginatedResponse<any>>({
         queryKey: ['assets', page, pageSize, searchValue, filters],
         queryFn: () => getAssets({ 
             page: page + 1, 
@@ -152,7 +152,7 @@ const AssetsPage: React.FC = () => {
                     <Grid item xs={6} sm={3}>
                         <Card>
                             <CardContent>
-                                <Typography variant="h6">{dashboard.data.total_records}</Typography>
+                                <Typography variant="h6">{dashboard.total_records}</Typography>
                                 <Typography variant="body2" color="textSecondary">Total Records</Typography>
                             </CardContent>
                         </Card>
@@ -160,7 +160,7 @@ const AssetsPage: React.FC = () => {
                     <Grid item xs={6} sm={3}>
                         <Card>
                             <CardContent>
-                                <Typography variant="h6">{dashboard.data.total_units}</Typography>
+                                <Typography variant="h6">{dashboard.total_units}</Typography>
                                 <Typography variant="body2" color="textSecondary">Total Units</Typography>
                             </CardContent>
                         </Card>
@@ -168,7 +168,7 @@ const AssetsPage: React.FC = () => {
                     <Grid item xs={6} sm={3}>
                         <Card>
                             <CardContent>
-                                <Typography variant="h6">{dashboard.data.by_status.operational}</Typography>
+                                <Typography variant="h6">{dashboard.by_status.operational}</Typography>
                                 <Typography variant="body2" color="textSecondary">Operational</Typography>
                             </CardContent>
                         </Card>
@@ -176,7 +176,7 @@ const AssetsPage: React.FC = () => {
                     <Grid item xs={6} sm={3}>
                         <Card>
                             <CardContent>
-                                <Typography variant="h6">{dashboard.data.by_status.maintenance}</Typography>
+                                <Typography variant="h6">{dashboard.by_status.maintenance}</Typography>
                                 <Typography variant="body2" color="textSecondary">Maintenance</Typography>
                             </CardContent>
                         </Card>
@@ -239,11 +239,11 @@ const AssetsPage: React.FC = () => {
             </Box>
 
             <DataGrid
-                rows={data?.data.data || []}
+                rows={data?.data || []}
                 columns={columns}
                 loading={isLoading}
                 paginationMode="server"
-                rowCount={data?.data.total || 0}
+                rowCount={data?.total || 0}
                 paginationModel={{ page, pageSize }}
                 onPaginationModelChange={(model) => {
                     setPage(model.page);

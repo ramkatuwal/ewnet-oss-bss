@@ -2,22 +2,22 @@ import axios from 'axios';
 import type { Asset, PaginatedResponse } from '@/types';
 
 export const getAssets = (params?: any) => 
-    axios.get<PaginatedResponse<Asset>>('/api/v1/assets', { params });
+    axios.get<PaginatedResponse<Asset>>('/api/v1/assets', { params }).then(res => res.data);
 
 export const getAsset = (id: number) => 
-    axios.get<{ data: Asset }>(`/api/v1/assets/${id}`);
+    axios.get<{ data: Asset }>(`/api/v1/assets/${id}`).then(res => res.data);
 
 export const createAsset = (data: any) => 
-    axios.post<{ data: Asset }>('/api/v1/assets', data);
+    axios.post<{ data: Asset }>('/api/v1/assets', data).then(res => res.data);
 
 export const updateAsset = (id: number, data: any) => 
-    axios.put<{ data: Asset }>(`/api/v1/assets/${id}`, data);
+    axios.put<{ data: Asset }>(`/api/v1/assets/${id}`, data).then(res => res.data);
 
 export const deleteAsset = (id: number) => 
     axios.delete(`/api/v1/assets/${id}`);
 
 export const getAssetDashboard = () => 
-    axios.get<{ data: any }>('/api/v1/assets/dashboard');
+    axios.get<{ data: any }>('/api/v1/assets/dashboard').then(res => res.data);
 
 export const exportAssets = (format: string = 'csv', params?: any) => 
     axios.get(`/api/v1/assets/export`, { 
@@ -34,4 +34,4 @@ export const importAssets = (file: File) => {
 };
 
 export const getSiteAssets = (siteId: number, params?: any) => 
-    axios.get<PaginatedResponse<Asset>>(`/api/v1/sites/${siteId}/assets`, { params });
+    axios.get<PaginatedResponse<Asset>>(`/api/v1/sites/${siteId}/assets`, { params }).then(res => res.data);
