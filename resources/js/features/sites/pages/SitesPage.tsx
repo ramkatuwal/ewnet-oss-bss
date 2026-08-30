@@ -200,7 +200,7 @@ export const SitesPage = () => {
                         type="file"
                         fullWidth
                         inputProps={{ accept: '.csv,.xlsx' }}
-                        onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setImportFile(e.target.files?.[0] || null)}
                         sx={{ mt: 2 }}
                     />
                     {importStatus && <Typography sx={{ mt: 2, color: 'primary.main' }}>{importStatus}</Typography>}
