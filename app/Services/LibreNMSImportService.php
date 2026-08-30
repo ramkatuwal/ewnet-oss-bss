@@ -21,9 +21,6 @@ class LibreNMSImportService
         $this->audit = $audit;
     }
 
-    /**
-     * Fetch devices from LibreNMS
-     */
     public function fetchDevices(Integration $integration, array $params = []): array
     {
         $client = new LibreNMSClient($integration);
@@ -37,9 +34,6 @@ class LibreNMSImportService
         return ['devices' => $devices, 'count' => count($devices)];
     }
 
-    /**
-     * Preview import without writing to database
-     */
     public function preview(Integration $integration, User $user): array
     {
         $result = $this->fetchDevices($integration);
@@ -51,7 +45,7 @@ class LibreNMSImportService
         $preview = [];
 
         foreach ($devices as $device) {
-            $item = $this->analyzeDevice($device, $user);
+            $item = $this->analyzeDevice($device, $user, $integration);
             $preview[] = $item;
         }
 
@@ -62,20 +56,15 @@ class LibreNMSImportService
         ];
     }
 
-    /**
-     * Analyze a single device for preview
-     */
-    protected function analyzeDevice(array $device, User $user): array
+    protected function analyzeDevice(array $device, User $user, Integration $integration): array
     {
         $deviceId = (string) ($device['device_id'] ?? '');
         $hostname = $device['hostname'] ?? '';
         $status = $device['status'] ?? '';
 
-        // Check if device already imported
         $existingAsset = $this->findExistingAsset($deviceId);
 
-        // Map to Site
-        $siteMapping = $this->siteMapping->mapDevice($device, $user, $device['integration_id'] ?? null);
+        $siteMapping = $this->siteMapping->mapDevice($device, $integration);
 
         return [
             'device_id' => $deviceId,
@@ -92,9 +81,6 @@ class LibreNMSImportService
         ];
     }
 
-    /**
-     * Find existing asset by LibreNMS device_id stored in specifications
-     */
     protected function findExistingAsset(string $deviceId): ?Asset
     {
         return Asset::where('specifications->external_id', $deviceId)
@@ -102,9 +88,6 @@ class LibreNMSImportService
             ->first();
     }
 
-    /**
-     * Determine action for a device
-     */
     protected function determineAction(?Asset $existingAsset, array $siteMapping): string
     {
         if ($siteMapping['status'] !== 'mapped') {
@@ -116,9 +99,6 @@ class LibreNMSImportService
         return 'create';
     }
 
-    /**
-     * Summarize preview results
-     */
     protected function summarizePreview(array $preview): array
     {
         $summary = [
@@ -139,9 +119,6 @@ class LibreNMSImportService
         return $summary;
     }
 
-    /**
-     * Execute import
-     */
     public function import(Integration $integration, User $user, array $options = []): array
     {
         $result = $this->fetchDevices($integration);
@@ -186,9 +163,6 @@ class LibreNMSImportService
         return $results;
     }
 
-    /**
-     * Process a single device for import
-     */
     protected function processDevice(array $device, User $user, Integration $integration, array $options): array
     {
         $deviceId = (string) ($device['device_id'] ?? '');
@@ -197,7 +171,6 @@ class LibreNMSImportService
             return ['status' => 'failed', 'message' => 'Missing device_id'];
         }
 
-        // Map to Site
         $siteMapping = $this->siteMapping->mapDevice($device, $integration);
 
         if ($siteMapping['status'] !== 'mapped') {
@@ -218,7 +191,6 @@ class LibreNMSImportService
             ];
         }
 
-        // Check if dry-run
         if ($options['dry_run'] ?? false) {
             return [
                 'status' => 'preview',
@@ -229,7 +201,6 @@ class LibreNMSImportService
             ];
         }
 
-        // Create or update Asset
         return DB::transaction(function () use ($device, $site, $deviceId) {
             $existing = $this->findExistingAsset($deviceId);
 
@@ -239,23 +210,18 @@ class LibreNMSImportService
                 $existing->update($assetData);
                 $this->audit->log('asset.updated.from_librenms', 'success', $existing, [
                     'device_id' => $deviceId,
-                    'integration_id' => $site->integration_id ?? null,
                 ]);
                 return ['status' => 'updated', 'asset_id' => $existing->id, 'hostname' => $device['hostname'] ?? ''];
             } else {
                 $asset = Asset::create($assetData);
                 $this->audit->log('asset.created.from_librenms', 'success', $asset, [
                     'device_id' => $deviceId,
-                    'integration_id' => $site->integration_id ?? null,
                 ]);
                 return ['status' => 'created', 'asset_id' => $asset->id, 'hostname' => $device['hostname'] ?? ''];
             }
         });
     }
 
-    /**
-     * Map LibreNMS device data to Asset model
-     */
     protected function mapDeviceToAsset(array $device, Site $site): array
     {
         $status = $this->mapDeviceStatus($device['status'] ?? '');
@@ -290,9 +256,6 @@ class LibreNMSImportService
         ];
     }
 
-    /**
-     * Map LibreNMS device status to EWNET Asset status
-     */
     protected function mapDeviceStatus(string $libreNmsStatus): string
     {
         return match ($libreNmsStatus) {

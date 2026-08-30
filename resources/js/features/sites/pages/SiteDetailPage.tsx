@@ -10,6 +10,7 @@ import { sitesApi } from '@/api/sites';
 import { SiteAssetsTab } from '../components/SiteAssetsTab';
 import { SiteFormDrawer } from '../components/SiteFormDrawer';
 import { PhotoGallery } from '@/features/shared/components/PhotoGallery';
+import { formatCoordinate } from '@/utils/format';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Can } from '@/components/auth/Can';
 import toast from 'react-hot-toast';
@@ -173,14 +174,14 @@ const SiteDetailPage: React.FC = () => {
                             {site.latitude && site.longitude ? (
                                 <>
                                     <Typography variant="body2">
-                                        Lat: {site.latitude}
+                                        Lat: {formatCoordinate(site.latitude)}
                                     </Typography>
                                     <Typography variant="body2">
-                                        Lng: {site.longitude}
+                                        Lng: {formatCoordinate(site.longitude)}
                                     </Typography>
                                     {site.altitude && (
                                         <Typography variant="body2">
-                                            Alt: {site.altitude}m
+                                            Alt: {formatCoordinate(site.altitude, 2)}m
                                         </Typography>
                                     )}
                                 </>
