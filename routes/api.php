@@ -52,6 +52,7 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::post('/sites/import', [SiteController::class, 'import']);
     Route::get('/sites/export', [SiteController::class, 'export']);
     Route::apiResource('/sites', SiteController::class);
+    Route::get('/sites/{site}/assets', [\App\Http\Controllers\Api\V1\AssetController::class, 'bySite']);
     
     // Assets
     Route::get('/assets/dashboard', [\App\Http\Controllers\Api\V1\AssetController::class, 'dashboard']);
@@ -107,3 +108,6 @@ Route::middleware('auth:sanctum')->prefix('v1/integrations')->group(function () 
 
 
     // Assets (Specific routes MUST come before apiResource to avoid implicit binding conflicts)
+
+    // Site Assets (must be inside auth:sanctum group)
+    Route::get('/sites/{site}/assets', [\App\Http\Controllers\Api\V1\AssetController::class, 'bySite']);

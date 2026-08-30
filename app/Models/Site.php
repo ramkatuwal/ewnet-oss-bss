@@ -93,4 +93,9 @@ class Site extends Model
     {
         return $this->hasMany(SitePhoto::class);
     }
+
+    public function assets(): HasMany
+    {
+        return $this->hasMany(Asset::class);
+    }
 }

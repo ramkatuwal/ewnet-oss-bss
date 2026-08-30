@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Box, Typography, Card, CardContent, Grid, Chip, Stack,
     Tabs, Tab, CircularProgress, Button, Divider
@@ -8,8 +8,10 @@ import {
 import { ArrowBack, Edit, LocationOn, Business } from '@mui/icons-material';
 import { sitesApi } from '@/api/sites';
 import { SiteAssetsTab } from '../components/SiteAssetsTab';
+import { SiteFormDrawer } from '../components/SiteFormDrawer';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Can } from '@/components/auth/Can';
+import toast from 'react-hot-toast';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -29,7 +31,9 @@ function TabPanel(props: TabPanelProps) {
 const SiteDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const [tabValue, setTabValue] = useState(0);
+    const [formOpen, setFormOpen] = useState(false);
 
     const { data: site, isLoading, error } = useQuery({
         queryKey: ['site', id],
@@ -81,6 +85,13 @@ const SiteDetailPage: React.FC = () => {
         }
     };
 
+    const handleEditSuccess = () => {
+        setFormOpen(false);
+        queryClient.invalidateQueries({ queryKey: ['site', id] });
+        queryClient.invalidateQueries({ queryKey: ['sites'] });
+        toast.success('Site updated successfully');
+    };
+
     return (
         <Box sx={{ p: 3 }}>
             <PageHeader
@@ -95,7 +106,7 @@ const SiteDetailPage: React.FC = () => {
                         <Button
                             variant="contained"
                             startIcon={<Edit />}
-                            onClick={() => navigate(`/network/sites/${id}/edit`)}
+                            onClick={() => setFormOpen(true)}
                         >
                             Edit Site
                         </Button>
@@ -231,6 +242,14 @@ const SiteDetailPage: React.FC = () => {
                     Integration status and settings will be displayed here.
                 </Typography>
             </TabPanel>
+
+            {/* Site Edit Drawer */}
+            <SiteFormDrawer
+                open={formOpen}
+                siteId={parseInt(id!)}
+                onClose={() => setFormOpen(false)}
+                onSuccess={handleEditSuccess}
+            />
         </Box>
     );
 };
