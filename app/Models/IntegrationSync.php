@@ -17,6 +17,7 @@ class IntegrationSync extends Model
         'records_created',
         'records_updated',
         'records_unchanged',
+        'records_skipped',
         'records_failed',
         'error_summary',
         'metadata',

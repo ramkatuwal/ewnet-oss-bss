@@ -80,7 +80,6 @@ class LibreNMSProvider implements IntegrationProviderInterface
                 'integration_id' => $integration->id,
             ]);
 
-            // Distinguish degraded vs failed based on error type
             $msg = $e->getMessage();
             if (str_contains($msg, 'rate limit') || str_contains($msg, '502') || str_contains($msg, '503')) {
                 return ['status' => 'degraded', 'error' => 'Temporary server issue'];
@@ -93,7 +92,14 @@ class LibreNMSProvider implements IntegrationProviderInterface
     public function synchronize(Integration $integration, string $operation = 'full'): array
     {
         $client = new LibreNMSClient($integration);
-        $counts = ['processed' => 0, 'created' => 0, 'updated' => 0, 'unchanged' => 0, 'failed' => 0];
+        $counts = [
+            'processed' => 0,
+            'created' => 0,
+            'updated' => 0,
+            'unchanged' => 0,
+            'skipped' => 0,
+            'failed' => 0,
+        ];
 
         // Sync order: devices → ports → alerts → pollers
         $this->syncDevices($client, $integration, $counts);
@@ -148,14 +154,24 @@ class LibreNMSProvider implements IntegrationProviderInterface
 
     private function syncPorts(LibreNMSClient $client, Integration $integration, array &$counts): void
     {
-        // Get all synced devices to iterate their ports
         $devices = LibreNmsObject::where('integration_id', $integration->id)
             ->where('object_type', 'device')
             ->get();
 
         foreach ($devices as $deviceObj) {
             try {
-                $ports = $client->getDevicePorts($deviceObj->external_id);
+                $portResult = $client->getDevicePorts($deviceObj->external_id);
+
+                // 404 = device has no port data (stale/unpolled) — skip, not fail
+                if ($portResult['status'] === 404) {
+                    $counts['skipped']++;
+                    Log::debug("LibreNMS device {$deviceObj->external_id} has no port data (HTTP 404), skipped", [
+                        'integration_id' => $integration->id,
+                    ]);
+                    continue;
+                }
+
+                $ports = $portResult['ports'];
 
                 foreach ($ports as $port) {
                     $portId = (string) ($port['port_id'] ?? '');
@@ -182,7 +198,7 @@ class LibreNMSProvider implements IntegrationProviderInterface
                     };
                 }
             } catch (\Throwable $e) {
-                Log::warning("LibreNMS port sync failed for device {$deviceObj->external_id}: {$e->getMessage()}", [
+                Log::warning("LibreNMS port sync error for device {$deviceObj->external_id}: {$e->getMessage()}", [
                     'integration_id' => $integration->id,
                 ]);
                 $counts['failed']++;

@@ -29,6 +29,9 @@ class LibreNMSClient
 
     /**
      * Make an authenticated GET request to LibreNMS API.
+     * Returns ['data' => array, 'status' => int] on success.
+     * Throws on auth/network errors.
+     * Returns ['data' => null, 'status' => 404] for 404 responses.
      */
     public function get(string $endpoint, array $query = []): array
     {
@@ -50,6 +53,10 @@ class LibreNMSClient
                 throw new \RuntimeException('LibreNMS rate limit exceeded');
             }
 
+            if ($response->status() === 404) {
+                return ['data' => null, 'status' => 404];
+            }
+
             if ($response->serverError()) {
                 throw new \RuntimeException('LibreNMS server error (HTTP ' . $response->status() . ')');
             }
@@ -58,7 +65,7 @@ class LibreNMSClient
                 throw new \RuntimeException('LibreNMS request failed (HTTP ' . $response->status() . ')');
             }
 
-            return $response->json() ?? [];
+            return ['data' => $response->json() ?? [], 'status' => 200];
         } catch (\Illuminate\Http\Client\ConnectionException $e) {
             Log::error("LibreNMS connection error: {$e->getMessage()}", ['endpoint' => $endpoint]);
             throw new \RuntimeException('LibreNMS connection failed: ' . $e->getMessage());
@@ -66,12 +73,22 @@ class LibreNMSClient
     }
 
     /**
-     * Ping the LibreNMS API to verify connectivity.
+     * Legacy get method for backward compatibility.
+     * Returns just the data array, throws on 404.
      */
+    public function getOrThrow(string $endpoint, array $query = []): array
+    {
+        $result = $this->get($endpoint, $query);
+        if ($result['status'] === 404) {
+            throw new \RuntimeException('LibreNMS resource not found (HTTP 404)');
+        }
+        return $result['data'];
+    }
+
     public function ping(): array
     {
         $start = microtime(true);
-        $result = $this->get('ping');
+        $result = $this->getOrThrow('ping');
         $elapsed = round((microtime(true) - $start) * 1000);
 
         return [
@@ -80,17 +97,11 @@ class LibreNMSClient
         ];
     }
 
-    /**
-     * Get system information from LibreNMS.
-     */
     public function getSystemInfo(): array
     {
-        return $this->get('system');
+        return $this->getOrThrow('system');
     }
 
-    /**
-     * List all devices with optional filters.
-     */
     public function listDevices(array $filters = []): array
     {
         $query = [];
@@ -101,22 +112,27 @@ class LibreNMSClient
             $query['order'] = $filters['order'];
         }
 
-        $result = $this->get('devices', $query);
+        $result = $this->getOrThrow('devices', $query);
         return $result['devices'] ?? [];
     }
 
     /**
-     * Get ports for a specific device.
+     * Get ports for a specific device with full column data.
+     * Returns ['ports' => array, 'status' => int].
+     * status=404 means device has no port data (stale/unpolled).
      */
     public function getDevicePorts(string $deviceIdOrHostname): array
     {
-        $result = $this->get("devices/{$deviceIdOrHostname}/ports");
-        return $result['ports'] ?? [];
+        $columns = 'port_id,device_id,ifIndex,ifName,ifDescr,ifAlias,ifType,ifSpeed,ifAdminStatus,ifOperStatus';
+        $result = $this->get("devices/{$deviceIdOrHostname}/ports", ['columns' => $columns]);
+
+        if ($result['status'] === 404) {
+            return ['ports' => [], 'status' => 404];
+        }
+
+        return ['ports' => $result['data']['ports'] ?? [], 'status' => 200];
     }
 
-    /**
-     * List alerts with optional filters.
-     */
     public function listAlerts(array $filters = []): array
     {
         $query = [];
@@ -127,16 +143,13 @@ class LibreNMSClient
             $query['severity'] = $filters['severity'];
         }
 
-        $result = $this->get('alerts', $query);
+        $result = $this->getOrThrow('alerts', $query);
         return $result['alerts'] ?? [];
     }
 
-    /**
-     * Get pollers list.
-     */
     public function getPollers(): array
     {
-        $result = $this->get('pollers');
+        $result = $this->getOrThrow('pollers');
         return $result['pollers'] ?? [];
     }
 }

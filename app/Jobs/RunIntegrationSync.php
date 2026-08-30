@@ -36,6 +36,7 @@ class RunIntegrationSync implements ShouldQueue
                 'records_created' => $result['created'] ?? 0,
                 'records_updated' => $result['updated'] ?? 0,
                 'records_unchanged' => $result['unchanged'] ?? 0,
+                'records_skipped' => $result['skipped'] ?? 0,
                 'records_failed' => $result['failed'] ?? 0,
             ]);
 
