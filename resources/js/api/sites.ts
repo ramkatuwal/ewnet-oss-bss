@@ -86,3 +86,15 @@ export const sitesApi = {
     delete: (id: number) =>
         apiClient.delete(`/api/v1/sites/${id}`),
 };
+
+// Site Photos
+export const getSitePhotos = (siteId: number) =>
+    apiClient.get(`/api/v1/sites/${siteId}/photos`).then(res => res.data);
+
+export const uploadSitePhoto = (siteId: number, data: FormData) =>
+    apiClient.post(`/api/v1/sites/${siteId}/photos`, data, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(res => res.data);
+
+export const deleteSitePhoto = (siteId: number, photoId: number) =>
+    apiClient.delete(`/api/v1/sites/${siteId}/photos/${photoId}`).then(res => res.data);

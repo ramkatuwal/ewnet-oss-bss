@@ -9,6 +9,7 @@ import { ArrowBack, Edit, LocationOn, Business } from '@mui/icons-material';
 import { sitesApi } from '@/api/sites';
 import { SiteAssetsTab } from '../components/SiteAssetsTab';
 import { SiteFormDrawer } from '../components/SiteFormDrawer';
+import { PhotoGallery } from '@/features/shared/components/PhotoGallery';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Can } from '@/components/auth/Can';
 import toast from 'react-hot-toast';
@@ -92,6 +93,8 @@ const SiteDetailPage: React.FC = () => {
         toast.success('Site updated successfully');
     };
 
+    const siteId = parseInt(id!);
+
     return (
         <Box sx={{ p: 3 }}>
             <PageHeader
@@ -115,7 +118,6 @@ const SiteDetailPage: React.FC = () => {
             />
 
             <Grid container spacing={3} sx={{ mb: 3 }}>
-                {/* Site Info Card */}
                 <Grid item xs={12} md={8}>
                     <Card>
                         <CardContent>
@@ -161,7 +163,6 @@ const SiteDetailPage: React.FC = () => {
                     </Card>
                 </Grid>
 
-                {/* Location Card */}
                 <Grid item xs={12} md={4}>
                     <Card>
                         <CardContent>
@@ -218,17 +219,17 @@ const SiteDetailPage: React.FC = () => {
                 </Grid>
             </Grid>
 
-            {/* Tabs */}
             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                 <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
                     <Tab label="Assets" />
                     <Tab label="Overview" />
+                    <Tab label="Photos" />
                     <Tab label="Integrations" />
                 </Tabs>
             </Box>
 
             <TabPanel value={tabValue} index={0}>
-                <SiteAssetsTab siteId={parseInt(id!)} />
+                <SiteAssetsTab siteId={siteId} />
             </TabPanel>
 
             <TabPanel value={tabValue} index={1}>
@@ -238,15 +239,30 @@ const SiteDetailPage: React.FC = () => {
             </TabPanel>
 
             <TabPanel value={tabValue} index={2}>
+                <Can permission="sites.update">
+                    <PhotoGallery
+                        entityType="site"
+                        entityId={siteId}
+                        getPhotosUrl={`/api/v1/sites/${siteId}/photos`}
+                        uploadUrl={`/api/v1/sites/${siteId}/photos`}
+                        deleteUrl={(photoId: number) => `/api/v1/sites/${siteId}/photos/${photoId}`}
+                        categories={['site', 'rack', 'power', 'tower', 'equipment', 'other']}
+                        defaultCategory="site"
+                        canUpload={true}
+                        canDelete={true}
+                    />
+                </Can>
+            </TabPanel>
+
+            <TabPanel value={tabValue} index={3}>
                 <Typography variant="body2" color="text.secondary">
                     Integration status and settings will be displayed here.
                 </Typography>
             </TabPanel>
 
-            {/* Site Edit Drawer */}
             <SiteFormDrawer
                 open={formOpen}
-                siteId={parseInt(id!)}
+                siteId={siteId}
                 onClose={() => setFormOpen(false)}
                 onSuccess={handleEditSuccess}
             />

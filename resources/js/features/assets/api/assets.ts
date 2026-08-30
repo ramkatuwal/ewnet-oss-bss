@@ -51,3 +51,15 @@ export const retireAsset = (assetId: number, data?: { notes?: string }) =>
 
 export const disposeAsset = (assetId: number, data?: { notes?: string }) =>
     axios.post(`/api/v1/assets/${assetId}/dispose`, data || {}).then(res => res.data);
+
+// Asset Photos
+export const getAssetPhotos = (assetId: number) =>
+    axios.get(`/api/v1/assets/${assetId}/photos`).then(res => res.data);
+
+export const uploadAssetPhoto = (assetId: number, data: FormData) =>
+    axios.post(`/api/v1/assets/${assetId}/photos`, data, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(res => res.data);
+
+export const deleteAssetPhoto = (assetId: number, photoId: number) =>
+    axios.delete(`/api/v1/assets/${assetId}/photos/${photoId}`).then(res => res.data);

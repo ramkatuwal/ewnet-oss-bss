@@ -50,6 +50,11 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::apiResource('/organization/departments', DepartmentController::class);
     Route::apiResource('/organization/users', UserController::class);
     Route::post('/sites/import', [SiteController::class, 'import']);
+
+    // Site Photos
+    Route::get('/sites/{site}/photos', [\App\Http\Controllers\Api\V1\PhotoController::class, 'sitePhotos']);
+    Route::post('/sites/{site}/photos', [\App\Http\Controllers\Api\V1\PhotoController::class, 'storeSitePhoto']);
+    Route::delete('/sites/{site}/photos/{photo}', [\App\Http\Controllers\Api\V1\PhotoController::class, 'deleteSitePhoto']);
     Route::get('/sites/export', [SiteController::class, 'export']);
     Route::apiResource('/sites', SiteController::class);
     Route::get('/sites/{site}/assets', [\App\Http\Controllers\Api\V1\AssetController::class, 'bySite']);
@@ -59,6 +64,11 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::post('/assets/import', [\App\Http\Controllers\Api\V1\AssetController::class, 'import']);
     Route::get('/assets/export', [\App\Http\Controllers\Api\V1\AssetController::class, 'export']);
     Route::apiResource('/assets', \App\Http\Controllers\Api\V1\AssetController::class);
+
+    // Asset Photos
+    Route::get('/assets/{asset}/photos', [\App\Http\Controllers\Api\V1\PhotoController::class, 'assetPhotos']);
+    Route::post('/assets/{asset}/photos', [\App\Http\Controllers\Api\V1\PhotoController::class, 'storeAssetPhoto']);
+    Route::delete('/assets/{asset}/photos/{photo}', [\App\Http\Controllers\Api\V1\PhotoController::class, 'deleteAssetPhoto']);
     // Asset Lifecycle
     Route::get('/assets/{asset}/lifecycle', [\App\Http\Controllers\Api\V1\AssetLifecycleController::class, 'index']);
     Route::post('/assets/{asset}/lifecycle', [\App\Http\Controllers\Api\V1\AssetLifecycleController::class, 'store']);

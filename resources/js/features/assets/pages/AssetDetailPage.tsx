@@ -14,6 +14,7 @@ import { ConfirmDialog } from '@/components/feedback/ConfirmDialog';
 import { AssetLifecycleTimeline } from '../components/AssetLifecycleTimeline';
 import { AssetTransferDialog } from '../components/AssetTransferDialog';
 import { AssetStatusChangeDialog } from '../components/AssetStatusChangeDialog';
+import { PhotoGallery } from '@/features/shared/components/PhotoGallery';
 import AssetFormDrawer from '../components/AssetFormDrawer';
 import toast from 'react-hot-toast';
 
@@ -123,6 +124,7 @@ const AssetDetailPage: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ['asset-lifecycle', id] });
     };
 
+    const assetId = parseInt(id!);
     const canTransfer = asset.status !== 'DISPOSED';
     const canRetire = asset.status !== 'RETIRED' && asset.status !== 'DISPOSED';
     const canDispose = asset.status === 'RETIRED';
@@ -305,12 +307,13 @@ const AssetDetailPage: React.FC = () => {
                 <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
                     <Tab label="Lifecycle" />
                     <Tab label="Details" />
+                    <Tab label="Photos" />
                 </Tabs>
             </Box>
 
             <TabPanel value={tabValue} index={0}>
                 <Can permission="assets.lifecycle.view">
-                    <AssetLifecycleTimeline assetId={parseInt(id!)} />
+                    <AssetLifecycleTimeline assetId={assetId} />
                 </Can>
             </TabPanel>
 
@@ -320,34 +323,46 @@ const AssetDetailPage: React.FC = () => {
                 </Typography>
             </TabPanel>
 
-            {/* Edit Drawer */}
+            <TabPanel value={tabValue} index={2}>
+                <Can permission="assets.update">
+                    <PhotoGallery
+                        entityType="asset"
+                        entityId={assetId}
+                        getPhotosUrl={`/api/v1/assets/${assetId}/photos`}
+                        uploadUrl={`/api/v1/assets/${assetId}/photos`}
+                        deleteUrl={(photoId: number) => `/api/v1/assets/${assetId}/photos/${photoId}`}
+                        categories={['asset', 'documentation', 'label', 'installation', 'other']}
+                        defaultCategory="asset"
+                        canUpload={true}
+                        canDelete={true}
+                    />
+                </Can>
+            </TabPanel>
+
             <AssetFormDrawer
                 open={editOpen}
                 onClose={() => setEditOpen(false)}
-                assetId={parseInt(id!)}
+                assetId={assetId}
             />
 
-            {/* Transfer Dialog */}
             <AssetTransferDialog
                 open={transferOpen}
                 onClose={() => setTransferOpen(false)}
-                assetId={parseInt(id!)}
+                assetId={assetId}
                 currentSiteName={asset.site?.site_code || 'Unknown'}
                 currentSiteId={asset.site_id}
                 onSuccess={handleTransferSuccess}
             />
 
-            {/* Status Change Dialog */}
             <AssetStatusChangeDialog
                 open={statusAction !== null}
                 onClose={() => setStatusAction(null)}
-                assetId={parseInt(id!)}
+                assetId={assetId}
                 currentStatus={asset.status}
                 action={statusAction}
                 onSuccess={handleStatusChangeSuccess}
             />
 
-            {/* Delete Confirmation */}
             <ConfirmDialog
                 open={!!deleteId}
                 title="Delete Asset"

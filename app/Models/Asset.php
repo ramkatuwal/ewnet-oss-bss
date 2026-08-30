@@ -86,6 +86,11 @@ class Asset extends Model
     }
 
     public function lifecycleEvents(): HasMany
+
+    public function photos(): HasMany
+    {
+        return $this->hasMany(AssetPhoto::class);
+    }
     {
         return $this->hasMany(AssetLifecycleEvent::class);
     }
