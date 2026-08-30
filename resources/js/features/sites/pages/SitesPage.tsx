@@ -4,37 +4,30 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Box,
     Button,
-    Paper,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Typography,
     Chip,
-    IconButton,
-    CircularProgress,
-    Alert,
+    Typography,
     Stack,
     Dialog,
     DialogTitle,
     DialogContent,
     DialogActions,
     TextField,
+    CircularProgress,
+    Alert
 } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
+import { DataGrid, GridColDef, GridRenderCellParams, GridRowParams } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
 import UploadIcon from '@mui/icons-material/Upload';
 import DownloadIcon from '@mui/icons-material/Download';
-import { sitesApi, Site } from '@/api/sites';
+import { sitesApi } from '@/api/sites';
 import { SearchFilterBar } from '@/components/forms/SearchFilterBar';
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog';
 import { Can } from '@/components/auth/Can';
 import { SiteFormDrawer } from '../components/SiteFormDrawer';
 import { formatCoordinates } from '@/utils/format';
+import { PageHeader } from '@/components/layout/PageHeader';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
 export const SitesPage = () => {
     const navigate = useNavigate();
@@ -46,10 +39,12 @@ export const SitesPage = () => {
     const [importOpen, setImportOpen] = useState(false);
     const [importFile, setImportFile] = useState<File | null>(null);
     const [importStatus, setImportStatus] = useState<string>('');
+    const [page, setPage] = useState(0);
+    const [pageSize, setPageSize] = useState(15);
 
     const { data, isLoading, error } = useQuery({
-        queryKey: ['sites', search],
-        queryFn: () => sitesApi.list({ search }),
+        queryKey: ['sites', search, page, pageSize],
+        queryFn: () => sitesApi.list({ search, page: page + 1, per_page: pageSize }),
     });
 
     const deleteMutation = useMutation({
@@ -57,7 +52,9 @@ export const SitesPage = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['sites'] });
             setDeleteId(null);
+            toast.success('Site deleted successfully');
         },
+        onError: () => toast.error('Failed to delete site'),
     });
 
     const handleImport = async () => {
@@ -97,15 +94,13 @@ export const SitesPage = () => {
         }
     };
 
-    const handleEdit = (id: number, e: React.MouseEvent) => {
-        e.stopPropagation();
+    const handleEdit = (id: number) => {
         setEditingId(id);
         setFormOpen(true);
     };
 
-    const handleDelete = (id: number, e: React.MouseEvent) => {
-        e.stopPropagation();
-        setDeleteId(id);
+    const handleRowClick = (params: GridRowParams) => {
+        navigate(`/network/sites/${params.id}`);
     };
 
     const handleAdd = () => {
@@ -113,47 +108,96 @@ export const SitesPage = () => {
         setFormOpen(true);
     };
 
-    const handleRowClick = (id: number) => {
-        navigate(`/network/sites/${id}`);
-    };
-
-    if (isLoading) return <CircularProgress />;
-    if (error) return <Alert severity="error">Failed to load sites</Alert>;
-
-    return (
-        <Box sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <Typography variant="h4">Sites</Typography>
-                <Stack direction="row" spacing={1}>
-                    <Can permission="sites.import">
-                        <Button
-                            variant="outlined"
-                            startIcon={<UploadIcon />}
-                            onClick={() => setImportOpen(true)}
-                        >
-                            Import
+    const columns: GridColDef[] = [
+        { field: 'site_code', headerName: 'Code', flex: 0.8 },
+        { field: 'name', headerName: 'Name', flex: 1 },
+        { field: 'type', headerName: 'Type', flex: 0.6 },
+        {
+            field: 'status',
+            headerName: 'Status',
+            flex: 0.6,
+            renderCell: (params: GridRenderCellParams) => (
+                <Chip label={params.value} color={getStatusColor(params.value) as any} size="small" />
+            )
+        },
+        {
+            field: 'location',
+            headerName: 'Location',
+            flex: 0.8,
+            renderCell: (params: GridRenderCellParams) => {
+                const { latitude, longitude } = params.row;
+                return formatCoordinates(latitude, longitude);
+            }
+        },
+        {
+            field: 'actions',
+            headerName: 'Actions',
+            flex: 0.6,
+            renderCell: (params: GridRenderCellParams) => (
+                <Stack direction="row" spacing={0}>
+                    <Can permission="sites.update">
+                        <Button size="small" onClick={(e) => { e.stopPropagation(); handleEdit(params.row.id); }}>
+                            Edit
                         </Button>
                     </Can>
-                    <Can permission="sites.export">
-                        <Button
-                            variant="outlined"
-                            startIcon={<DownloadIcon />}
-                            onClick={() => handleExport('csv')}
-                        >
-                            Export CSV
-                        </Button>
-                    </Can>
-                    <Can permission="sites.create">
-                        <Button
-                            variant="contained"
-                            startIcon={<AddIcon />}
-                            onClick={handleAdd}
-                        >
-                            Add Site
+                    <Can permission="sites.delete">
+                        <Button size="small" color="error" onClick={(e) => { e.stopPropagation(); setDeleteId(params.row.id); }}>
+                            Delete
                         </Button>
                     </Can>
                 </Stack>
-            </Box>
+            )
+        },
+    ];
+
+    if (isLoading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;
+    if (error) return <Alert severity="error">Failed to load sites</Alert>;
+
+    const rows = data?.data || [];
+
+    return (
+        <Box sx={{ p: 3 }}>
+            <PageHeader
+                title="Sites"
+                actions={
+                    <Stack direction="row" spacing={1}>
+                        <Can permission="sites.import">
+                            <Button
+                                variant="outlined"
+                                startIcon={<UploadIcon />}
+                                onClick={() => setImportOpen(true)}
+                            >
+                                Import
+                            </Button>
+                        </Can>
+                        <Can permission="sites.export">
+                            <Button
+                                variant="outlined"
+                                startIcon={<DownloadIcon />}
+                                onClick={() => handleExport('csv')}
+                            >
+                                Export CSV
+                            </Button>
+                            <Button
+                                variant="outlined"
+                                startIcon={<DownloadIcon />}
+                                onClick={() => handleExport('xlsx')}
+                            >
+                                Export XLSX
+                            </Button>
+                        </Can>
+                        <Can permission="sites.create">
+                            <Button
+                                variant="contained"
+                                startIcon={<AddIcon />}
+                                onClick={handleAdd}
+                            >
+                                Add Site
+                            </Button>
+                        </Can>
+                    </Stack>
+                }
+            />
 
             <SearchFilterBar
                 searchValue={search}
@@ -161,57 +205,28 @@ export const SitesPage = () => {
                 placeholder="Search sites by code or name..."
             />
 
-            <TableContainer component={Paper} sx={{ mt: 2 }}>
-                <Table>
-                    <TableHead>
-                        <TableRow>
-                            <TableCell>Code</TableCell>
-                            <TableCell>Name</TableCell>
-                            <TableCell>Type</TableCell>
-                            <TableCell>Status</TableCell>
-                            <TableCell>Location</TableCell>
-                            <TableCell align="right">Actions</TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {data?.data.map((site: Site) => (
-                            <TableRow 
-                                key={site.id} 
-                                hover 
-                                onClick={() => handleRowClick(site.id)}
-                                sx={{ 
-                                    cursor: 'pointer',
-                                    '&:hover': { backgroundColor: 'action.hover' }
-                                }}
-                            >
-                                <TableCell>{site.site_code}</TableCell>
-                                <TableCell>{site.name}</TableCell>
-                                <TableCell>{site.type}</TableCell>
-                                <TableCell>
-                                    <Chip label={site.status} color={getStatusColor(site.status) as any} size="small" />
-                                </TableCell>
-                                <TableCell>
-                                    {formatCoordinates(site.latitude, site.longitude)}
-                                </TableCell>
-                                <TableCell align="right">
-                                    <Stack direction="row" justifyContent="flex-end" spacing={1}>
-                                        <Can permission="sites.update">
-                                            <IconButton size="small" onClick={(e) => handleEdit(site.id, e)}>
-                                                <EditIcon />
-                                            </IconButton>
-                                        </Can>
-                                        <Can permission="sites.delete">
-                                            <IconButton size="small" color="error" onClick={(e) => handleDelete(site.id, e)}>
-                                                <DeleteIcon />
-                                            </IconButton>
-                                        </Can>
-                                    </Stack>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </TableContainer>
+            <Box sx={{ mt: 2, height: 500, width: '100%' }}>
+                <DataGrid
+                    rows={rows}
+                    columns={columns}
+                    loading={isLoading}
+                    paginationMode="server"
+                    rowCount={data?.total || 0}
+                    paginationModel={{ page, pageSize }}
+                    onPaginationModelChange={(model) => {
+                        setPage(model.page);
+                        setPageSize(model.pageSize);
+                    }}
+                    onRowClick={handleRowClick}
+                    pageSizeOptions={[15, 25, 50, 100]}
+                    sx={{
+                        cursor: 'pointer',
+                        '& .MuiDataGrid-row:hover': {
+                            backgroundColor: 'action.hover',
+                        },
+                    }}
+                />
+            </Box>
 
             <Dialog open={importOpen} onClose={() => setImportOpen(false)}>
                 <DialogTitle>Import Sites</DialogTitle>
