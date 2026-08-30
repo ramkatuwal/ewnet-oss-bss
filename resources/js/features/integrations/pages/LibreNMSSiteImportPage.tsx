@@ -51,7 +51,7 @@ const LibreNMSSiteImportPage: React.FC = () => {
         (i: Integration) => i.provider === 'librenms'
     );
 
-    const { data: previewData, isLoading: previewLoading, refetch: refetchPreview } = useQuery({
+    const { data: preview, isLoading: previewLoading, refetch: refetchPreview } = useQuery({
         queryKey: ['librenms-sites-preview', integrationId],
         queryFn: () => {
             if (!integrationId) return null;
@@ -60,9 +60,6 @@ const LibreNMSSiteImportPage: React.FC = () => {
         },
         enabled: !!integrationId,
     });
-
-    // Safely extract preview array
-    const preview = previewData?.preview || [];
 
     const importMutation = useMutation({
         mutationFn: () => {
@@ -90,7 +87,9 @@ const LibreNMSSiteImportPage: React.FC = () => {
             setSelectedLocations(new Set());
             selectedLocationsRef.current = new Set();
             queryClient.invalidateQueries({ queryKey: ['librenms-sites-preview'] });
+            // Invalidate both the base and search-specific site queries
             queryClient.invalidateQueries({ queryKey: ['sites'] });
+            queryClient.invalidateQueries({ queryKey: ['sites', ''] });
         },
         onError: (err: any) => {
             console.error('Import error:', err);
@@ -106,13 +105,6 @@ const LibreNMSSiteImportPage: React.FC = () => {
     };
 
     const handleConfirmImport = () => {
-        const locations = Array.from(selectedLocationsRef.current);
-        console.log('Confirming import with selected locations:', locations);
-        if (locations.length === 0) {
-            toast.error('Please select at least one location to import');
-            setConfirmOpen(false);
-            return;
-        }
         setConfirmOpen(false);
         setIsImporting(true);
         importMutation.mutate();
@@ -127,23 +119,18 @@ const LibreNMSSiteImportPage: React.FC = () => {
         }
         setSelectedLocations(newSet);
         selectedLocationsRef.current = newSet;
-        console.log('Selected locations:', Array.from(newSet));
     };
 
     const handleSelectAll = () => {
-        if (!preview || preview.length === 0) {
-             toast.success('No locations available to select');
-            return;
-        }
+        if (!preview?.preview) return;
         let newSet: Set<string>;
-        if (selectedLocations.size === preview.length) {
+        if (selectedLocations.size === preview.preview.length) {
             newSet = new Set();
         } else {
-            newSet = new Set(preview.map((p: LocationPreview) => p.location_name));
+            newSet = new Set(preview.preview.map((p: LocationPreview) => p.location_name));
         }
         setSelectedLocations(newSet);
         selectedLocationsRef.current = newSet;
-        console.log('Selected all locations:', Array.from(newSet));
     };
 
     const getStatusChip = (mapped: boolean) => {
@@ -211,7 +198,7 @@ const LibreNMSSiteImportPage: React.FC = () => {
                         </CardContent>
                     </Card>
 
-                    {previewData && (
+                    {preview && (
                         <>
                             <Card>
                                 <CardContent>
@@ -221,25 +208,25 @@ const LibreNMSSiteImportPage: React.FC = () => {
                                     <Grid container spacing={2}>
                                         <Grid item xs={6} sm={3}>
                                             <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'info.light' }}>
-                                                <Typography variant="h6">{previewData.total || preview.length}</Typography>
+                                                <Typography variant="h6">{preview.total}</Typography>
                                                 <Typography variant="caption">Total Locations</Typography>
                                             </Paper>
                                         </Grid>
                                         <Grid item xs={6} sm={3}>
                                             <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'success.light' }}>
-                                                <Typography variant="h6">{previewData.summary?.mapped || 0}</Typography>
+                                                <Typography variant="h6">{preview.summary.mapped}</Typography>
                                                 <Typography variant="caption">Mapped</Typography>
                                             </Paper>
                                         </Grid>
                                         <Grid item xs={6} sm={3}>
                                             <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'warning.light' }}>
-                                                <Typography variant="h6">{previewData.summary?.unmapped || 0}</Typography>
+                                                <Typography variant="h6">{preview.summary.unmapped}</Typography>
                                                 <Typography variant="caption">Unmapped</Typography>
                                             </Paper>
                                         </Grid>
                                         <Grid item xs={6} sm={3}>
                                             <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'primary.light' }}>
-                                                <Typography variant="h6">{previewData.total || preview.length}</Typography>
+                                                <Typography variant="h6">{preview.total}</Typography>
                                                 <Typography variant="caption">Total</Typography>
                                             </Paper>
                                         </Grid>
@@ -256,7 +243,7 @@ const LibreNMSSiteImportPage: React.FC = () => {
                                                 size="small"
                                                 onClick={handleSelectAll}
                                             >
-                                                {selectedCount === preview.length ? 'Deselect All' : 'Select All'}
+                                                {selectedCount === preview.preview.length ? 'Deselect All' : 'Select All'}
                                             </Button>
                                             {selectedCount > 0 && (
                                                 <Button
@@ -285,7 +272,7 @@ const LibreNMSSiteImportPage: React.FC = () => {
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
-                                                {preview.map((item: LocationPreview) => (
+                                                {preview.preview.map((item: LocationPreview) => (
                                                     <TableRow key={item.location_name}>
                                                         <TableCell padding="checkbox">
                                                             <input
@@ -371,18 +358,6 @@ const LibreNMSSiteImportPage: React.FC = () => {
                     <Typography>
                         This will import {selectedCount} location(s) as EWNET Sites.
                     </Typography>
-                    {selectedCount > 0 && (
-                        <Box sx={{ mt: 1, maxHeight: 200, overflow: 'auto' }}>
-                            {Array.from(selectedLocations).slice(0, 10).map((loc) => (
-                                <Typography key={loc} variant="body2">• {loc}</Typography>
-                            ))}
-                            {selectedCount > 10 && (
-                                <Typography variant="body2" color="text.secondary">
-                                    ... and {selectedCount - 10} more
-                                </Typography>
-                            )}
-                        </Box>
-                    )}
                     <Alert severity="warning" sx={{ mt: 2 }}>
                         Sites will be created with default settings. You can edit them later.
                     </Alert>
@@ -393,7 +368,7 @@ const LibreNMSSiteImportPage: React.FC = () => {
                         variant="contained"
                         color="primary"
                         onClick={handleConfirmImport}
-                        disabled={isImporting || selectedCount === 0}
+                        disabled={isImporting}
                     >
                         Confirm Import
                     </Button>
