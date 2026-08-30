@@ -5,7 +5,6 @@ namespace App\Integrations\Providers\LibreNMS;
 use App\Contracts\IntegrationProviderInterface;
 use App\Models\Integration;
 use App\Models\LibreNmsObject;
-use App\Services\SiteMappingService;
 use Illuminate\Support\Facades\Log;
 
 class LibreNMSProvider implements IntegrationProviderInterface
@@ -27,7 +26,6 @@ class LibreNMSProvider implements IntegrationProviderInterface
             'interface_discovery',
             'monitoring',
             'alerts',
-            'site_mapping',
         ];
     }
 
@@ -101,18 +99,13 @@ class LibreNMSProvider implements IntegrationProviderInterface
             'unchanged' => 0,
             'skipped' => 0,
             'failed' => 0,
-            'sites_mapped' => 0,
-            'sites_unmapped' => 0,
         ];
 
-        // Sync order: devices → ports → alerts → pollers → sites
+        // Sync order: devices → ports → alerts → pollers
         $this->syncDevices($client, $integration, $counts);
         $this->syncPorts($client, $integration, $counts);
         $this->syncAlerts($client, $integration, $counts);
         $this->syncPollers($client, $integration, $counts);
-        
-        // New: Site Mapping
-        $this->syncSites($client, $integration, $counts);
 
         Log::info('LibreNMS synchronization completed', [
             'integration_id' => $integration->id,
@@ -169,8 +162,12 @@ class LibreNMSProvider implements IntegrationProviderInterface
             try {
                 $portResult = $client->getDevicePorts($deviceObj->external_id);
 
+                // 404 = device has no port data (stale/unpolled) — skip, not fail
                 if ($portResult['status'] === 404) {
                     $counts['skipped']++;
+                    Log::debug("LibreNMS device {$deviceObj->external_id} has no port data (HTTP 404), skipped", [
+                        'integration_id' => $integration->id,
+                    ]);
                     continue;
                 }
 
@@ -201,6 +198,9 @@ class LibreNMSProvider implements IntegrationProviderInterface
                     };
                 }
             } catch (\Throwable $e) {
+                Log::warning("LibreNMS port sync error for device {$deviceObj->external_id}: {$e->getMessage()}", [
+                    'integration_id' => $integration->id,
+                ]);
                 $counts['failed']++;
             }
         }
@@ -238,6 +238,9 @@ class LibreNMSProvider implements IntegrationProviderInterface
                 };
             }
         } catch (\Throwable $e) {
+            Log::error("LibreNMS alert sync failed: {$e->getMessage()}", [
+                'integration_id' => $integration->id,
+            ]);
             $counts['failed']++;
         }
     }
@@ -271,35 +274,7 @@ class LibreNMSProvider implements IntegrationProviderInterface
                 };
             }
         } catch (\Throwable $e) {
-            $counts['failed']++;
-        }
-    }
-
-    private function syncSites(LibreNMSClient $client, Integration $integration, array &$counts): void
-    {
-        $mappingService = app(SiteMappingService::class);
-        
-        try {
-            $devices = $client->listDevices(['type' => 'all']);
-
-            foreach ($devices as $device) {
-                $result = $mappingService->mapDevice($device, $integration);
-                
-                $counts['processed']++;
-                if ($result['status'] === 'mapped') {
-                    $counts['sites_mapped']++;
-                } elseif ($result['status'] === 'unmapped') {
-                    $counts['sites_unmapped']++;
-                    Log::debug("LibreNMS device unmapped: {$device['hostname']}", [
-                        'device_id' => $device['device_id'],
-                        'location' => $device['location'] ?? null,
-                    ]);
-                } else {
-                    $counts['failed']++;
-                }
-            }
-        } catch (\Throwable $e) {
-            Log::error("LibreNMS site mapping failed: {$e->getMessage()}", [
+            Log::error("LibreNMS poller sync failed: {$e->getMessage()}", [
                 'integration_id' => $integration->id,
             ]);
             $counts['failed']++;
