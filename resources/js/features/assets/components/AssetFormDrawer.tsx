@@ -3,13 +3,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Drawer, Box, Typography, TextField, Button,
     MenuItem, Grid, FormControl, InputLabel, Select,
-    FormHelperText
+    FormHelperText, Stack, Chip
 } from '@mui/material';
 import { createAsset, updateAsset, getAsset } from '../api/assets';
 import { useQuery } from '@tanstack/react-query';
-import { companiesApi } from '@/api/companies';
-import { regionsApi } from '@/api/regions';
-import { branchesApi } from '@/api/branches';
 import { sitesApi } from '@/api/sites';
 import toast from 'react-hot-toast';
 
@@ -17,6 +14,15 @@ interface Props {
     open: boolean;
     onClose: () => void;
     assetId: number | null;
+}
+
+interface SiteWithRelations {
+    id: number;
+    site_code: string;
+    name: string;
+    company?: { id: number; name: string };
+    region?: { id: number; name: string };
+    branch?: { id: number; name: string };
 }
 
 const AssetFormDrawer: React.FC<Props> = ({ open, onClose, assetId }) => {
@@ -30,9 +36,7 @@ const AssetFormDrawer: React.FC<Props> = ({ open, onClose, assetId }) => {
         unit: 'pcs',
         site_id: undefined,
     });
-    const [companyId, setCompanyId] = useState<number | ''>('');
-    const [regionId, setRegionId] = useState<number | ''>('');
-    const [branchId, setBranchId] = useState<number | ''>('');
+    const [selectedSite, setSelectedSite] = useState<SiteWithRelations | null>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     // Load asset data when editing
@@ -40,12 +44,10 @@ const AssetFormDrawer: React.FC<Props> = ({ open, onClose, assetId }) => {
         if (assetId && open) {
             getAsset(assetId).then((data: any) => {
                 setFormData(data);
-                // Load organization hierarchy for the site
+                // Load site details with relationships
                 if (data.site_id) {
-                    sitesApi.get(data.site_id).then((site: any) => {
-                        setCompanyId(site.company_id || '');
-                        setRegionId(site.region_id || '');
-                        setBranchId(site.branch_id || '');
+                    sitesApi.get(data.site_id).then((site: SiteWithRelations) => {
+                        setSelectedSite(site);
                     });
                 }
             }).catch(() => {
@@ -61,43 +63,38 @@ const AssetFormDrawer: React.FC<Props> = ({ open, onClose, assetId }) => {
                 unit: 'pcs',
                 site_id: undefined,
             });
-            setCompanyId('');
-            setRegionId('');
-            setBranchId('');
+            setSelectedSite(null);
         }
         setErrors({});
     }, [assetId, open]);
 
-    // Queries for cascading selectors
-    const { data: companies } = useQuery({
-        queryKey: ['companies'],
-        queryFn: () => companiesApi.getAll({ per_page: 100 }),
+    // Queries for site list (scope-filtered by backend)
+    const { data: sites } = useQuery({
+        queryKey: ['sites', 'list'],
+        queryFn: () => sitesApi.list({ per_page: 1000 }),
         enabled: open,
     });
 
-    const { data: regions } = useQuery({
-        queryKey: ['regions', companyId],
-        queryFn: () => regionsApi.getAll({ company_id: companyId, per_page: 100 }),
-        enabled: !!companyId && open,
+    // Load site details when site_id changes
+    const { data: siteDetails } = useQuery({
+        queryKey: ['site', formData.site_id],
+        queryFn: () => sitesApi.get(formData.site_id as number),
+        enabled: !!formData.site_id && open,
     });
 
-    const { data: branches } = useQuery({
-        queryKey: ['branches', regionId],
-        queryFn: () => branchesApi.getAll({ region_id: regionId, per_page: 100 }),
-        enabled: !!regionId && open,
-    });
-
-    const { data: sites } = useQuery({
-        queryKey: ['sites', branchId],
-        queryFn: () => sitesApi.list({ branch_id: branchId, per_page: 100 }),
-        enabled: !!branchId && open,
-    });
+    // Update selectedSite when siteDetails changes
+    useEffect(() => {
+        if (siteDetails) {
+            setSelectedSite(siteDetails);
+        }
+    }, [siteDetails]);
 
     const mutation = useMutation({
         mutationFn: assetId ? (data: any) => updateAsset(assetId, data) : createAsset,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['assets'] });
             queryClient.invalidateQueries({ queryKey: ['asset-dashboard'] });
+            queryClient.invalidateQueries({ queryKey: ['site-assets'] });
             toast.success(assetId ? 'Asset updated' : 'Asset created');
             onClose();
         },
@@ -121,82 +118,19 @@ const AssetFormDrawer: React.FC<Props> = ({ open, onClose, assetId }) => {
     };
 
     return (
-        <Drawer anchor="right" open={open} onClose={onClose} sx={{ width: 500 }}>
-            <Box sx={{ width: 500, p: 3 }}>
+        <Drawer anchor="right" open={open} onClose={onClose} sx={{ width: 550 }}>
+            <Box sx={{ width: 550, p: 3 }}>
                 <Typography variant="h6" sx={{ mb: 2 }}>{assetId ? 'Edit Asset' : 'Add Asset'}</Typography>
                 <form onSubmit={handleSubmit}>
                     <Grid container spacing={2}>
-                        {/* Site Selection - Cascading */}
+                        {/* Site Selection - ONLY Site */}
                         <Grid item xs={12}>
                             <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
                                 Site Location
                             </Typography>
                         </Grid>
                         <Grid item xs={12}>
-                            <FormControl fullWidth error={!!errors.company_id}>
-                                <InputLabel>Company</InputLabel>
-                                <Select
-                                    value={companyId}
-                                    label="Company"
-                                    onChange={(e) => {
-                                        const val = e.target.value as number | '';
-                                        setCompanyId(val);
-                                        setRegionId('');
-                                        setBranchId('');
-                                        setFormData({ ...formData, site_id: undefined });
-                                    }}
-                                >
-                                    <MenuItem value=""><em>None</em></MenuItem>
-                                    {companies?.data?.map((c: any) => (
-                                        <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
-                                    ))}
-                                </Select>
-                                {errors.company_id && <FormHelperText>{errors.company_id[0]}</FormHelperText>}
-                            </FormControl>
-                        </Grid>
-                        <Grid item xs={12}>
-                            <FormControl fullWidth disabled={!companyId} error={!!errors.region_id}>
-                                <InputLabel>Region</InputLabel>
-                                <Select
-                                    value={regionId}
-                                    label="Region"
-                                    onChange={(e) => {
-                                        const val = e.target.value as number | '';
-                                        setRegionId(val);
-                                        setBranchId('');
-                                        setFormData({ ...formData, site_id: undefined });
-                                    }}
-                                >
-                                    <MenuItem value=""><em>None</em></MenuItem>
-                                    {regions?.data?.map((r: any) => (
-                                        <MenuItem key={r.id} value={r.id}>{r.name}</MenuItem>
-                                    ))}
-                                </Select>
-                                {errors.region_id && <FormHelperText>{errors.region_id[0]}</FormHelperText>}
-                            </FormControl>
-                        </Grid>
-                        <Grid item xs={12}>
-                            <FormControl fullWidth disabled={!regionId} error={!!errors.branch_id}>
-                                <InputLabel>Branch</InputLabel>
-                                <Select
-                                    value={branchId}
-                                    label="Branch"
-                                    onChange={(e) => {
-                                        const val = e.target.value as number | '';
-                                        setBranchId(val);
-                                        setFormData({ ...formData, site_id: undefined });
-                                    }}
-                                >
-                                    <MenuItem value=""><em>None</em></MenuItem>
-                                    {branches?.data?.map((b: any) => (
-                                        <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
-                                    ))}
-                                </Select>
-                                {errors.branch_id && <FormHelperText>{errors.branch_id[0]}</FormHelperText>}
-                            </FormControl>
-                        </Grid>
-                        <Grid item xs={12}>
-                            <FormControl fullWidth disabled={!branchId} error={!!errors.site_id} required>
+                            <FormControl fullWidth error={!!errors.site_id} required>
                                 <InputLabel>Site *</InputLabel>
                                 <Select
                                     value={formData.site_id || ''}
@@ -204,6 +138,7 @@ const AssetFormDrawer: React.FC<Props> = ({ open, onClose, assetId }) => {
                                     onChange={(e) => {
                                         const val = e.target.value as number | '';
                                         setFormData({ ...formData, site_id: val || undefined });
+                                        setSelectedSite(null);
                                     }}
                                 >
                                     <MenuItem value=""><em>Select a site</em></MenuItem>
@@ -217,9 +152,32 @@ const AssetFormDrawer: React.FC<Props> = ({ open, onClose, assetId }) => {
                             </FormControl>
                         </Grid>
 
+                        {/* Read-only hierarchy display */}
+                        {selectedSite && (
+                            <Grid item xs={12}>
+                                <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 0.5 }}>
+                                    <Chip
+                                        label={`Company: ${selectedSite.company?.name || 'N/A'}`}
+                                        size="small"
+                                        variant="outlined"
+                                    />
+                                    <Chip
+                                        label={`Region: ${selectedSite.region?.name || 'N/A'}`}
+                                        size="small"
+                                        variant="outlined"
+                                    />
+                                    <Chip
+                                        label={`Branch: ${selectedSite.branch?.name || 'N/A'}`}
+                                        size="small"
+                                        variant="outlined"
+                                    />
+                                </Stack>
+                            </Grid>
+                        )}
+
                         {/* Asset Identification */}
                         <Grid item xs={12}>
-                            <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
+                            <Typography variant="subtitle2" sx={{ mt: 1, mb: 1, color: 'text.secondary' }}>
                                 Asset Details
                             </Typography>
                         </Grid>

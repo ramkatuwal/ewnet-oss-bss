@@ -8,9 +8,10 @@ use App\Http\Requests\Api\V1\UpdateSiteRequest;
 use App\Http\Resources\V1\SiteResource;
 use App\Models\Site;
 use App\Services\AuditService;
-use App\Services\SiteExportService;
+use App\Services\ManagementScopeService;
 use App\Jobs\ProcessSiteImport;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SiteController extends Controller
 {
@@ -18,8 +19,8 @@ class SiteController extends Controller
     {
         $this->authorize('viewAny', Site::class);
 
-        $query = Site::query();
-        $query = \App\Services\ManagementScopeService::applyScopeToQuery($query, $request->user(), Site::class);
+        $query = Site::with(['company', 'region', 'branch']);
+        $query = ManagementScopeService::applyScopeToQuery($query, $request->user(), Site::class);
 
         if ($request->filled('search')) {
             $search = $request->input('search');
@@ -27,6 +28,26 @@ class SiteController extends Controller
                 $q->where('site_code', 'like', "%{$search}%")
                   ->orWhere('name', 'like', "%{$search}%");
             });
+        }
+
+        if ($request->filled('company_id')) {
+            $query->where('company_id', $request->input('company_id'));
+        }
+
+        if ($request->filled('region_id')) {
+            $query->where('region_id', $request->input('region_id'));
+        }
+
+        if ($request->filled('branch_id')) {
+            $query->where('branch_id', $request->input('branch_id'));
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->input('status'));
+        }
+
+        if ($request->filled('type')) {
+            $query->where('type', $request->input('type'));
         }
 
         $sites = $query->paginate($request->input('per_page', 15));
@@ -40,14 +61,14 @@ class SiteController extends Controller
 
         AuditService::log('site.created', 'success', $site, $request->validated());
 
-        return new SiteResource($site);
+        return new SiteResource($site->load(['company', 'region', 'branch']));
     }
 
     public function show(Site $site)
     {
         $this->authorize('view', $site);
 
-        return new SiteResource($site);
+        return new SiteResource($site->load(['company', 'region', 'branch']));
     }
 
     public function update(UpdateSiteRequest $request, Site $site)
@@ -56,7 +77,7 @@ class SiteController extends Controller
 
         AuditService::log('site.updated', 'success', $site, $request->validated());
 
-        return new SiteResource($site);
+        return new SiteResource($site->load(['company', 'region', 'branch']));
     }
 
     public function destroy(Site $site)
@@ -75,35 +96,22 @@ class SiteController extends Controller
         $this->authorize('sites.import');
 
         $request->validate([
-            'file' => 'required|file|mimes:csv,txt,xlsx|max:10240',
+            'file' => ['required', 'file', 'mimes:csv,xlsx,xls'],
         ]);
 
-        $extension = $request->file('file')->getClientOriginalExtension();
-        $path = $request->file('file')->storeAs(
-            'imports/sites',
-            'import_' . time() . '.' . $extension,
-            'local'
-        );
+        $path = $request->file('file')->store('imports', 'local');
+        $fullPath = storage_path('app/' . $path);
 
-        ProcessSiteImport::dispatch($path, $request->user()->id);
+        ProcessSiteImport::dispatch($fullPath, $request->user()->id);
 
-        return response()->json([
-            'message' => 'Import queued successfully.',
-            'job_status' => 'processing',
-        ], 202);
+        return response()->json(['message' => 'Import queued successfully. Check Horizon for status.'], 202);
     }
 
-    public function export(Request $request, SiteExportService $exportService)
+    public function export(Request $request)
     {
         $this->authorize('sites.export');
 
-        $format = $request->input('format', 'csv');
-        $filters = $request->only(['search']);
-
-        if ($format === 'xlsx') {
-            return $exportService->exportXlsx($request->user(), $filters);
-        }
-
-        return $exportService->exportCsv($request->user(), $filters);
+        // TODO: Implement export
+        return response()->json(['message' => 'Export not yet implemented.'], 501);
     }
 }

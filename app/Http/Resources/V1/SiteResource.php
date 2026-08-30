@@ -33,6 +33,10 @@ class SiteResource extends JsonResource
             'branch_id' => $this->branch_id,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
+            // Eager-loaded relationships
+            'company' => new CompanyResource($this->whenLoaded('company')),
+            'region' => new RegionResource($this->whenLoaded('region')),
+            'branch' => new BranchResource($this->whenLoaded('branch')),
         ];
     }
 }
