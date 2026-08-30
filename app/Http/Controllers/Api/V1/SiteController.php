@@ -9,6 +9,7 @@ use App\Http\Resources\V1\SiteResource;
 use App\Models\Site;
 use App\Services\AuditService;
 use App\Services\ManagementScopeService;
+use App\Services\SiteExportService;
 use App\Jobs\ProcessSiteImport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -107,11 +108,25 @@ class SiteController extends Controller
         return response()->json(['message' => 'Import queued successfully. Check Horizon for status.'], 202);
     }
 
-    public function export(Request $request)
+    public function export(Request $request, SiteExportService $exportService)
+
     {
+
         $this->authorize('sites.export');
 
-        // TODO: Implement export
-        return response()->json(['message' => 'Export not yet implemented.'], 501);
+        $format = $request->input('format', 'csv');
+
+        $filters = $request->only(['search']);
+
+
+
+        if ($format === 'xlsx') {
+
+            return $exportService->exportXlsx($request->user(), $filters);
+
+        }
+
+        return $exportService->exportCsv($request->user(), $filters);
+
     }
 }

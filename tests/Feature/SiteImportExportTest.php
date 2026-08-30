@@ -45,7 +45,7 @@ class SiteImportExportTest extends TestCase
         ]);
 
         $response->assertStatus(202);
-        $response->assertJsonPath('message', 'Import queued successfully.');
+        $response->assertJsonPath('message', 'Import queued successfully. Check Horizon for status.');
     }
 
     public function test_cannot_import_without_permission()
