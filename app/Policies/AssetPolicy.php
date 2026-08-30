@@ -17,7 +17,8 @@ class AssetPolicy
 
     public function view(User $user, Asset $asset): bool
     {
-        return $this->hasPermissionAndInScope($user, 'assets.view', $asset->site);
+        $site = $asset->site()->first();
+        return $this->hasPermissionAndInScope($user, 'assets.view', $site);
     }
 
     public function create(User $user): bool
@@ -27,11 +28,44 @@ class AssetPolicy
 
     public function update(User $user, Asset $asset): bool
     {
-        return $this->hasPermissionAndInScope($user, 'assets.update', $asset->site);
+        $site = $asset->site()->first();
+        return $this->hasPermissionAndInScope($user, 'assets.update', $site);
     }
 
     public function delete(User $user, Asset $asset): bool
     {
-        return $this->hasPermissionAndInScope($user, 'assets.delete', $asset->site);
+        $site = $asset->site()->first();
+        return $this->hasPermissionAndInScope($user, 'assets.delete', $site);
+    }
+
+    // Lifecycle permissions
+    public function viewLifecycle(User $user, Asset $asset): bool
+    {
+        $site = $asset->site()->first();
+        return $this->hasPermissionAndInScope($user, 'assets.lifecycle.view', $site);
+    }
+
+    public function createLifecycle(User $user, Asset $asset): bool
+    {
+        $site = $asset->site()->first();
+        return $this->hasPermissionAndInScope($user, 'assets.lifecycle.create', $site);
+    }
+
+    public function transfer(User $user, Asset $asset): bool
+    {
+        $site = $asset->site()->first();
+        return $this->hasPermissionAndInScope($user, 'assets.transfer', $site);
+    }
+
+    public function retire(User $user, Asset $asset): bool
+    {
+        $site = $asset->site()->first();
+        return $this->hasPermissionAndInScope($user, 'assets.retire', $site);
+    }
+
+    public function dispose(User $user, Asset $asset): bool
+    {
+        $site = $asset->site()->first();
+        return $this->hasPermissionAndInScope($user, 'assets.dispose', $site);
     }
 }

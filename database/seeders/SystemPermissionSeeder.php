@@ -35,6 +35,12 @@ class SystemPermissionSeeder extends Seeder
             'assets.delete',
             'assets.import',
             'assets.export',
+            // Asset Lifecycle permissions
+            'assets.lifecycle.view',
+            'assets.lifecycle.create',
+            'assets.transfer',
+            'assets.retire',
+            'assets.dispose',
         ];
 
         foreach ($permissions as $permission) {

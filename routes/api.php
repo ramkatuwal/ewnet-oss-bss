@@ -59,6 +59,12 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::post('/assets/import', [\App\Http\Controllers\Api\V1\AssetController::class, 'import']);
     Route::get('/assets/export', [\App\Http\Controllers\Api\V1\AssetController::class, 'export']);
     Route::apiResource('/assets', \App\Http\Controllers\Api\V1\AssetController::class);
+    // Asset Lifecycle
+    Route::get('/assets/{asset}/lifecycle', [\App\Http\Controllers\Api\V1\AssetLifecycleController::class, 'index']);
+    Route::post('/assets/{asset}/lifecycle', [\App\Http\Controllers\Api\V1\AssetLifecycleController::class, 'store']);
+    Route::post('/assets/{asset}/transfer', [\App\Http\Controllers\Api\V1\AssetLifecycleController::class, 'transfer']);
+    Route::post('/assets/{asset}/retire', [\App\Http\Controllers\Api\V1\AssetLifecycleController::class, 'retire']);
+    Route::post('/assets/{asset}/dispose', [\App\Http\Controllers\Api\V1\AssetLifecycleController::class, 'dispose']);
 
     // Security
     Route::apiResource('/security/roles', RoleController::class);
