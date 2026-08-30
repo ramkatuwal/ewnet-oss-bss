@@ -105,14 +105,26 @@ class LibreNMSProvider implements IntegrationProviderInterface
             'sites_unmapped' => 0,
         ];
 
+        // Fetch devices once to use for both device sync and site mapping
+        $devices = [];
+        try {
+            $devices = $client->listDevices(['type' => 'all']);
+        } catch (\Throwable $e) {
+            Log::error("LibreNMS device fetch failed: {$e->getMessage()}", [
+                'integration_id' => $integration->id,
+            ]);
+            $counts['failed']++;
+            return $counts;
+        }
+
         // Sync order: devices → ports → alerts → pollers → sites
-        $this->syncDevices($client, $integration, $counts);
+        $this->syncDevices($devices, $integration, $counts);
         $this->syncPorts($client, $integration, $counts);
         $this->syncAlerts($client, $integration, $counts);
         $this->syncPollers($client, $integration, $counts);
         
-        // New: Site Mapping
-        $this->syncSites($client, $integration, $counts);
+        // New: Site Mapping using the already-fetched device list
+        $this->syncSites($devices, $integration, $counts);
 
         Log::info('LibreNMS synchronization completed', [
             'integration_id' => $integration->id,
@@ -123,39 +135,30 @@ class LibreNMSProvider implements IntegrationProviderInterface
         return $counts;
     }
 
-    private function syncDevices(LibreNMSClient $client, Integration $integration, array &$counts): void
+    private function syncDevices(array $devices, Integration $integration, array &$counts): void
     {
-        try {
-            $devices = $client->listDevices(['type' => 'all']);
-
-            foreach ($devices as $device) {
-                $externalId = (string) ($device['device_id'] ?? '');
-                if (empty($externalId)) {
-                    $counts['failed']++;
-                    continue;
-                }
-
-                $result = LibreNmsObject::upsertObject(
-                    $integration->id,
-                    'device',
-                    $externalId,
-                    $device,
-                    $device['hostname'] ?? $device['sysName'] ?? null,
-                    $device['status'] ?? null,
-                );
-
-                $counts['processed']++;
-                match ($result) {
-                    'created' => $counts['created']++,
-                    'updated' => $counts['updated']++,
-                    'unchanged' => $counts['unchanged']++,
-                };
+        foreach ($devices as $device) {
+            $externalId = (string) ($device['device_id'] ?? '');
+            if (empty($externalId)) {
+                $counts['failed']++;
+                continue;
             }
-        } catch (\Throwable $e) {
-            Log::error("LibreNMS device sync failed: {$e->getMessage()}", [
-                'integration_id' => $integration->id,
-            ]);
-            $counts['failed']++;
+
+            $result = LibreNmsObject::upsertObject(
+                $integration->id,
+                'device',
+                $externalId,
+                $device,
+                $device['hostname'] ?? $device['sysName'] ?? null,
+                $device['status'] ?? null,
+            );
+
+            $counts['processed']++;
+            match ($result) {
+                'created' => $counts['created']++,
+                'updated' => $counts['updated']++,
+                'unchanged' => $counts['unchanged']++,
+            };
         }
     }
 
@@ -275,34 +278,21 @@ class LibreNMSProvider implements IntegrationProviderInterface
         }
     }
 
-    private function syncSites(LibreNMSClient $client, Integration $integration, array &$counts): void
+    private function syncSites(array $devices, Integration $integration, array &$counts): void
     {
         $mappingService = app(SiteMappingService::class);
         
-        try {
-            $devices = $client->listDevices(['type' => 'all']);
-
-            foreach ($devices as $device) {
-                $result = $mappingService->mapDevice($device, $integration);
-                
-                $counts['processed']++;
-                if ($result['status'] === 'mapped') {
-                    $counts['sites_mapped']++;
-                } elseif ($result['status'] === 'unmapped') {
-                    $counts['sites_unmapped']++;
-                    Log::debug("LibreNMS device unmapped: {$device['hostname']}", [
-                        'device_id' => $device['device_id'],
-                        'location' => $device['location'] ?? null,
-                    ]);
-                } else {
-                    $counts['failed']++;
-                }
+        foreach ($devices as $device) {
+            $result = $mappingService->mapDevice($device, $integration);
+            
+            $counts['processed']++;
+            if ($result['status'] === 'mapped') {
+                $counts['sites_mapped']++;
+            } elseif ($result['status'] === 'unmapped') {
+                $counts['sites_unmapped']++;
+            } else {
+                $counts['failed']++;
             }
-        } catch (\Throwable $e) {
-            Log::error("LibreNMS site mapping failed: {$e->getMessage()}", [
-                'integration_id' => $integration->id,
-            ]);
-            $counts['failed']++;
         }
     }
 }
