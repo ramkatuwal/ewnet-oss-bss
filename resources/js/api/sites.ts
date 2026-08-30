@@ -1,6 +1,46 @@
 import { apiClient } from './client';
 import { PaginatedResponse } from '@/types';
 
+export interface Company {
+    id: number;
+    name: string;
+    registration_number?: string;
+    pan_number?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    website?: string;
+    is_active?: boolean;
+}
+
+export interface Region {
+    id: number;
+    company_id: number;
+    name: string;
+    code?: string;
+    description?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    is_active?: boolean;
+}
+
+export interface Branch {
+    id: number;
+    region_id: number;
+    company_id: number;
+    name: string;
+    code?: string;
+    description?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    is_active?: boolean;
+}
+
 export interface Site {
     id: number;
     site_code: string;
@@ -24,6 +64,10 @@ export interface Site {
     branch_id?: number;
     created_at: string;
     updated_at: string;
+    // Eager-loaded relationships
+    company?: Company;
+    region?: Region;
+    branch?: Branch;
 }
 
 export const sitesApi = {

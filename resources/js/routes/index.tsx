@@ -30,8 +30,8 @@ const ProfilePage = lazy(() => import('@/features/account/pages/ProfilePage').th
 
 // Network Sites
 const SitesPage = lazy(() => import('@/features/sites/pages/SitesPage').then(m => ({ default: m.SitesPage })));
+const SiteDetailPage = lazy(() => import('@/features/sites/pages/SiteDetailPage'));
 const AssetsPage = lazy(() => import('@/features/assets/pages/AssetsPage'));
-
 
 const PageLoader = () => (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 2 }}>
@@ -58,10 +58,11 @@ export const AppRouter = () => (
                     <Route path="system/configuration" element={<SystemConfigurationPage />} />
                     <Route path="system/integrations" element={<IntegrationsPage />} />
                     <Route path="system/integrations/:id" element={<IntegrationDetailPage />} />
-                    
+
                     {/* Network Section */}
                     <Route path="network">
                         <Route path="sites" element={<SitesPage />} />
+                        <Route path="sites/:id" element={<SiteDetailPage />} />
                         <Route path="assets" element={<AssetsPage />} />
                     </Route>
 

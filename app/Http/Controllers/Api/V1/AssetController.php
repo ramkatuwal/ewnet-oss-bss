@@ -67,6 +67,8 @@ class AssetController extends Controller
 
     public function store(StoreAssetRequest $request)
     {
+        $this->authorize('create', Asset::class);
+
         $asset = Asset::create($request->validated() + [
             'created_by' => $request->user()->id,
             'updated_by' => $request->user()->id,
@@ -86,6 +88,8 @@ class AssetController extends Controller
 
     public function update(UpdateAssetRequest $request, Asset $asset)
     {
+        $this->authorize('update', $asset);
+
         $asset->update($request->validated() + ['updated_by' => $request->user()->id]);
 
         AuditService::log('asset.updated', 'success', $asset, $request->validated());
@@ -109,17 +113,17 @@ class AssetController extends Controller
         $this->authorize('viewAny', Asset::class);
 
         $user = $request->user();
-        
+
         // Base query with scope
         $baseQuery = Asset::query();
         $baseQuery = ManagementScopeService::applyScopeToQuery($baseQuery, $user, Asset::class);
 
         // Total Sites with Assets (distinct site_id)
         $sitesWithAssets = $baseQuery->clone()->distinct('site_id')->count('site_id');
-        
+
         // Total Asset Records
         $totalRecords = $baseQuery->clone()->count();
-        
+
         // Total Inventory Units
         $totalUnits = $baseQuery->clone()->sum('quantity');
 
@@ -151,7 +155,7 @@ class AssetController extends Controller
         $this->authorize('view', $site);
 
         $query = $site->assets();
-        
+
         if ($request->filled('search')) {
             $search = $request->input('search');
             $query->where(function($q) use ($search) {

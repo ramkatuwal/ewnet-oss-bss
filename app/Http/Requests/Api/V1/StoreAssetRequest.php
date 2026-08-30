@@ -11,7 +11,7 @@ class StoreAssetRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->can('create', Asset::class);
+        return $this->user()->can('assets.create');
     }
 
     public function rules(): array
@@ -41,11 +41,19 @@ class StoreAssetRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             $data = $this->validated();
-            
+
             // Scope check: Ensure user has access to the site
             $site = Site::find($data['site_id']);
             if ($site && !$this->user()->can('view', $site)) {
                 $validator->errors()->add('site_id', 'You do not have permission to add assets to this site.');
+            }
+
+            // Conditional serial-number rule:
+            // serial_number is required when quantity == 1 and category is POWER or NETWORK
+            if (($data['quantity'] ?? 1) == 1 && in_array($data['category'] ?? '', ['POWER', 'NETWORK'])) {
+                if (empty($data['serial_number'])) {
+                    $validator->errors()->add('serial_number', 'Serial number is required for this category when quantity is 1.');
+                }
             }
         });
     }
