@@ -12,6 +12,7 @@ import ApartmentIcon from '@mui/icons-material/Apartment';
 import SettingsIcon from '@mui/icons-material/Settings';
 import InfoIcon from '@mui/icons-material/Info';
 import InventoryIcon from '@mui/icons-material/Inventory';
+import SyncIcon from '@mui/icons-material/Sync';
 import type { NavItem } from '@/types';
 
 export const navigationItems: NavItem[] = [
@@ -55,6 +56,7 @@ export const navigationItems: NavItem[] = [
         children: [
             { label: 'Configuration', path: '/system/configuration', icon: <SettingsIcon />, permission: 'system.config.manage' },
             { label: 'Integrations', path: '/system/integrations', icon: <SettingsIcon />, permission: 'integrations.view' },
+            { label: 'LibreNMS Import', path: '/system/integrations/librenms/import', icon: <SyncIcon />, permission: 'librenms.import' },
         ],
     },
 ];

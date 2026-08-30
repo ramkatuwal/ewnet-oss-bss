@@ -4,13 +4,16 @@ import {
     Box, Button, IconButton, Tooltip, Chip, Typography,
     Grid, Card, CardContent, TextField, MenuItem, FormControl, InputLabel, Select
 } from '@mui/material';
-import { Add, Delete, Edit } from '@mui/icons-material';
+import { Add, Delete, Edit, Sync } from '@mui/icons-material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { Can } from '@/components/auth/Can';
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog';
 import { getSiteAssets, deleteAsset } from '../../assets/api/assets';
 import AssetFormDrawer from '../../assets/components/AssetFormDrawer';
+import { SiteLibreNMSImportDialog } from './SiteLibreNMSImportDialog';
 import toast from 'react-hot-toast';
+import { useQuery as useReactQuery } from '@tanstack/react-query';
+import axios from 'axios';
 
 interface SiteAssetsTabProps {
     siteId: number;
@@ -25,6 +28,17 @@ export const SiteAssetsTab: React.FC<SiteAssetsTabProps> = ({ siteId }) => {
     const [pageSize, setPageSize] = useState(10);
     const [searchValue, setSearchValue] = useState('');
     const [filters, setFilters] = useState<any>({});
+    const [importDialogOpen, setImportDialogOpen] = useState(false);
+
+    // Fetch LibreNMS integrations
+    const { data: integrations } = useReactQuery({
+        queryKey: ['integrations'],
+        queryFn: () => axios.get('/api/v1/integrations').then(res => res.data.data),
+    });
+
+    const librenmsIntegration = integrations?.find(
+        (i: any) => i.provider === 'librenms' && i.enabled
+    );
 
     const { data, isLoading } = useQuery({
         queryKey: ['site-assets', siteId, page, pageSize, searchValue, filters],
@@ -96,6 +110,12 @@ export const SiteAssetsTab: React.FC<SiteAssetsTabProps> = ({ siteId }) => {
         },
     ];
 
+    const handleImportSuccess = () => {
+        queryClient.invalidateQueries({ queryKey: ['site-assets', siteId] });
+        queryClient.invalidateQueries({ queryKey: ['assets'] });
+        toast.success('Assets imported successfully');
+    };
+
     return (
         <Box>
             {/* Summary Cards */}
@@ -161,6 +181,18 @@ export const SiteAssetsTab: React.FC<SiteAssetsTabProps> = ({ siteId }) => {
                     </FormControl>
                 </Box>
                 <Box>
+                    {librenmsIntegration && (
+                        <Can permission="librenms.import">
+                            <Button
+                                variant="outlined"
+                                startIcon={<Sync />}
+                                onClick={() => setImportDialogOpen(true)}
+                                sx={{ mr: 1 }}
+                            >
+                                Import from LibreNMS
+                            </Button>
+                        </Can>
+                    )}
                     <Can permission="assets.create">
                         <Button
                             variant="contained"
@@ -189,7 +221,7 @@ export const SiteAssetsTab: React.FC<SiteAssetsTabProps> = ({ siteId }) => {
                 sx={{ minHeight: 300 }}
             />
 
-            {/* Asset Form Drawer - Pass siteId for pre-selection */}
+            {/* Asset Form Drawer */}
             <AssetFormDrawer
                 open={openForm}
                 onClose={() => { setOpenForm(false); setEditingId(null); }}
@@ -205,6 +237,18 @@ export const SiteAssetsTab: React.FC<SiteAssetsTabProps> = ({ siteId }) => {
                 onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
                 onCancel={() => setDeleteId(null)}
             />
+
+            {/* LibreNMS Import Dialog */}
+            {librenmsIntegration && (
+                <SiteLibreNMSImportDialog
+                    open={importDialogOpen}
+                    onClose={() => setImportDialogOpen(false)}
+                    siteId={siteId}
+                    siteName={data?.data?.[0]?.site?.name || 'Site'}
+                    integrationId={librenmsIntegration.id}
+                    onSuccess={handleImportSuccess}
+                />
+            )}
         </Box>
     );
 };
