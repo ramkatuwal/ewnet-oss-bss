@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import {
     Box,
     AppBar,
@@ -20,6 +20,7 @@ import { UserMenu } from '@/components/layout/UserMenu';
 
 export const MainLayout = () => {
     const [mobileOpen, setMobileOpen] = useState(false);
+    const location = useLocation();
     const { authState } = useAuthStore();
     const { mode, toggle } = useThemeStore();
     const config = useConfigStore((state) => state.config);
@@ -85,7 +86,7 @@ export const MainLayout = () => {
                     minHeight: 'calc(100vh - 64px)',
                 }}
             >
-                <ErrorBoundary>
+                <ErrorBoundary key={location.pathname}>
                     <Outlet />
                 </ErrorBoundary>
             </Box>

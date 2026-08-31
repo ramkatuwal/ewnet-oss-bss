@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Can } from '@/components/auth/Can';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
+import { integrationApi, type Integration as ApiIntegration } from '@/api/integrations';
 import toast from 'react-hot-toast';
 
 interface PreviewItem {
@@ -45,14 +46,18 @@ const LibreNMSImportPage: React.FC = () => {
     const [isImporting, setIsImporting] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
 
-    const { data: integrations, isLoading: integrationsLoading } = useQuery({
+    const { data: integrationsResponse, isLoading: integrationsLoading } = useQuery({
         queryKey: ['integrations'],
-        queryFn: () => axios.get('/api/v1/integrations').then(res => res.data.data),
+        queryFn: () => integrationApi.list(),
     });
 
-    const librenmsIntegrations = (integrations || []).filter(
-        (i: Integration) => i.provider === 'librenms'
-    ) || [];
+    const integrationsList: ApiIntegration[] = Array.isArray(integrationsResponse)
+        ? integrationsResponse
+        : (integrationsResponse as any)?.data ?? [];
+
+    const librenmsIntegrations = integrationsList.filter(
+        (i: ApiIntegration) => i.provider === 'librenms'
+    );
 
     const { data: preview, isLoading: previewLoading, refetch: refetchPreview } = useQuery({
         queryKey: ['librenms-preview', integrationId],
