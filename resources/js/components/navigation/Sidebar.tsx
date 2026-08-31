@@ -3,22 +3,19 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
     Box,
     Drawer,
-    Toolbar,
-    Typography,
     List,
     ListItem,
     ListItemButton,
     ListItemIcon,
     ListItemText,
     Collapse,
-    Divider,
 } from '@mui/material';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { Can } from '@/components/auth/Can';
-import { useConfigStore } from '@/stores/configStore';
 import { navigationItems } from './navConfig';
 import type { NavItem } from '@/types';
+import { EWNET_BRAND } from '@/theme/theme';
 
 const DRAWER_WIDTH = 280;
 
@@ -94,8 +91,14 @@ const NavItemInner: React.FC<{
                     sx={{
                         pl: 2 + depth * 2,
                         minHeight: 44,
+                        color: EWNET_BRAND.sidebarText,
+                        '&:hover': {
+                            backgroundColor: EWNET_BRAND.sidebarActiveBg,
+                        },
                         '&.Mui-selected': {
-                            backgroundColor: 'action.selected',
+                            backgroundColor: EWNET_BRAND.sidebarActiveBg,
+                            color: EWNET_BRAND.sidebarActiveText,
+                            fontWeight: 600,
                             borderRight: 3,
                             borderColor: 'primary.main',
                         },
@@ -126,26 +129,10 @@ const NavItemInner: React.FC<{
 };
 
 export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onMobileClose }) => {
-    const config = useConfigStore((state) => state.config);
 
     const drawerContent = (
-        <Box>
-            <Toolbar sx={{ justifyContent: 'center', minHeight: '64px !important' }}>
-                        {config?.branding?.logo_path ? (
-                            <Box
-                                component="img"
-                                src={config.branding.logo_path}
-                                alt="Sidebar Logo"
-                                sx={{ height: 40, width: 'auto', objectFit: 'contain' }}
-                            />
-                        ) : (
-                            <Typography variant="h6" fontWeight={700} color="primary">
-                                {config?.branding?.app_name || 'Navigation'}
-                            </Typography>
-                        )}
-                    </Toolbar>
-            <Divider />
-            <List sx={{ pt: 1 }}>
+        <Box sx={{ bgcolor: EWNET_BRAND.sidebarBg, color: EWNET_BRAND.sidebarText, height: '100%' }}>
+            <List sx={{ pt: 2 }}>
                 {navigationItems.map((item) => (
                     <NavItemComponent key={item.label} item={item} />
                 ))}
@@ -163,7 +150,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onMobileClose }) =
                 ModalProps={{ keepMounted: true }}
                 sx={{
                     display: { xs: 'block', sm: 'none' },
-                    '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box' },
+                    '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box', bgcolor: EWNET_BRAND.sidebarBg, color: EWNET_BRAND.sidebarText },
                 }}
             >
                 {drawerContent}
@@ -173,7 +160,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onMobileClose }) =
                 variant="permanent"
                 sx={{
                     display: { xs: 'none', sm: 'block' },
-                    '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box' },
+                    '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box', bgcolor: EWNET_BRAND.sidebarBg, color: EWNET_BRAND.sidebarText, borderRight: 'none' },
                 }}
                 open
             >

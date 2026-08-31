@@ -5,7 +5,7 @@ import {
     AppBar,
     Toolbar,
     IconButton,
-    
+    Typography,
     CircularProgress,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -17,6 +17,7 @@ import { useThemeStore } from '@/stores/themeStore';
 import { Sidebar, DRAWER_WIDTH } from '@/components/navigation/Sidebar';
 import { ErrorBoundary } from '@/components/feedback/ErrorBoundary';
 import { UserMenu } from '@/components/layout/UserMenu';
+import { EWNET_BRAND } from '@/theme/theme';
 
 export const MainLayout = () => {
     const [mobileOpen, setMobileOpen] = useState(false);
@@ -24,7 +25,6 @@ export const MainLayout = () => {
     const { authState } = useAuthStore();
     const { mode, toggle } = useThemeStore();
     const config = useConfigStore((state) => state.config);
-    console.log('[MainLayout] Config loaded:', config);
 
     if (authState === 'booting') {
         return (
@@ -34,6 +34,11 @@ export const MainLayout = () => {
         );
     }
 
+    const showLogo = config?.header?.show_logo !== false;
+    const showTitle = config?.header?.show_title !== false;
+    const logoPath = config?.branding?.logo_path;
+    const appName = config?.branding?.app_name || 'EWNET';
+
     return (
         <Box sx={{ display: 'flex', minHeight: '100vh' }}>
             {/* App Bar */}
@@ -42,9 +47,12 @@ export const MainLayout = () => {
                 elevation={0}
                 sx={{
                     zIndex: 1100,
-                    bgcolor: '#0b0f19',
+                    bgcolor: EWNET_BRAND.headerBg,
+                    color: '#212529',
+                    borderBottom: `1px solid ${EWNET_BRAND.headerBorder}`,
                     width: { sm: `calc(100% - ${DRAWER_WIDTH}px)` },
                     ml: { sm: `${DRAWER_WIDTH}px` },
+                    '& .MuiIconButton-root': { color: '#495057' },
                 }}
             >
                 <Toolbar>
@@ -56,20 +64,24 @@ export const MainLayout = () => {
                     >
                         <MenuIcon />
                     </IconButton>
-                    <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
-                        {config?.branding?.logo_path && (
-                            <img 
-                                src={config.branding.logo_path} 
-                                alt={config.branding.app_name || 'Logo'} 
-                                style={{ height: '40px', marginRight: '16px', objectFit: 'contain' }} 
+                    <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, gap: 2 }}>
+                        {showLogo && logoPath && (
+                            <img
+                                src={logoPath}
+                                alt={appName}
+                                style={{ height: '36px', objectFit: 'contain' }}
                             />
                         )}
-                        
+                        {showTitle && (
+                            <Typography variant="h6" fontWeight={600} noWrap>
+                                {appName}
+                            </Typography>
+                        )}
                     </Box>
                     <IconButton color="inherit" onClick={toggle} sx={{ mr: 1 }}>
                         {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
                     </IconButton>
-                    <UserMenu />
+                    {config?.header?.show_user_menu !== false && <UserMenu />}
                 </Toolbar>
             </AppBar>
 

@@ -63,20 +63,56 @@ export const useConfigStore = create<ConfigState>()(
         set({ loading: true, error: null });
 
         try {
-          // Fetch from the PUBLIC branding endpoint (no auth required)
-          const response = await apiClient.get<{ data: Partial<SystemConfig['branding']> }>('/api/v1/branding');
-          const brandingData = response.data.data;
+          // Step 1: Fetch public branding (no auth required, works on login page)
+          const publicResponse = await apiClient.get<{ data: Partial<SystemConfig['branding']> }>('/api/v1/branding');
+          const brandingData = publicResponse.data.data;
 
           const currentConfig = get().config;
-          const newConfig: SystemConfig = {
+          let newConfig: SystemConfig = {
             ...currentConfig,
             branding: {
               ...currentConfig.branding,
               app_name: brandingData.app_name || currentConfig.branding.app_name,
-              logo_path: brandingData.logo_path || null,
+              logo_path: brandingData.logo_path ?? null,
               login_branding: brandingData.login_branding || currentConfig.branding.login_branding,
             },
           };
+
+          // Step 2: Fetch full authenticated configuration (includes header, theme, navigation)
+          try {
+            const fullResponse = await apiClient.get<{ data: SystemConfig }>('/api/v1/system/configuration');
+            const fullConfig = fullResponse.data.data;
+
+            if (fullConfig) {
+              newConfig = {
+                branding: {
+                  app_name: fullConfig.branding?.app_name || newConfig.branding.app_name,
+                  browser_title: fullConfig.branding?.browser_title || newConfig.branding.browser_title,
+                  logo_path: fullConfig.branding?.logo_path ?? newConfig.branding.logo_path,
+                  favicon_path: fullConfig.branding?.favicon_path ?? null,
+                  login_branding: fullConfig.branding?.login_branding || newConfig.branding.login_branding,
+                },
+                navigation: {
+                  menu_visibility: fullConfig.navigation?.menu_visibility || {},
+                  menu_ordering: fullConfig.navigation?.menu_ordering || {},
+                },
+                header: {
+                  show_logo: fullConfig.header?.show_logo ?? true,
+                  show_title: fullConfig.header?.show_title ?? true,
+                  show_user_menu: fullConfig.header?.show_user_menu ?? true,
+                  show_notifications: fullConfig.header?.show_notifications ?? true,
+                },
+                theme: {
+                  compactness: fullConfig.theme?.compactness || 'compact',
+                  dark_mode: fullConfig.theme?.dark_mode ?? false,
+                  primary_color: fullConfig.theme?.primary_color || '#1976d2',
+                },
+              };
+            }
+          } catch {
+            // Authenticated config fetch failed (user may not be logged in yet)
+            // Public branding data is still valid; continue with defaults for other sections
+          }
 
           applyBrandingToDocument(newConfig);
 
@@ -86,10 +122,10 @@ export const useConfigStore = create<ConfigState>()(
             error: null,
           });
         } catch (error) {
-          console.warn('Failed to fetch public branding:', error);
+          console.warn('Failed to fetch configuration:', error);
           set({
             loading: false,
-            error: null, // Don't show error for public branding failure
+            error: null,
           });
         }
       },
@@ -97,11 +133,21 @@ export const useConfigStore = create<ConfigState>()(
       setConfig: (partialConfig) => {
         set((state) => {
           const config: SystemConfig = {
-            ...state.config,
-            ...partialConfig,
             branding: {
               ...state.config.branding,
-              ...partialConfig.branding,
+              ...(partialConfig.branding || {}),
+            },
+            navigation: {
+              ...state.config.navigation,
+              ...(partialConfig.navigation || {}),
+            },
+            header: {
+              ...state.config.header,
+              ...(partialConfig.header || {}),
+            },
+            theme: {
+              ...state.config.theme,
+              ...(partialConfig.theme || {}),
             },
           };
 
@@ -112,7 +158,7 @@ export const useConfigStore = create<ConfigState>()(
       },
     }),
     {
-      name: 'ewnet-config-storage-v4', // Bumped version to clear old cache
+      name: 'ewnet-config-storage-v5',
     }
   )
 );

@@ -1,3 +1,17 @@
+// EWNET Brand Tokens — centralized for consistent branding across the application
+export const EWNET_BRAND = {
+    // LibreNMS default theme: clean white header, subtle borders
+    headerBg: '#ffffff',
+    headerBorder: '#dee2e6',
+    sidebarBg: '#ffffff',
+    sidebarActiveBg: '#e9ecef',
+    sidebarText: '#495057',
+    sidebarActiveText: '#212529',
+    sidebarDivider: '#dee2e6',
+    pageHeaderBg: '#f8f9fa',
+    pageHeaderBorder: '#dee2e6',
+} as const;
+
 import { createTheme } from '@mui/material/styles';
 
 export const createAppTheme = (mode: 'light' | 'dark') => {
