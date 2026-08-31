@@ -31,6 +31,7 @@ class SiteResource extends JsonResource
             'company_id' => $this->company_id,
             'region_id' => $this->region_id,
             'branch_id' => $this->branch_id,
+            'assets_count' => $this->whenCounted('assets'),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             // Eager-loaded relationships

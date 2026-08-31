@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Asset;
 use App\Models\Site;
-use Illuminate\Support\Facades\DB;
 
 class SiteDashboardService
 {
@@ -45,14 +44,19 @@ class SiteDashboardService
             ->orWhereNull('longitude')
             ->count();
 
-        // 3. Top Site by Assets
-        $topSite = (clone $scopedQuery)
-            ->withCount('assets')
+        // 3. Top Site by Assets (Separate query to avoid GROUP BY conflicts)
+        $topSiteData = null;
+        
+        // Get allowed site IDs first to avoid complex subqueries in withCount if needed
+        // But withCount on a scoped query is usually safe if we don't group by status
+        $topSiteQuery = Site::query();
+        $this->scopeService->applyScopeToQuery($topSiteQuery, $user, Site::class);
+        
+        $topSite = $topSiteQuery->withCount('assets')
             ->orderBy('assets_count', 'desc')
             ->orderBy('name', 'asc')
             ->first(['id', 'site_code', 'name', 'assets_count']);
 
-        $topSiteData = null;
         if ($topSite && $topSite->assets_count > 0) {
             $topSiteData = [
                 'id' => $topSite->id,

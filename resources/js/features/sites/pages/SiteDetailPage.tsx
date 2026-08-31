@@ -2,15 +2,15 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-    Box, Typography, Card, CardContent, Grid, Chip, Stack,
-    Tabs, Tab, CircularProgress, Button, Divider
+    Box, Typography, Card, CardContent, Grid, Stack,
+    Tabs, Tab, Button, Divider, Chip, Skeleton
 } from '@mui/material';
 import { ArrowBack, Edit, LocationOn, Business } from '@mui/icons-material';
 import { sitesApi } from '@/api/sites';
 import { SiteAssetsTab } from '../components/SiteAssetsTab';
 import { SiteFormDrawer } from '../components/SiteFormDrawer';
+import { SiteStatusBadge } from '../components/SiteStatusBadge';
 import { PhotoGallery } from '@/features/shared/components/PhotoGallery';
-import { formatCoordinate } from '@/utils/format';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Can } from '@/components/auth/Can';
 import toast from 'react-hot-toast';
@@ -45,8 +45,12 @@ const SiteDetailPage: React.FC = () => {
 
     if (isLoading) {
         return (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-                <CircularProgress />
+            <Box sx={{ p: 3, display: 'flex', gap: 3, flexDirection: 'column' }}>
+                <Skeleton variant="rectangular" height={60} />
+                <Grid container spacing={3}>
+                    <Grid item xs={12} md={8}><Skeleton variant="rectangular" height={300} /></Grid>
+                    <Grid item xs={12} md={4}><Skeleton variant="rectangular" height={300} /></Grid>
+                </Grid>
             </Box>
         );
     }
@@ -55,36 +59,18 @@ const SiteDetailPage: React.FC = () => {
         return (
             <Box sx={{ p: 3 }}>
                 <Typography color="error">Failed to load site details.</Typography>
-                <Button startIcon={<ArrowBack />} onClick={() => navigate('/network/sites')}>
-                    Back to Sites
-                </Button>
+                <Button startIcon={<ArrowBack />} onClick={() => navigate('/network/sites')}>Back to Sites</Button>
             </Box>
         );
     }
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'active': return 'success';
-            case 'planned': return 'info';
-            case 'maintenance': return 'warning';
-            case 'inactive':
-            case 'decommissioned': return 'error';
-            default: return 'default';
-        }
-    };
-
     const getTypeLabel = (type: string) => {
-        switch (type) {
-            case 'pop': return 'POP';
-            case 'tower': return 'Tower';
-            case 'office': return 'Office';
-            case 'warehouse': return 'Warehouse';
-            case 'datacenter': return 'Datacenter';
-            case 'customer_premises': return 'Customer Premises';
-            case 'solar_site': return 'Solar Site';
-            case 'repeater_site': return 'Repeater Site';
-            default: return type || 'Other';
-        }
+        const labels: Record<string, string> = {
+            pop: 'Point of Presence', tower: 'Tower', office: 'Office',
+            warehouse: 'Warehouse', datacenter: 'Datacenter', customer_premises: 'Customer Premises',
+            solar_site: 'Solar Site', repeater_site: 'Repeater Site', other: 'Other'
+        };
+        return labels[type] || type;
     };
 
     const handleEditSuccess = () => {
@@ -97,169 +83,146 @@ const SiteDetailPage: React.FC = () => {
     const siteId = parseInt(id!);
 
     return (
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: 3, maxWidth: 1600, mx: 'auto' }}>
             <PageHeader
-                title={site.name || site.site_code || 'Site Details'}
+                title={site.name}
                 breadcrumbs={[
                     { label: 'Network', path: '/network' },
                     { label: 'Sites', path: '/network/sites' },
-                    { label: site.site_code || 'Details' }
+                    { label: site.site_code }
                 ]}
                 actions={
                     <Can permission="sites.update">
-                        <Button
-                            variant="contained"
-                            startIcon={<Edit />}
-                            onClick={() => setFormOpen(true)}
-                        >
-                            Edit Site
-                        </Button>
+                        <Button variant="contained" startIcon={<Edit />} onClick={() => setFormOpen(true)}>Edit Site</Button>
                     </Can>
                 }
             />
 
-            <Grid container spacing={3} sx={{ mb: 3 }}>
-                <Grid item xs={12} md={8}>
-                    <Card>
-                        <CardContent>
-                            <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
-                                <Typography variant="h6">{site.site_code}</Typography>
-                                <Chip
-                                    label={getTypeLabel(site.type)}
-                                    size="small"
-                                    color="primary"
-                                />
-                                <Chip
-                                    label={site.status || 'Unknown'}
-                                    size="small"
-                                    color={getStatusColor(site.status)}
-                                />
+            {/* Header Summary */}
+            <Card sx={{ mb: 3 }}>
+                <CardContent>
+                    <Grid container spacing={3} alignItems="center">
+                        <Grid item xs={12} md={8}>
+                            <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
+                                <Typography variant="h4">{site.site_code}</Typography>
+                                <SiteStatusBadge status={site.status} />
+                                <Chip label={getTypeLabel(site.type)} variant="outlined" size="small" />
                             </Stack>
-
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                                {site.description || 'No description provided.'}
+                            <Typography variant="body1" color="text.secondary">
+                                {site.description || 'No description provided for this site.'}
                             </Typography>
+                        </Grid>
+                        <Grid item xs={12} md={4} sx={{ textAlign: 'right' }}>
+                            <Stack direction="row" spacing={2} justifyContent="flex-end">
+                                <Box>
+                                    <Typography variant="caption" color="text.secondary">Created</Typography>
+                                    <Typography variant="body2">{new Date(site.created_at).toLocaleDateString()}</Typography>
+                                </Box>
+                                <Box>
+                                    <Typography variant="caption" color="text.secondary">Last Updated</Typography>
+                                    <Typography variant="body2">{new Date(site.updated_at).toLocaleDateString()}</Typography>
+                                </Box>
+                            </Stack>
+                        </Grid>
+                    </Grid>
+                </CardContent>
+            </Card>
 
-                            <Divider sx={{ my: 2 }} />
-
-                            <Grid container spacing={2}>
-                                <Grid item xs={6}>
+            <Grid container spacing={3}>
+                {/* Left Column: Overview & Location */}
+                <Grid item xs={12} md={4}>
+                    <Card sx={{ mb: 3 }}>
+                        <CardContent>
+                            <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Business fontSize="small" /> Organization
+                            </Typography>
+                            <Divider sx={{ mb: 2 }} />
+                            <Stack spacing={1.5}>
+                                <Box>
                                     <Typography variant="caption" color="text.secondary">Company</Typography>
                                     <Typography variant="body2">{site.company?.name || 'N/A'}</Typography>
-                                </Grid>
-                                <Grid item xs={6}>
+                                </Box>
+                                <Box>
                                     <Typography variant="caption" color="text.secondary">Region</Typography>
                                     <Typography variant="body2">{site.region?.name || 'N/A'}</Typography>
-                                </Grid>
-                                <Grid item xs={6}>
+                                </Box>
+                                <Box>
                                     <Typography variant="caption" color="text.secondary">Branch</Typography>
                                     <Typography variant="body2">{site.branch?.name || 'N/A'}</Typography>
-                                </Grid>
-                                <Grid item xs={6}>
-                                    <Typography variant="caption" color="text.secondary">Type</Typography>
-                                    <Typography variant="body2">{getTypeLabel(site.type)}</Typography>
-                                </Grid>
-                            </Grid>
+                                </Box>
+                            </Stack>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardContent>
+                            <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <LocationOn fontSize="small" /> Location Details
+                            </Typography>
+                            <Divider sx={{ mb: 2 }} />
+                            {site.latitude && site.longitude ? (
+                                <Stack spacing={1.5}>
+                                    <Box>
+                                        <Typography variant="caption" color="text.secondary">Coordinates</Typography>
+                                        <Typography variant="body2">{site.latitude}, {site.longitude}</Typography>
+                                    </Box>
+                                    {site.altitude && (
+                                        <Box>
+                                            <Typography variant="caption" color="text.secondary">Altitude</Typography>
+                                            <Typography variant="body2">{site.altitude}m</Typography>
+                                        </Box>
+                                    )}
+                                    <Box>
+                                        <Typography variant="caption" color="text.secondary">Address</Typography>
+                                        <Typography variant="body2">{site.address || 'No address recorded'}</Typography>
+                                        <Typography variant="body2">{[site.municipality, site.district, site.province].filter(Boolean).join(', ')}</Typography>
+                                    </Box>
+                                </Stack>
+                            ) : (
+                                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                                    Geographic coordinates are currently unavailable for this site.
+                                </Typography>
+                            )}
                         </CardContent>
                     </Card>
                 </Grid>
 
-                <Grid item xs={12} md={4}>
+                {/* Right Column: Tabs for Assets, Photos, etc. */}
+                <Grid item xs={12} md={8}>
                     <Card>
-                        <CardContent>
-                            <Typography variant="subtitle2" gutterBottom>
-                                <LocationOn fontSize="small" sx={{ mr: 1, verticalAlign: 'middle' }} />
-                                Location
+                        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                            <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
+                                <Tab label={`Assets (${(site as any).assets?.length || 0})`} />
+                                <Tab label="Photos" />
+                                <Tab label="Integrations" />
+                            </Tabs>
+                        </Box>
+                        <TabPanel value={tabValue} index={0}>
+                            <SiteAssetsTab siteId={siteId} />
+                        </TabPanel>
+                        <TabPanel value={tabValue} index={1}>
+                            <Can permission="sites.update">
+                                <PhotoGallery
+                                    entityType="site"
+                                    entityId={siteId}
+                                    getPhotosUrl={`/api/v1/sites/${siteId}/photos`}
+                                    uploadUrl={`/api/v1/sites/${siteId}/photos`}
+                                    deleteUrl={(photoId: number) => `/api/v1/sites/${siteId}/photos/${photoId}`}
+                                    categories={['site', 'rack', 'power', 'tower', 'equipment', 'other']}
+                                    defaultCategory="site"
+                                    canUpload={true}
+                                    canDelete={true}
+                                />
+                            </Can>
+                        </TabPanel>
+                        <TabPanel value={tabValue} index={2}>
+                            <Typography variant="body2" color="text.secondary">
+                                Integration status and synchronization details will be displayed here.
                             </Typography>
-                            {site.latitude && site.longitude ? (
-                                <>
-                                    <Typography variant="body2">
-                                        Lat: {formatCoordinate(site.latitude)}
-                                    </Typography>
-                                    <Typography variant="body2">
-                                        Lng: {formatCoordinate(site.longitude)}
-                                    </Typography>
-                                    {site.altitude && (
-                                        <Typography variant="body2">
-                                            Alt: {formatCoordinate(site.altitude, 2)}m
-                                        </Typography>
-                                    )}
-                                </>
-                            ) : (
-                                <Typography variant="body2" color="text.secondary">
-                                    No GPS coordinates available
-                                </Typography>
-                            )}
-                            <Divider sx={{ my: 2 }} />
-                            <Typography variant="subtitle2" gutterBottom>
-                                <Business fontSize="small" sx={{ mr: 1, verticalAlign: 'middle' }} />
-                                Address
-                            </Typography>
-                            {site.address || site.municipality ? (
-                                <>
-                                    {site.address && (
-                                        <Typography variant="body2">{site.address}</Typography>
-                                    )}
-                                    {site.municipality && (
-                                        <Typography variant="body2">{site.municipality}</Typography>
-                                    )}
-                                    {site.district && (
-                                        <Typography variant="body2">{site.district}</Typography>
-                                    )}
-                                    {site.province && (
-                                        <Typography variant="body2">{site.province}</Typography>
-                                    )}
-                                </>
-                            ) : (
-                                <Typography variant="body2" color="text.secondary">
-                                    No address provided
-                                </Typography>
-                            )}
-                        </CardContent>
+                        </TabPanel>
                     </Card>
                 </Grid>
             </Grid>
-
-            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
-                    <Tab label="Assets" />
-                    <Tab label="Overview" />
-                    <Tab label="Photos" />
-                    <Tab label="Integrations" />
-                </Tabs>
-            </Box>
-
-            <TabPanel value={tabValue} index={0}>
-                <SiteAssetsTab siteId={siteId} />
-            </TabPanel>
-
-            <TabPanel value={tabValue} index={1}>
-                <Typography variant="body2" color="text.secondary">
-                    Site overview information will be displayed here.
-                </Typography>
-            </TabPanel>
-
-            <TabPanel value={tabValue} index={2}>
-                <Can permission="sites.update">
-                    <PhotoGallery
-                        entityType="site"
-                        entityId={siteId}
-                        getPhotosUrl={`/api/v1/sites/${siteId}/photos`}
-                        uploadUrl={`/api/v1/sites/${siteId}/photos`}
-                        deleteUrl={(photoId: number) => `/api/v1/sites/${siteId}/photos/${photoId}`}
-                        categories={['site', 'rack', 'power', 'tower', 'equipment', 'other']}
-                        defaultCategory="site"
-                        canUpload={true}
-                        canDelete={true}
-                    />
-                </Can>
-            </TabPanel>
-
-            <TabPanel value={tabValue} index={3}>
-                <Typography variant="body2" color="text.secondary">
-                    Integration status and settings will be displayed here.
-                </Typography>
-            </TabPanel>
 
             <SiteFormDrawer
                 open={formOpen}

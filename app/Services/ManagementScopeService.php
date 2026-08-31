@@ -89,6 +89,11 @@ class ManagementScopeService
             }
             return in_array($resource->id, static::getDepartmentIdsForScope($scopeType, $scopeId));
         }
+        if ($resource instanceof \App\Models\Asset) {
+            // Assets are in scope if their parent Site is in scope
+            if (!$resource->site) return false;
+            return static::isSiteInScope($resource->site, $scopeType, $scopeId);
+        }
         if ($resource instanceof \App\Models\Site) {
             return static::isSiteInScope($resource, $scopeType, $scopeId);
         }

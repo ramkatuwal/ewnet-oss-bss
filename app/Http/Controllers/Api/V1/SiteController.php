@@ -15,6 +15,7 @@ use App\Services\SiteDashboardService;
 use App\Jobs\ProcessSiteImport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Http\Resources\V1\SiteDashboardResource;
 
 class SiteController extends Controller
 {
@@ -22,7 +23,7 @@ class SiteController extends Controller
     {
         $this->authorize('viewAny', Site::class);
 
-        $query = Site::with(['company', 'region', 'branch']);
+        $query = Site::with(['company', 'region', 'branch'])->withCount('assets');
         $query = ManagementScopeService::applyScopeToQuery($query, $request->user(), Site::class);
 
         if ($request->filled('search')) {

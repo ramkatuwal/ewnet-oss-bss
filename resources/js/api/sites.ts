@@ -62,6 +62,8 @@ export interface Site {
     company_id?: number;
     region_id?: number;
     branch_id?: number;
+    assets_count?: number;
+    assets?: any[];
     created_at: string;
     updated_at: string;
     // Eager-loaded relationships

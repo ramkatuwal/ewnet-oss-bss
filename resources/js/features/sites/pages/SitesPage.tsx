@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Box,
     Button,
-    Chip,
     Typography,
     Stack,
     Dialog,
@@ -12,33 +11,32 @@ import {
     DialogContent,
     DialogActions,
     TextField,
-    CircularProgress,
     Alert
 } from '@mui/material';
 import { DataGrid, GridColDef, GridRenderCellParams, GridRowParams } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
 import UploadIcon from '@mui/icons-material/Upload';
 import DownloadIcon from '@mui/icons-material/Download';
+import { Inventory, LocationOn } from '@mui/icons-material';
 import { sitesApi, getSiteDashboard } from '@/api/sites';
 import { SiteHeaderDashboard } from '../components/SiteHeaderDashboard';
-import { SearchFilterBar } from '@/components/forms/SearchFilterBar';
+import { SiteFilters } from '../components/SiteFilters';
+import { SiteStatusBadge } from '../components/SiteStatusBadge';
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog';
 import { Can } from '@/components/auth/Can';
 import { SiteFormDrawer } from '../components/SiteFormDrawer';
-import { formatCoordinates } from '@/utils/format';
 import { PageHeader } from '@/components/layout/PageHeader';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
 export const SitesPage = () => {
     const navigate = useNavigate();
-
-    const { data: dashboardData, isLoading: isDashboardLoading } = useQuery({
-        queryKey: ['sites-dashboard'],
-        queryFn: getSiteDashboard,
-    });
     const queryClient = useQueryClient();
+    
+    // State
     const [search, setSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
+    const [typeFilter, setTypeFilter] = useState('');
     const [deleteId, setDeleteId] = useState<number | null>(null);
     const [formOpen, setFormOpen] = useState(false);
     const [editingId, setEditingId] = useState<number | undefined>();
@@ -48,15 +46,29 @@ export const SitesPage = () => {
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(15);
 
+    // Queries
+    const { data: dashboardData, isLoading: isDashboardLoading } = useQuery({
+
+        queryKey: ['sites-dashboard'],
+        queryFn: getSiteDashboard,
+    });
+
     const { data, isLoading, error } = useQuery({
-        queryKey: ['sites', search, page, pageSize],
-        queryFn: () => sitesApi.list({ search, page: page + 1, per_page: pageSize }),
+        queryKey: ['sites', search, statusFilter, typeFilter, page, pageSize],
+        queryFn: () => sitesApi.list({ 
+            search, 
+            status: statusFilter || undefined, 
+            type: typeFilter || undefined,
+            page: page + 1, 
+            per_page: pageSize 
+        }),
     });
 
     const deleteMutation = useMutation({
         mutationFn: (id: number) => sitesApi.delete(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['sites'] });
+            queryClient.invalidateQueries({ queryKey: ['sites-dashboard'] });
             setDeleteId(null);
             toast.success('Site deleted successfully');
         },
@@ -66,10 +78,8 @@ export const SitesPage = () => {
     const handleImport = async () => {
         if (!importFile) return;
         setImportStatus('Uploading...');
-
         const formData = new FormData();
         formData.append('file', importFile);
-
         try {
             await axios.post('/api/v1/sites/import', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
@@ -79,7 +89,8 @@ export const SitesPage = () => {
                 setImportOpen(false);
                 setImportStatus('');
                 setImportFile(null);
-            }, 3000);
+                queryClient.invalidateQueries({ queryKey: ['sites'] });
+            }, 2000);
         } catch (err) {
             setImportStatus('Import failed. Please check file format.');
         }
@@ -87,17 +98,6 @@ export const SitesPage = () => {
 
     const handleExport = (format: 'csv' | 'xlsx') => {
         window.location.href = `/api/v1/sites/export?format=${format}&search=${search}`;
-    };
-
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'active': return 'success';
-            case 'planned': return 'info';
-            case 'maintenance': return 'warning';
-            case 'inactive': return 'default';
-            case 'decommissioned': return 'error';
-            default: return 'default';
-        }
     };
 
     const handleEdit = (id: number) => {
@@ -114,33 +114,92 @@ export const SitesPage = () => {
         setFormOpen(true);
     };
 
+    const handleReset = () => {
+        setSearch('');
+        setStatusFilter('');
+        setTypeFilter('');
+        setPage(0);
+    };
+
     const columns: GridColDef[] = [
-        { field: 'site_code', headerName: 'Code', flex: 0.8 },
-        { field: 'name', headerName: 'Name', flex: 1 },
-        { field: 'type', headerName: 'Type', flex: 0.6 },
-        {
-            field: 'status',
-            headerName: 'Status',
-            flex: 0.6,
+        { 
+            field: 'site', 
+            headerName: 'Site Information', 
+            flex: 1.5, 
             renderCell: (params: GridRenderCellParams) => (
-                <Chip label={params.value} color={getStatusColor(params.value) as any} size="small" />
+                <Box>
+                    <Typography variant="body2" fontWeight="bold">{params.row.name}</Typography>
+                    <Typography variant="caption" color="text.secondary">{params.row.site_code}</Typography>
+                </Box>
             )
         },
-        {
-            field: 'location',
-            headerName: 'Location',
+        { 
+            field: 'type', 
+            headerName: 'Type', 
+            flex: 0.6,
+            renderCell: (params: GridRenderCellParams) => (
+                <Typography variant="body2" sx={{ textTransform: 'uppercase', fontSize: '0.75rem' }}>
+                    {params.row.type}
+                </Typography>
+            )
+        },
+        { 
+            field: 'status', 
+            headerName: 'Status', 
+            flex: 0.8,
+            renderCell: (params: GridRenderCellParams) => (
+                <SiteStatusBadge status={params.row.status} />
+            )
+        },
+        { 
+            field: 'organization', 
+            headerName: 'Organization', 
+            flex: 1,
+            renderCell: (params: GridRenderCellParams) => (
+                <Box>
+                    <Typography variant="body2">{params.row.company?.name || '-'}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                        {params.row.region?.name} {params.row.branch?.name ? `• ${params.row.branch.name}` : ''}
+                    </Typography>
+                </Box>
+            )
+        },
+        { 
+            field: 'assets_count', 
+            headerName: 'Assets', 
+            flex: 0.6,
+            align: 'center',
+            headerAlign: 'center',
+            renderCell: (params: GridRenderCellParams) => (
+                <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5}>
+                    <Inventory fontSize="small" color="action" />
+                    <Typography variant="body2">{params.row.assets_count || 0}</Typography>
+                </Stack>
+            )
+        },
+        { 
+            field: 'location', 
+            headerName: 'Location', 
             flex: 0.8,
             renderCell: (params: GridRenderCellParams) => {
-                const { latitude, longitude } = params.row;
-                return formatCoordinates(latitude, longitude);
+                const hasCoords = params.row.latitude && params.row.longitude;
+                return (
+                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                        <LocationOn fontSize="small" color={hasCoords ? "primary" : "disabled"} />
+                        <Typography variant="body2" color={hasCoords ? "text.primary" : "text.secondary"}>
+                            {hasCoords ? 'Available' : 'Missing'}
+                        </Typography>
+                    </Stack>
+                );
             }
         },
         {
             field: 'actions',
-            headerName: 'Actions',
-            flex: 0.6,
+            headerName: '',
+            flex: 0.8,
+            sortable: false,
             renderCell: (params: GridRenderCellParams) => (
-                <Stack direction="row" spacing={0}>
+                <Stack direction="row" spacing={1}>
                     <Can permission="sites.update">
                         <Button size="small" onClick={(e) => { e.stopPropagation(); handleEdit(params.row.id); }}>
                             Edit
@@ -156,63 +215,40 @@ export const SitesPage = () => {
         },
     ];
 
-    if (isLoading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;
-    if (error) return <Alert severity="error">Failed to load sites</Alert>;
+    if (error) return <Alert severity="error" sx={{ m: 3 }}>Failed to load site information. <Button onClick={() => window.location.reload()}>Retry</Button></Alert>;
 
     const rows = data?.data || [];
 
     return (
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: 3, maxWidth: 1600, mx: 'auto' }}>
             <PageHeader
-                title="Sites"
+                title="Network Sites"
+                subtitle="Manage network locations, POPs, towers and infrastructure sites"
                 actions={
                     <Stack direction="row" spacing={1}>
                         <Can permission="sites.import">
-                            <Button
-                                variant="outlined"
-                                startIcon={<UploadIcon />}
-                                onClick={() => setImportOpen(true)}
-                            >
-                                Import
-                            </Button>
+                            <Button variant="outlined" startIcon={<UploadIcon />} onClick={() => setImportOpen(true)}>Import</Button>
                         </Can>
                         <Can permission="sites.export">
-                            <Button
-                                variant="outlined"
-                                startIcon={<DownloadIcon />}
-                                onClick={() => handleExport('csv')}
-                            >
-                                Export CSV
-                            </Button>
-                            <Button
-                                variant="outlined"
-                                startIcon={<DownloadIcon />}
-                                onClick={() => handleExport('xlsx')}
-                            >
-                                Export XLSX
-                            </Button>
+                            <Button variant="outlined" startIcon={<DownloadIcon />} onClick={() => handleExport('csv')}>Export</Button>
                         </Can>
                         <Can permission="sites.create">
-                            <Button
-                                variant="contained"
-                                startIcon={<AddIcon />}
-                                onClick={handleAdd}
-                            >
-                                Add Site
-                            </Button>
+                            <Button variant="contained" startIcon={<AddIcon />} onClick={handleAdd}>Add Site</Button>
                         </Can>
                     </Stack>
                 }
             />
 
-                        <SiteHeaderDashboard data={dashboardData} isLoading={isDashboardLoading} />
-            <SearchFilterBar
-                searchValue={search}
-                onSearchChange={setSearch}
-                placeholder="Search sites by code or name..."
+            <SiteHeaderDashboard data={dashboardData} isLoading={isDashboardLoading} />
+
+            <SiteFilters 
+                search={search} onSearchChange={setSearch}
+                status={statusFilter} onStatusChange={setStatusFilter}
+                type={typeFilter} onTypeChange={setTypeFilter}
+                onReset={handleReset}
             />
 
-            <Box sx={{ mt: 2, height: 500, width: '100%' }}>
+            <Box sx={{ height: 600, width: '100%', bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                 <DataGrid
                     rows={rows}
                     columns={columns}
@@ -226,25 +262,19 @@ export const SitesPage = () => {
                     }}
                     onRowClick={handleRowClick}
                     pageSizeOptions={[15, 25, 50, 100]}
+                    disableRowSelectionOnClick
                     sx={{
-                        cursor: 'pointer',
-                        '& .MuiDataGrid-row:hover': {
-                            backgroundColor: 'action.hover',
-                        },
+                        '& .MuiDataGrid-row:hover': { backgroundColor: 'action.hover', cursor: 'pointer' },
+                        '& .MuiDataGrid-cell': { py: 1.5 },
                     }}
                 />
             </Box>
 
+            {/* Import Dialog */}
             <Dialog open={importOpen} onClose={() => setImportOpen(false)}>
                 <DialogTitle>Import Sites</DialogTitle>
                 <DialogContent>
-                    <TextField
-                        type="file"
-                        fullWidth
-                        inputProps={{ accept: '.csv,.xlsx' }}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setImportFile(e.target.files?.[0] || null)}
-                        sx={{ mt: 2 }}
-                    />
+                    <TextField type="file" fullWidth inputProps={{ accept: '.csv,.xlsx' }} onChange={(e) => setImportFile((e.target as HTMLInputElement).files?.[0] || null)} sx={{ mt: 2 }} />
                     {importStatus && <Typography sx={{ mt: 2, color: 'primary.main' }}>{importStatus}</Typography>}
                 </DialogContent>
                 <DialogActions>
@@ -264,14 +294,12 @@ export const SitesPage = () => {
             <SiteFormDrawer
                 open={formOpen}
                 siteId={editingId}
-                onClose={() => {
-                    setFormOpen(false);
-                    setEditingId(undefined);
-                }}
+                onClose={() => { setFormOpen(false); setEditingId(undefined); }}
                 onSuccess={() => {
                     setFormOpen(false);
                     setEditingId(undefined);
                     queryClient.invalidateQueries({ queryKey: ['sites'] });
+                    queryClient.invalidateQueries({ queryKey: ['sites-dashboard'] });
                 }}
             />
         </Box>
