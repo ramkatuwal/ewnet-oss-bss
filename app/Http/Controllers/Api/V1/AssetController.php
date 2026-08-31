@@ -15,6 +15,7 @@ use App\Jobs\ProcessAssetImport;
 use App\Services\ManagementScopeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Http\Resources\V1\AssetResource;
 
 class AssetController extends Controller
 {
@@ -29,10 +30,15 @@ class AssetController extends Controller
         if ($request->filled('search')) {
             $search = $request->input('search');
             $query->where(function($q) use ($search) {
-                $q->where('asset_tag', 'like', "%{$search}%")
-                  ->orWhere('serial_number', 'like', "%{$search}%")
-                  ->orWhere('manufacturer', 'like', "%{$search}%")
-                  ->orWhere('model', 'like', "%{$search}%");
+                $q->where('asset_tag', 'ilike', "%{$search}%")
+                  ->orWhere('serial_number', 'ilike', "%{$search}%")
+                  ->orWhere('manufacturer', 'ilike', "%{$search}%")
+                  ->orWhere('model', 'ilike', "%{$search}%")
+                  ->orWhere('description', 'ilike', "%{$search}%")
+                  ->orWhereHas('site', function($sq) use ($search) {
+                      $sq->where('name', 'ilike', "%{$search}%")
+                         ->orWhere('site_code', 'ilike', "%{$search}%");
+                  });
             });
         }
 
@@ -52,10 +58,20 @@ class AssetController extends Controller
             $query->where('site_id', $request->input('site_id'));
         }
 
+        // Server-side sorting with whitelist
+        $allowedSorts = ['asset_tag', 'type', 'category', 'status', 'manufacturer', 'model', 'serial_number', 'quantity', 'created_at', 'updated_at'];
+        $sortBy = $request->input('sort_by', 'created_at');
+        $sortDir = $request->input('sort_dir', 'desc');
+        if (in_array($sortBy, $allowedSorts)) {
+            $query->orderBy($sortBy, $sortDir === 'asc' ? 'asc' : 'desc');
+        } else {
+            $query->orderBy('created_at', 'desc');
+        }
+
         $assets = $query->paginate($request->input('per_page', 15));
 
         return response()->json([
-            'data' => $assets->items(),
+            'data' => AssetResource::collection($assets->items()),
             'meta' => [
                 'current_page' => $assets->currentPage(),
                 'last_page' => $assets->lastPage(),
@@ -76,14 +92,14 @@ class AssetController extends Controller
 
         AuditService::log('asset.created', 'success', $asset, $request->validated());
 
-        return response()->json(['data' => $asset], 201);
+        return new AssetResource($asset->load(['site.company', 'site.region', 'site.branch']));
     }
 
     public function show(Asset $asset)
     {
         $this->authorize('view', $asset);
 
-        return response()->json(['data' => $asset->load(['site.company', 'site.region', 'site.branch'])]);
+        return new AssetResource($asset->load(['site.company', 'site.region', 'site.branch']));
     }
 
     public function update(UpdateAssetRequest $request, Asset $asset)
@@ -94,7 +110,7 @@ class AssetController extends Controller
 
         AuditService::log('asset.updated', 'success', $asset, $request->validated());
 
-        return response()->json(['data' => $asset]);
+        return new AssetResource($asset->load(['site.company', 'site.region', 'site.branch']));
     }
 
     public function destroy(Asset $asset)
@@ -118,17 +134,17 @@ class AssetController extends Controller
         $baseQuery = Asset::query();
         $baseQuery = ManagementScopeService::applyScopeToQuery($baseQuery, $user, Asset::class);
 
-        // Total Sites with Assets (distinct site_id)
-        $sitesWithAssets = $baseQuery->clone()->distinct('site_id')->count('site_id');
-
-        // Total Asset Records
-        $totalRecords = $baseQuery->clone()->count();
+        // Total Records MUST be counted BEFORE any groupBy mutates the query
+        $totalRecords = (clone $baseQuery)->count();
 
         // Total Inventory Units
-        $totalUnits = $baseQuery->clone()->sum('quantity');
+        $totalUnits = (clone $baseQuery)->sum('quantity');
 
-        // Status Breakdown
-        $statusCounts = $baseQuery->clone()
+        // Sites with Assets (distinct site_id)
+        $sitesWithAssets = (clone $baseQuery)->distinct('site_id')->count('site_id');
+
+        // Status Breakdown (use clone to avoid mutating base query)
+        $statusCounts = (clone $baseQuery)
             ->select('status', DB::raw('count(*) as count'), DB::raw('sum(quantity) as units'))
             ->groupBy('status')
             ->get()
@@ -159,15 +175,17 @@ class AssetController extends Controller
         if ($request->filled('search')) {
             $search = $request->input('search');
             $query->where(function($q) use ($search) {
-                $q->where('asset_tag', 'like', "%{$search}%")
-                  ->orWhere('serial_number', 'like', "%{$search}%");
+                $q->where('asset_tag', 'ilike', "%{$search}%")
+                  ->orWhere('serial_number', 'ilike', "%{$search}%")
+                  ->orWhere('manufacturer', 'ilike', "%{$search}%")
+                  ->orWhere('model', 'ilike', "%{$search}%");
             });
         }
 
         $assets = $query->paginate($request->input('per_page', 15));
 
         return response()->json([
-            'data' => $assets->items(),
+            'data' => AssetResource::collection($assets->items()),
             'meta' => [
                 'current_page' => $assets->currentPage(),
                 'last_page' => $assets->lastPage(),

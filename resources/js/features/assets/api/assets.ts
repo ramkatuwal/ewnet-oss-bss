@@ -1,39 +1,63 @@
 import axios from 'axios';
 import type { Asset, PaginatedResponse } from '@/types';
 
-export const getAssets = (params?: any) =>
+export interface AssetListParams {
+    page?: number;
+    per_page?: number;
+    search?: string;
+    status?: string;
+    category?: string;
+    type?: string;
+    site_id?: number;
+    sort_by?: string;
+    sort_dir?: 'asc' | 'desc';
+}
+
+export const getAssets = (params?: AssetListParams) =>
     axios.get<PaginatedResponse<Asset>>('/api/v1/assets', { params }).then(res => res.data);
 
 export const getAsset = (id: number) =>
     axios.get<{ data: Asset }>(`/api/v1/assets/${id}`).then(res => res.data.data);
 
-export const createAsset = (data: any) =>
+export const createAsset = (data: Partial<Asset>) =>
     axios.post<{ data: Asset }>('/api/v1/assets', data).then(res => res.data.data);
 
-export const updateAsset = (id: number, data: any) =>
+export const updateAsset = (id: number, data: Partial<Asset>) =>
     axios.put<{ data: Asset }>(`/api/v1/assets/${id}`, data).then(res => res.data.data);
 
 export const deleteAsset = (id: number) =>
     axios.delete(`/api/v1/assets/${id}`);
 
-export const getAssetDashboard = () =>
-    axios.get<{ data: any }>('/api/v1/assets/dashboard').then(res => res.data.data);
+export interface AssetDashboardData {
+    sites_with_assets: number;
+    total_records: number;
+    total_units: number;
+    by_status: {
+        operational: number;
+        maintenance: number;
+        faulty: number;
+        retired: number;
+    };
+}
 
-export const exportAssets = (format: string = 'csv', params?: any) =>
-    axios.get(`/api/v1/assets/export`, {
+export const getAssetDashboard = () =>
+    axios.get<{ data: AssetDashboardData }>('/api/v1/assets/dashboard').then(res => res.data.data);
+
+export const exportAssets = (format: string = 'csv', params?: Record<string, any>) =>
+    axios.get('/api/v1/assets/export', {
         params: { ...params, format },
-        responseType: 'blob'
+        responseType: 'blob',
     });
 
 export const importAssets = (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
     return axios.post('/api/v1/assets/import', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
     });
 };
 
-export const getSiteAssets = (siteId: number, params?: any) =>
+export const getSiteAssets = (siteId: number, params?: AssetListParams) =>
     axios.get<PaginatedResponse<Asset>>(`/api/v1/sites/${siteId}/assets`, { params }).then(res => res.data);
 
 // Asset Lifecycle

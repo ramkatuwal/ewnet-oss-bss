@@ -17,26 +17,40 @@ class AssetExportService
         $query = Asset::with(['site.company', 'site.region', 'site.branch']);
         $query = ManagementScopeService::applyScopeToQuery($query, $user, Asset::class);
 
-        // Apply filters (simplified for brevity, should match controller logic)
         if (!empty($filters['search'])) {
-            $query->where('asset_tag', 'like', "%{$filters['search']}%");
+            $search = $filters['search'];
+            $query->where(function ($q) use ($search) {
+                $q->where('asset_tag', 'ilike', "%{$search}%")
+                  ->orWhere('serial_number', 'ilike', "%{$search}%")
+                  ->orWhere('manufacturer', 'ilike', "%{$search}%")
+                  ->orWhere('model', 'ilike', "%{$search}%");
+            });
         }
 
         $assets = $query->get();
 
         $csv = Writer::createFromString('');
         $csv->insertOne([
-            'Asset Tag', 'Serial', 'Category', 'Type', 'Manufacturer', 'Model', 
-            'Qty', 'Unit', 'Status', 'Condition', 'Site Code', 'Company', 'Region', 'Branch'
+            'Asset Tag', 'Serial', 'Category', 'Type', 'Manufacturer', 'Model',
+            'Qty', 'Unit', 'Status', 'Condition', 'Site Code', 'Company', 'Region', 'Branch',
         ]);
 
         foreach ($assets as $asset) {
             $csv->insertOne([
-                $asset->asset_tag, $asset->serial_number, $asset->category, $asset->type,
-                $asset->manufacturer, $asset->model, $asset->quantity, $asset->unit,
-                $asset->status, $asset->condition, 
-                $asset->site?->site_code, $asset->site?->company?->name, 
-                $asset->site?->region?->name, $asset->site?->branch?->name
+                $asset->asset_tag,
+                $asset->serial_number,
+                $asset->category,
+                $asset->type,
+                $asset->manufacturer,
+                $asset->model,
+                $asset->quantity,
+                $asset->unit,
+                $asset->status,
+                $asset->condition,
+                $asset->site?->site_code,
+                $asset->site?->company?->name,
+                $asset->site?->region?->name,
+                $asset->site?->branch?->name,
             ]);
         }
 
@@ -50,33 +64,47 @@ class AssetExportService
 
     public function exportXlsx(User $user, array $filters = []): StreamedResponse
     {
-        // Similar to CSV but using PhpSpreadsheet
         $query = Asset::with(['site.company', 'site.region', 'site.branch']);
         $query = ManagementScopeService::applyScopeToQuery($query, $user, Asset::class);
-        
+
         if (!empty($filters['search'])) {
-            $query->where('asset_tag', 'like', "%{$filters['search']}%");
+            $search = $filters['search'];
+            $query->where(function ($q) use ($search) {
+                $q->where('asset_tag', 'ilike', "%{$search}%")
+                  ->orWhere('serial_number', 'ilike', "%{$search}%")
+                  ->orWhere('manufacturer', 'ilike', "%{$search}%")
+                  ->orWhere('model', 'ilike', "%{$search}%");
+            });
         }
 
         $assets = $query->get();
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
-        
+
         $headers = [
-            'Asset Tag', 'Serial', 'Category', 'Type', 'Manufacturer', 'Model', 
-            'Qty', 'Unit', 'Status', 'Condition', 'Site Code', 'Company', 'Region', 'Branch'
+            'Asset Tag', 'Serial', 'Category', 'Type', 'Manufacturer', 'Model',
+            'Qty', 'Unit', 'Status', 'Condition', 'Site Code', 'Company', 'Region', 'Branch',
         ];
         $sheet->fromArray([$headers], null, 'A1');
 
         $rowData = [];
         foreach ($assets as $asset) {
             $rowData[] = [
-                $asset->asset_tag, $asset->serial_number, $asset->category, $asset->type,
-                $asset->manufacturer, $asset->model, $asset->quantity, $asset->unit,
-                $asset->status, $asset->condition, 
-                $asset->site?->site_code, $asset->site?->company?->name, 
-                $asset->site?->region?->name, $asset->site?->branch?->name
+                $asset->asset_tag,
+                $asset->serial_number,
+                $asset->category,
+                $asset->type,
+                $asset->manufacturer,
+                $asset->model,
+                $asset->quantity,
+                $asset->unit,
+                $asset->status,
+                $asset->condition,
+                $asset->site?->site_code,
+                $asset->site?->company?->name,
+                $asset->site?->region?->name,
+                $asset->site?->branch?->name,
             ];
         }
         $sheet->fromArray($rowData, null, 'A2');

@@ -211,7 +211,7 @@ export const SiteAssetsTab: React.FC<SiteAssetsTabProps> = ({ siteId }) => {
                 columns={columns}
                 loading={isLoading}
                 paginationMode="server"
-                rowCount={data?.total || 0}
+                rowCount={(data as any)?.meta?.total ?? 0}
                 paginationModel={{ page, pageSize }}
                 onPaginationModelChange={(model) => {
                     setPage(model.page);

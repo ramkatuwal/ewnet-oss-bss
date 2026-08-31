@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Box, Typography, Card, CardContent, Grid, Chip, Stack,
-    Tabs, Tab, CircularProgress, Button, Divider, IconButton,
-    Tooltip, Alert
+    Tabs, Tab, CircularProgress, Button, IconButton,
+    Tooltip, Alert, Link,
 } from '@mui/material';
 import { ArrowBack, Edit, Delete, SwapHoriz, Warning, DeleteForever } from '@mui/icons-material';
 import { getAsset, deleteAsset } from '../api/assets';
@@ -34,32 +34,31 @@ function TabPanel(props: TabPanelProps) {
 }
 
 const STATUS_COLORS: Record<string, 'success' | 'warning' | 'error' | 'info' | 'default'> = {
-    'OPERATIONAL': 'success',
-    'SPARE': 'info',
-    'MAINTENANCE': 'warning',
-    'FAULTY': 'error',
-    'RETIRED': 'default',
-    'MISSING': 'error',
-    'DISPOSED': 'default',
+    OPERATIONAL: 'success',
+    SPARE: 'info',
+    MAINTENANCE: 'warning',
+    FAULTY: 'error',
+    RETIRED: 'default',
+    MISSING: 'error',
+    DISPOSED: 'default',
 };
 
-const STATUS_LABELS: Record<string, string> = {
-    'OPERATIONAL': 'Operational',
-    'SPARE': 'Spare',
-    'MAINTENANCE': 'Maintenance',
-    'FAULTY': 'Faulty',
-    'RETIRED': 'Retired',
-    'MISSING': 'Missing',
-    'DISPOSED': 'Disposed',
+const CONDITION_COLORS: Record<string, 'success' | 'warning' | 'error' | 'info' | 'default'> = {
+    EXCELLENT: 'success',
+    GOOD: 'success',
+    FAIR: 'warning',
+    POOR: 'error',
+    CRITICAL: 'error',
 };
 
-const CONDITION_LABELS: Record<string, string> = {
-    'EXCELLENT': 'Excellent',
-    'GOOD': 'Good',
-    'FAIR': 'Fair',
-    'POOR': 'Poor',
-    'CRITICAL': 'Critical',
-};
+const DetailField: React.FC<{ label: string; value?: React.ReactNode; mono?: boolean }> = ({ label, value, mono }) => (
+    <Box>
+        <Typography variant="caption" color="text.secondary">{label}</Typography>
+        <Typography variant="body2" sx={mono ? { fontFamily: 'monospace', fontSize: '0.85rem' } : undefined}>
+            {value || '—'}
+        </Typography>
+    </Box>
+);
 
 const AssetDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -88,8 +87,6 @@ const AssetDetailPage: React.FC = () => {
         onError: () => toast.error('Failed to delete asset'),
     });
 
-    const asset = data;
-
     if (isLoading) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
@@ -98,10 +95,10 @@ const AssetDetailPage: React.FC = () => {
         );
     }
 
-    if (error || !asset) {
+    if (error || !data) {
         return (
             <Box sx={{ p: 3 }}>
-                <Alert severity="error">Failed to load asset details.</Alert>
+                <Alert severity="error">Unable to load asset details.</Alert>
                 <Button startIcon={<ArrowBack />} onClick={() => navigate('/network/assets')} sx={{ mt: 2 }}>
                     Back to Assets
                 </Button>
@@ -109,265 +106,198 @@ const AssetDetailPage: React.FC = () => {
         );
     }
 
-    const handleDelete = () => {
-        if (deleteId) {
-            deleteMutation.mutate(deleteId);
-        }
-    };
-
-    const handleTransferSuccess = () => {
-        queryClient.invalidateQueries({ queryKey: ['asset', id] });
-    };
-
-    const handleStatusChangeSuccess = () => {
-        queryClient.invalidateQueries({ queryKey: ['asset', id] });
-        queryClient.invalidateQueries({ queryKey: ['asset-lifecycle', id] });
-    };
-
+    const asset = data as any;
     const assetId = parseInt(id!);
     const canTransfer = asset.status !== 'DISPOSED';
     const canRetire = asset.status !== 'RETIRED' && asset.status !== 'DISPOSED';
     const canDispose = asset.status === 'RETIRED';
 
     return (
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: 3, maxWidth: 1400, mx: 'auto' }}>
             <PageHeader
-                title={`${asset.asset_tag} - ${asset.type || 'Asset'}`}
+                title={`${asset.asset_tag}`}
                 breadcrumbs={[
                     { label: 'Network', path: '/network' },
                     { label: 'Assets', path: '/network/assets' },
-                    { label: asset.asset_tag || 'Details' }
+                    { label: asset.asset_tag },
                 ]}
                 actions={
                     <Stack direction="row" spacing={1}>
                         <Can permission="assets.transfer">
-                            <Tooltip title="Transfer Asset">
-                                <Button
-                                    variant="outlined"
-                                    startIcon={<SwapHoriz />}
-                                    onClick={() => setTransferOpen(true)}
-                                    disabled={!canTransfer}
-                                >
-                                    Transfer
-                                </Button>
+                            <Tooltip title="Transfer to another site">
+                                <span>
+                                    <Button variant="outlined" startIcon={<SwapHoriz />} onClick={() => setTransferOpen(true)} disabled={!canTransfer}>
+                                        Transfer
+                                    </Button>
+                                </span>
                             </Tooltip>
                         </Can>
                         <Can permission="assets.retire">
-                            <Tooltip title="Retire Asset">
-                                <Button
-                                    variant="outlined"
-                                    color="warning"
-                                    startIcon={<Warning />}
-                                    onClick={() => setStatusAction('retire')}
-                                    disabled={!canRetire}
-                                >
-                                    Retire
-                                </Button>
+                            <Tooltip title="Retire this asset">
+                                <span>
+                                    <Button variant="outlined" color="warning" startIcon={<Warning />} onClick={() => setStatusAction('retire')} disabled={!canRetire}>
+                                        Retire
+                                    </Button>
+                                </span>
                             </Tooltip>
                         </Can>
                         <Can permission="assets.dispose">
-                            <Tooltip title="Dispose Asset">
-                                <Button
-                                    variant="outlined"
-                                    color="error"
-                                    startIcon={<DeleteForever />}
-                                    onClick={() => setStatusAction('dispose')}
-                                    disabled={!canDispose}
-                                >
-                                    Dispose
-                                </Button>
+                            <Tooltip title="Dispose of this asset">
+                                <span>
+                                    <Button variant="outlined" color="error" startIcon={<DeleteForever />} onClick={() => setStatusAction('dispose')} disabled={!canDispose}>
+                                        Dispose
+                                    </Button>
+                                </span>
                             </Tooltip>
                         </Can>
                         <Can permission="assets.update">
-                            <Button
-                                variant="contained"
-                                startIcon={<Edit />}
-                                onClick={() => setEditOpen(true)}
-                            >
-                                Edit
-                            </Button>
+                            <Button variant="contained" startIcon={<Edit />} onClick={() => setEditOpen(true)}>Edit</Button>
                         </Can>
                         <Can permission="assets.delete">
-                            <IconButton color="error" onClick={() => setDeleteId(asset.id)}>
-                                <Delete />
-                            </IconButton>
+                            <IconButton color="error" onClick={() => setDeleteId(asset.id)}><Delete /></IconButton>
                         </Can>
                     </Stack>
                 }
             />
 
+            {/* Status Bar */}
+            <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 3 }}>
+                <Chip label={asset.category} size="small" variant="outlined" />
+                <Chip label={asset.type} size="small" variant="outlined" />
+                <Chip label={asset.status} size="small" color={STATUS_COLORS[asset.status] || 'default'} />
+                {asset.condition && (
+                    <Chip label={asset.condition} size="small" color={CONDITION_COLORS[asset.condition] || 'default'} variant="outlined" />
+                )}
+                <Chip label={`${asset.quantity} ${asset.unit || 'pcs'}`} size="small" variant="outlined" />
+            </Stack>
+
             <Grid container spacing={3} sx={{ mb: 3 }}>
-                <Grid item xs={12} md={8}>
+                {/* Left Column: Overview + Organization */}
+                <Grid item xs={12} md={4}>
+                    <Card sx={{ mb: 2 }}>
+                        <CardContent>
+                            <Typography variant="subtitle2" gutterBottom>Overview</Typography>
+                            <Stack spacing={1.5}>
+                                <DetailField label="Asset Tag" value={asset.asset_tag} mono />
+                                <DetailField label="Serial Number" value={asset.serial_number} mono />
+                                <DetailField label="Manufacturer" value={asset.manufacturer} />
+                                <DetailField label="Model" value={asset.model} />
+                                <DetailField label="Category" value={asset.category} />
+                                <DetailField label="Type" value={asset.type} />
+                                <DetailField label="Condition" value={asset.condition} />
+                                <DetailField label="Quantity" value={`${asset.quantity} ${asset.unit || 'pcs'}`} />
+                            </Stack>
+                        </CardContent>
+                    </Card>
+
                     <Card>
                         <CardContent>
-                            <Stack spacing={2}>
-                                <Stack direction="row" spacing={1} flexWrap="wrap">
-                                    <Chip
-                                        label={asset.asset_tag}
-                                        color="primary"
-                                        size="small"
-                                    />
-                                    <Chip
-                                        label={asset.category || 'Uncategorized'}
-                                        size="small"
-                                        variant="outlined"
-                                    />
-                                    <Chip
-                                        label={asset.type || 'Unknown Type'}
-                                        size="small"
-                                        variant="outlined"
-                                    />
-                                    <Chip
-                                        label={STATUS_LABELS[asset.status] || asset.status}
-                                        size="small"
-                                        color={STATUS_COLORS[asset.status] || 'default'}
-                                    />
-                                    {asset.condition && (
-                                        <Chip
-                                            label={CONDITION_LABELS[asset.condition] || asset.condition}
-                                            size="small"
-                                            variant="outlined"
-                                        />
+                            <Typography variant="subtitle2" gutterBottom>Organization</Typography>
+                            <Stack spacing={1.5}>
+                                <Box>
+                                    <Typography variant="caption" color="text.secondary">Site</Typography>
+                                    {asset.site ? (
+                                        <Link component={RouterLink} to={`/network/sites/${asset.site.id}`} underline="hover" display="block">
+                                            <Typography variant="body2" fontWeight="medium">{asset.site.site_code}</Typography>
+                                            <Typography variant="caption" color="text.secondary">{asset.site.name}</Typography>
+                                        </Link>
+                                    ) : (
+                                        <Typography variant="body2">—</Typography>
                                     )}
-                                </Stack>
-
-                                <Divider />
-
-                                <Grid container spacing={2}>
-                                    <Grid item xs={6}>
-                                        <Typography variant="caption" color="text.secondary">Manufacturer</Typography>
-                                        <Typography variant="body2">{asset.manufacturer || 'N/A'}</Typography>
-                                    </Grid>
-                                    <Grid item xs={6}>
-                                        <Typography variant="caption" color="text.secondary">Model</Typography>
-                                        <Typography variant="body2">{asset.model || 'N/A'}</Typography>
-                                    </Grid>
-                                    <Grid item xs={6}>
-                                        <Typography variant="caption" color="text.secondary">Serial Number</Typography>
-                                        <Typography variant="body2">{asset.serial_number || 'N/A'}</Typography>
-                                    </Grid>
-                                    <Grid item xs={6}>
-                                        <Typography variant="caption" color="text.secondary">Quantity</Typography>
-                                        <Typography variant="body2">{asset.quantity} {asset.unit || 'pcs'}</Typography>
-                                    </Grid>
-                                    <Grid item xs={6}>
-                                        <Typography variant="caption" color="text.secondary">Site</Typography>
-                                        <Typography variant="body2">{asset.site?.site_code || 'N/A'}</Typography>
-                                    </Grid>
-                                    <Grid item xs={6}>
-                                        <Typography variant="caption" color="text.secondary">Company</Typography>
-                                        <Typography variant="body2">{asset.site?.company?.name || 'N/A'}</Typography>
-                                    </Grid>
-                                    <Grid item xs={6}>
-                                        <Typography variant="caption" color="text.secondary">Region</Typography>
-                                        <Typography variant="body2">{asset.site?.region?.name || 'N/A'}</Typography>
-                                    </Grid>
-                                    <Grid item xs={6}>
-                                        <Typography variant="caption" color="text.secondary">Branch</Typography>
-                                        <Typography variant="body2">{asset.site?.branch?.name || 'N/A'}</Typography>
-                                    </Grid>
-                                    {asset.purchase_date && (
-                                        <Grid item xs={6}>
-                                            <Typography variant="caption" color="text.secondary">Purchase Date</Typography>
-                                            <Typography variant="body2">{new Date(asset.purchase_date).toLocaleDateString()}</Typography>
-                                        </Grid>
-                                    )}
-                                    {asset.installation_date && (
-                                        <Grid item xs={6}>
-                                            <Typography variant="caption" color="text.secondary">Installation Date</Typography>
-                                            <Typography variant="body2">{new Date(asset.installation_date).toLocaleDateString()}</Typography>
-                                        </Grid>
-                                    )}
-                                    {asset.warranty_expiry && (
-                                        <Grid item xs={6}>
-                                            <Typography variant="caption" color="text.secondary">Warranty Expiry</Typography>
-                                            <Typography variant="body2">{new Date(asset.warranty_expiry).toLocaleDateString()}</Typography>
-                                        </Grid>
-                                    )}
-                                    {asset.description && (
-                                        <Grid item xs={12}>
-                                            <Typography variant="caption" color="text.secondary">Description</Typography>
-                                            <Typography variant="body2">{asset.description}</Typography>
-                                        </Grid>
-                                    )}
-                                    {asset.notes && (
-                                        <Grid item xs={12}>
-                                            <Typography variant="caption" color="text.secondary">Notes</Typography>
-                                            <Typography variant="body2">{asset.notes}</Typography>
-                                        </Grid>
-                                    )}
-                                </Grid>
+                                </Box>
+                                <DetailField label="Company" value={asset.site?.company?.name} />
+                                <DetailField label="Region" value={asset.site?.region?.name} />
+                                <DetailField label="Branch" value={asset.site?.branch?.name} />
                             </Stack>
                         </CardContent>
                     </Card>
                 </Grid>
+
+                {/* Right Column: Dates + Description + Tabs */}
+                <Grid item xs={12} md={8}>
+                    <Card sx={{ mb: 2 }}>
+                        <CardContent>
+                            <Typography variant="subtitle2" gutterBottom>Lifecycle & Warranty</Typography>
+                            <Grid container spacing={2}>
+                                <Grid item xs={6} sm={4}><DetailField label="Purchase Date" value={asset.purchase_date ? new Date(asset.purchase_date).toLocaleDateString() : undefined} /></Grid>
+                                <Grid item xs={6} sm={4}><DetailField label="Installation Date" value={asset.installation_date ? new Date(asset.installation_date).toLocaleDateString() : undefined} /></Grid>
+                                <Grid item xs={6} sm={4}><DetailField label="Warranty Expiry" value={asset.warranty_expiry ? new Date(asset.warranty_expiry).toLocaleDateString() : undefined} /></Grid>
+                                <Grid item xs={6} sm={4}><DetailField label="Created" value={asset.created_at ? new Date(asset.created_at).toLocaleDateString() : undefined} /></Grid>
+                                <Grid item xs={6} sm={4}><DetailField label="Updated" value={asset.updated_at ? new Date(asset.updated_at).toLocaleDateString() : undefined} /></Grid>
+                            </Grid>
+                            {asset.description && (
+                                <Box sx={{ mt: 2 }}>
+                                    <Typography variant="caption" color="text.secondary">Description</Typography>
+                                    <Typography variant="body2">{asset.description}</Typography>
+                                </Box>
+                            )}
+                            {asset.notes && (
+                                <Box sx={{ mt: 1 }}>
+                                    <Typography variant="caption" color="text.secondary">Notes</Typography>
+                                    <Typography variant="body2">{asset.notes}</Typography>
+                                </Box>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Tabs */}
+                    <Card>
+                        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                            <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
+                                <Tab label="Lifecycle History" />
+                                <Tab label="Photos" />
+                            </Tabs>
+                        </Box>
+                        <TabPanel value={tabValue} index={0}>
+                            <Can permission="assets.lifecycle.view">
+                                <AssetLifecycleTimeline assetId={assetId} />
+                            </Can>
+                        </TabPanel>
+                        <TabPanel value={tabValue} index={1}>
+                            <Can permission="assets.update">
+                                <PhotoGallery
+                                    entityType="asset"
+                                    entityId={assetId}
+                                    getPhotosUrl={`/api/v1/assets/${assetId}/photos`}
+                                    uploadUrl={`/api/v1/assets/${assetId}/photos`}
+                                    deleteUrl={(photoId: number) => `/api/v1/assets/${assetId}/photos/${photoId}`}
+                                    categories={['asset', 'documentation', 'label', 'installation', 'other']}
+                                    defaultCategory="asset"
+                                    canUpload={true}
+                                    canDelete={true}
+                                />
+                            </Can>
+                        </TabPanel>
+                    </Card>
+                </Grid>
             </Grid>
 
-            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
-                    <Tab label="Lifecycle" />
-                    <Tab label="Details" />
-                    <Tab label="Photos" />
-                </Tabs>
-            </Box>
-
-            <TabPanel value={tabValue} index={0}>
-                <Can permission="assets.lifecycle.view">
-                    <AssetLifecycleTimeline assetId={assetId} />
-                </Can>
-            </TabPanel>
-
-            <TabPanel value={tabValue} index={1}>
-                <Typography variant="body2" color="text.secondary">
-                    Additional asset details will be displayed here.
-                </Typography>
-            </TabPanel>
-
-            <TabPanel value={tabValue} index={2}>
-                <Can permission="assets.update">
-                    <PhotoGallery
-                        entityType="asset"
-                        entityId={assetId}
-                        getPhotosUrl={`/api/v1/assets/${assetId}/photos`}
-                        uploadUrl={`/api/v1/assets/${assetId}/photos`}
-                        deleteUrl={(photoId: number) => `/api/v1/assets/${assetId}/photos/${photoId}`}
-                        categories={['asset', 'documentation', 'label', 'installation', 'other']}
-                        defaultCategory="asset"
-                        canUpload={true}
-                        canDelete={true}
-                    />
-                </Can>
-            </TabPanel>
-
-            <AssetFormDrawer
-                open={editOpen}
-                onClose={() => setEditOpen(false)}
-                assetId={assetId}
-            />
-
+            {/* Dialogs */}
+            <AssetFormDrawer open={editOpen} onClose={() => setEditOpen(false)} assetId={assetId} />
             <AssetTransferDialog
                 open={transferOpen}
                 onClose={() => setTransferOpen(false)}
                 assetId={assetId}
                 currentSiteName={asset.site?.site_code || 'Unknown'}
                 currentSiteId={asset.site_id}
-                onSuccess={handleTransferSuccess}
+                onSuccess={() => { queryClient.invalidateQueries({ queryKey: ['asset', id] }); }}
             />
-
             <AssetStatusChangeDialog
                 open={statusAction !== null}
                 onClose={() => setStatusAction(null)}
                 assetId={assetId}
                 currentStatus={asset.status}
                 action={statusAction}
-                onSuccess={handleStatusChangeSuccess}
+                onSuccess={() => {
+                    queryClient.invalidateQueries({ queryKey: ['asset', id] });
+                    queryClient.invalidateQueries({ queryKey: ['asset-lifecycle', id] });
+                }}
             />
-
             <ConfirmDialog
                 open={!!deleteId}
                 title="Delete Asset"
                 message="Are you sure you want to delete this asset? This action cannot be undone."
-                onConfirm={handleDelete}
+                onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
                 onCancel={() => setDeleteId(null)}
             />
         </Box>
