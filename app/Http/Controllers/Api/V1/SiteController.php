@@ -7,9 +7,11 @@ use App\Http\Requests\Api\V1\StoreSiteRequest;
 use App\Http\Requests\Api\V1\UpdateSiteRequest;
 use App\Http\Resources\V1\SiteResource;
 use App\Models\Site;
+use App\Models\Asset;
 use App\Services\AuditService;
 use App\Services\ManagementScopeService;
 use App\Services\SiteExportService;
+use App\Services\SiteDashboardService;
 use App\Jobs\ProcessSiteImport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -129,4 +131,69 @@ class SiteController extends Controller
         return $exportService->exportCsv($request->user(), $filters);
 
     }
+
+    public function summary(Request $request)
+    {
+        $this->authorize('viewAny', Site::class);
+
+        $user = $request->user();
+        
+        // Start with a scoped query for Sites
+        $scopedQuery = Site::query();
+        $scopedQuery = ManagementScopeService::applyScopeToQuery($scopedQuery, $user, Site::class);
+
+        // Total Sites
+        $totalSites = $scopedQuery->count();
+
+        // Sites with Devices (Assets)
+        $sitesWithDevices = (clone $scopedQuery)->has('assets')->count();
+
+        // Sites without Devices
+        $sitesWithoutDevices = $totalSites - $sitesWithDevices;
+
+        // Total Devices assigned to scoped sites
+        // Use whereHas to respect scope without accessing protected ID resolution methods
+        $totalDevices = Asset::whereHas('site', function ($query) use ($user) {
+            ManagementScopeService::applyScopeToQuery($query, $user, Site::class);
+        })->count();
+
+        // Top Site by Device Count
+        $topSiteData = null;
+        if ($totalSites > 0 && $totalDevices > 0) {
+            $topSite = (clone $scopedQuery)
+                ->withCount(['assets' => function ($query) {
+                    // Laravel withCount automatically handles soft deletes for the related model
+                }])
+                ->orderBy('assets_count', 'desc')
+                ->orderBy('name', 'asc') // Deterministic tie-breaking
+                ->first(['id', 'name', 'site_code', 'assets_count']);
+
+            if ($topSite && $topSite->assets_count > 0) {
+                $topSiteData = [
+                    'name' => $topSite->name,
+                    'site_code' => $topSite->site_code,
+                    'device_count' => $topSite->assets_count,
+                ];
+            }
+        }
+
+        return response()->json([
+            'total_sites' => $totalSites,
+            'sites_with_devices' => $sitesWithDevices,
+            'sites_without_devices' => $sitesWithoutDevices,
+            'total_devices' => $totalDevices,
+            'top_site' => $topSiteData,
+        ]);
+    }
+
+
+    public function dashboard(Request $request, SiteDashboardService $dashboardService)
+    {
+        $this->authorize('viewAny', Site::class);
+        
+        $metrics = $dashboardService->getDashboardMetrics($request->user());
+        
+        return new SiteDashboardResource($metrics);
+    }
+
 }

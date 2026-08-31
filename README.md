@@ -1,5 +1,4 @@
 # EWNET OSS/BSS
-
 A comprehensive Operations Support System / Business Support System built with Laravel 13, React, and PostGIS.
 
 ## 🏗️ Architecture

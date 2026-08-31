@@ -19,7 +19,8 @@ import { DataGrid, GridColDef, GridRenderCellParams, GridRowParams } from '@mui/
 import AddIcon from '@mui/icons-material/Add';
 import UploadIcon from '@mui/icons-material/Upload';
 import DownloadIcon from '@mui/icons-material/Download';
-import { sitesApi } from '@/api/sites';
+import { sitesApi, getSiteDashboard } from '@/api/sites';
+import { SiteHeaderDashboard } from '../components/SiteHeaderDashboard';
 import { SearchFilterBar } from '@/components/forms/SearchFilterBar';
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog';
 import { Can } from '@/components/auth/Can';
@@ -31,6 +32,11 @@ import toast from 'react-hot-toast';
 
 export const SitesPage = () => {
     const navigate = useNavigate();
+
+    const { data: dashboardData, isLoading: isDashboardLoading } = useQuery({
+        queryKey: ['sites-dashboard'],
+        queryFn: getSiteDashboard,
+    });
     const queryClient = useQueryClient();
     const [search, setSearch] = useState('');
     const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -199,6 +205,7 @@ export const SitesPage = () => {
                 }
             />
 
+                        <SiteHeaderDashboard data={dashboardData} isLoading={isDashboardLoading} />
             <SearchFilterBar
                 searchValue={search}
                 onSearchChange={setSearch}

@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\Region;
 use App\Models\Branch;
 use App\Models\Site;
+use App\Models\Asset;
 use App\Models\User;
 use App\Models\UserManagementScope;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -259,5 +260,118 @@ class SiteTest extends TestCase
 
         $response->assertStatus(200);
         $this->assertSoftDeleted('sites', ['id' => $site->id]);
+    }
+
+    public function test_summary_requires_authentication()
+    {
+        $response = $this->getJson('/api/v1/sites/summary');
+        $response->assertStatus(401);
+    }
+
+    public function test_summary_requires_view_permission()
+    {
+        $user = User::factory()->create();
+        $response = $this->actingAs($user)->getJson('/api/v1/sites/summary');
+        $response->assertStatus(403);
+    }
+
+    public function test_summary_returns_correct_counts()
+    {
+        $company = Company::factory()->create();
+        $user = User::factory()->create(['company_id' => $company->id]);
+        $user->givePermissionTo('sites.view');
+        
+        UserManagementScope::create([
+            'user_id' => $user->id,
+            'scope_type' => 'company',
+            'scope_id' => $company->id,
+            'granted_by' => $user->id,
+        ]);
+
+        $siteA = Site::factory()->create(['company_id' => $company->id]);
+        $siteB = Site::factory()->create(['company_id' => $company->id]);
+        $siteC = Site::factory()->create(['company_id' => $company->id]);
+
+        Asset::factory()->count(2)->create(['site_id' => $siteA->id]);
+        Asset::factory()->count(1)->create(['site_id' => $siteB->id]);
+
+        $response = $this->actingAs($user)->getJson('/api/v1/sites/summary');
+        $response->assertStatus(200);
+        $response->assertJsonPath('total_sites', 3);
+        $response->assertJsonPath('sites_with_devices', 2);
+        $response->assertJsonPath('sites_without_devices', 1);
+        $response->assertJsonPath('total_devices', 3);
+    }
+
+    public function test_summary_returns_top_site()
+    {
+        $company = Company::factory()->create();
+        $user = User::factory()->create(['company_id' => $company->id]);
+        $user->givePermissionTo('sites.view');
+        
+        UserManagementScope::create([
+            'user_id' => $user->id,
+            'scope_type' => 'company',
+            'scope_id' => $company->id,
+            'granted_by' => $user->id,
+        ]);
+
+        $siteA = Site::factory()->create(['company_id' => $company->id, 'name' => 'Alpha Site', 'site_code' => 'ALPHA']);
+        $siteB = Site::factory()->create(['company_id' => $company->id, 'name' => 'Beta Site', 'site_code' => 'BETA']);
+
+        Asset::factory()->count(5)->create(['site_id' => $siteA->id]);
+        Asset::factory()->count(10)->create(['site_id' => $siteB->id]);
+
+        $response = $this->actingAs($user)->getJson('/api/v1/sites/summary');
+        $response->assertStatus(200);
+        $response->assertJsonPath('top_site.name', 'Beta Site');
+        $response->assertJsonPath('top_site.site_code', 'BETA');
+        $response->assertJsonPath('top_site.device_count', 10);
+    }
+
+    public function test_summary_excludes_soft_deleted_assets()
+    {
+        $company = Company::factory()->create();
+        $user = User::factory()->create(['company_id' => $company->id]);
+        $user->givePermissionTo('sites.view');
+        
+        UserManagementScope::create([
+            'user_id' => $user->id,
+            'scope_type' => 'company',
+            'scope_id' => $company->id,
+            'granted_by' => $user->id,
+        ]);
+
+        $site = Site::factory()->create(['company_id' => $company->id]);
+        $asset1 = Asset::factory()->create(['site_id' => $site->id]);
+        $asset2 = Asset::factory()->create(['site_id' => $site->id]);
+        
+        $asset2->delete();
+
+        $response = $this->actingAs($user)->getJson('/api/v1/sites/summary');
+        $response->assertStatus(200);
+        $response->assertJsonPath('total_devices', 1);
+    }
+
+    public function test_summary_respects_management_scope()
+    {
+        $company1 = Company::factory()->create();
+        $company2 = Company::factory()->create();
+
+        $user1 = User::factory()->create(['company_id' => $company1->id]);
+        $user1->givePermissionTo('sites.view');
+        UserManagementScope::create([
+            'user_id' => $user1->id,
+            'scope_type' => 'company',
+            'scope_id' => $company1->id,
+            'granted_by' => $user1->id,
+        ]);
+
+        Site::factory()->count(3)->create(['company_id' => $company1->id]);
+        Site::factory()->count(5)->create(['company_id' => $company2->id]);
+
+        $response = $this->actingAs($user1)->getJson('/api/v1/sites/summary');
+        $response->assertStatus(200);
+        $response->assertJsonPath('total_sites', 3);
     }
 }

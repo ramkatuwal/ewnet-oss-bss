@@ -56,6 +56,8 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::post('/sites/{site}/photos', [\App\Http\Controllers\Api\V1\PhotoController::class, 'storeSitePhoto']);
     Route::delete('/sites/{site}/photos/{photo}', [\App\Http\Controllers\Api\V1\PhotoController::class, 'deleteSitePhoto']);
     Route::get('/sites/export', [SiteController::class, 'export']);
+    Route::get('/sites/summary', [SiteController::class, 'summary']);
+    Route::get('/sites/dashboard', [SiteController::class, 'dashboard']);
     Route::apiResource('/sites', SiteController::class);
     Route::get('/sites/{site}/assets', [\App\Http\Controllers\Api\V1\AssetController::class, 'bySite']);
     

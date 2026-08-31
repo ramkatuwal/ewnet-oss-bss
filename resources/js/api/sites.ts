@@ -98,3 +98,8 @@ export const uploadSitePhoto = (siteId: number, data: FormData) =>
 
 export const deleteSitePhoto = (siteId: number, photoId: number) =>
     apiClient.delete(`/api/v1/sites/${siteId}/photos/${photoId}`).then(res => res.data);
+
+import { SiteDashboardMetrics } from '@/types/site';
+
+export const getSiteDashboard = () =>
+    apiClient.get<{ data: SiteDashboardMetrics }>('/api/v1/sites/dashboard').then(res => res.data.data);
