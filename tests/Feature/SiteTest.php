@@ -374,4 +374,254 @@ class SiteTest extends TestCase
         $response->assertStatus(200);
         $response->assertJsonPath('total_sites', 3);
     }
+
+    // =========================================================
+    // TASK-036-D1 MANDATORY TESTS
+    // =========================================================
+
+    public function test_dashboard_total_matches_scoped_site_count()
+    {
+        $company = Company::factory()->create();
+        $user = User::factory()->create(['company_id' => $company->id]);
+        $user->givePermissionTo('sites.view');
+
+        UserManagementScope::create([
+            'user_id' => $user->id,
+            'scope_type' => 'company',
+            'scope_id' => $company->id,
+            'granted_by' => $user->id,
+        ]);
+
+        Site::factory()->count(7)->create(['company_id' => $company->id]);
+
+        $response = $this->actingAs($user)->getJson('/api/v1/sites/dashboard');
+        $response->assertStatus(200);
+        $response->assertJsonPath('data.total_sites', 7);
+    }
+
+    public function test_list_pagination_total_is_correct()
+    {
+        $company = Company::factory()->create();
+        $user = User::factory()->create(['company_id' => $company->id]);
+        $user->givePermissionTo('sites.view');
+
+        UserManagementScope::create([
+            'user_id' => $user->id,
+            'scope_type' => 'company',
+            'scope_id' => $company->id,
+            'granted_by' => $user->id,
+        ]);
+
+        Site::factory()->count(23)->create(['company_id' => $company->id]);
+
+        $response = $this->actingAs($user)->getJson('/api/v1/sites?per_page=10&page=1');
+        $response->assertStatus(200);
+        $response->assertJsonPath('meta.total', 23);
+        $response->assertJsonPath('meta.per_page', 10);
+        $response->assertJsonPath('meta.last_page', 3);
+        $response->assertJsonCount(10, 'data');
+    }
+
+    public function test_dashboard_and_list_totals_are_consistent()
+    {
+        $company = Company::factory()->create();
+        $user = User::factory()->create(['company_id' => $company->id]);
+        $user->givePermissionTo('sites.view');
+
+        UserManagementScope::create([
+            'user_id' => $user->id,
+            'scope_type' => 'company',
+            'scope_id' => $company->id,
+            'granted_by' => $user->id,
+        ]);
+
+        Site::factory()->count(12)->create(['company_id' => $company->id]);
+
+        $dashboard = $this->actingAs($user)->getJson('/api/v1/sites/dashboard');
+        $list = $this->actingAs($user)->getJson('/api/v1/sites?per_page=15&page=1');
+
+        $this->assertEquals(
+            $dashboard->json('data.total_sites'),
+            $list->json('meta.total'),
+            'Dashboard total_sites must equal list meta.total when no filters are active'
+        );
+    }
+
+    public function test_case_insensitive_search()
+    {
+        $company = Company::factory()->create();
+        $user = User::factory()->create(['company_id' => $company->id]);
+        $user->givePermissionTo('sites.view');
+
+        UserManagementScope::create([
+            'user_id' => $user->id,
+            'scope_type' => 'company',
+            'scope_id' => $company->id,
+            'granted_by' => $user->id,
+        ]);
+
+        $uniqueCode = 'SEARCH-' . strtoupper(uniqid());
+        Site::factory()->create([
+            'company_id' => $company->id,
+            'name' => 'Jambukandh Tower',
+            'site_code' => $uniqueCode,
+        ]);
+
+        $uppercase = $this->actingAs($user)->getJson('/api/v1/sites?search=' . strtoupper($uniqueCode));
+        $lowercase = $this->actingAs($user)->getJson('/api/v1/sites?search=' . strtolower($uniqueCode));
+        $mixed = $this->actingAs($user)->getJson('/api/v1/sites?search=SeArCh');
+
+        $this->assertEquals(1, $uppercase->json('meta.total'));
+        $this->assertEquals(1, $lowercase->json('meta.total'));
+        // 'SeArCh' matches the site_code prefix
+        $this->assertGreaterThanOrEqual(1, $mixed->json('meta.total'));
+    }
+
+    public function test_search_resets_pagination_correctly()
+    {
+        $company = Company::factory()->create();
+        $user = User::factory()->create(['company_id' => $company->id]);
+        $user->givePermissionTo('sites.view');
+
+        UserManagementScope::create([
+            'user_id' => $user->id,
+            'scope_type' => 'company',
+            'scope_id' => $company->id,
+            'granted_by' => $user->id,
+        ]);
+
+        Site::factory()->count(20)->create(['company_id' => $company->id]);
+        $uniqueName = 'UniqueTarget-' . uniqid();
+        Site::factory()->create(['company_id' => $company->id, 'name' => $uniqueName]);
+
+        $response = $this->actingAs($user)->getJson("/api/v1/sites?search={$uniqueName}&page=1&per_page=10");
+        $response->assertStatus(200);
+        $response->assertJsonPath('meta.total', 1);
+        $response->assertJsonCount(1, 'data');
+    }
+
+    public function test_management_scope_enforced_on_both_dashboard_and_list()
+    {
+        $company1 = Company::factory()->create();
+        $company2 = Company::factory()->create();
+
+        $user = User::factory()->create(['company_id' => $company1->id]);
+        $user->givePermissionTo('sites.view');
+
+        UserManagementScope::create([
+            'user_id' => $user->id,
+            'scope_type' => 'company',
+            'scope_id' => $company1->id,
+            'granted_by' => $user->id,
+        ]);
+
+        Site::factory()->count(5)->create(['company_id' => $company1->id]);
+        Site::factory()->count(8)->create(['company_id' => $company2->id]);
+
+        $dashboard = $this->actingAs($user)->getJson('/api/v1/sites/dashboard');
+        $list = $this->actingAs($user)->getJson('/api/v1/sites?per_page=50');
+
+        $dashboard->assertJsonPath('data.total_sites', 5);
+        $list->assertJsonPath('meta.total', 5);
+    }
+
+    public function test_soft_deleted_sites_excluded_from_dashboard_and_list()
+    {
+        $company = Company::factory()->create();
+        $user = User::factory()->create(['company_id' => $company->id]);
+        $user->givePermissionTo('sites.view');
+
+        UserManagementScope::create([
+            'user_id' => $user->id,
+            'scope_type' => 'company',
+            'scope_id' => $company->id,
+            'granted_by' => $user->id,
+        ]);
+
+        Site::factory()->count(3)->create(['company_id' => $company->id]);
+        $deleted = Site::factory()->create(['company_id' => $company->id]);
+        $deleted->delete();
+
+        $dashboard = $this->actingAs($user)->getJson('/api/v1/sites/dashboard');
+        $list = $this->actingAs($user)->getJson('/api/v1/sites?per_page=50');
+
+        $dashboard->assertJsonPath('data.total_sites', 3);
+        $list->assertJsonPath('meta.total', 3);
+    }
+
+    public function test_asset_counts_exclude_soft_deleted_assets()
+    {
+        $company = Company::factory()->create();
+        $user = User::factory()->create(['company_id' => $company->id]);
+        $user->givePermissionTo('sites.view');
+
+        UserManagementScope::create([
+            'user_id' => $user->id,
+            'scope_type' => 'company',
+            'scope_id' => $company->id,
+            'granted_by' => $user->id,
+        ]);
+
+        $site = Site::factory()->create(['company_id' => $company->id]);
+        Asset::factory()->count(3)->create(['site_id' => $site->id]);
+        $deletedAsset = Asset::factory()->create(['site_id' => $site->id]);
+        $deletedAsset->delete();
+
+        $response = $this->actingAs($user)->getJson('/api/v1/sites?per_page=50');
+        $response->assertStatus(200);
+
+        $siteData = collect($response->json('data'))->firstWhere('id', $site->id);
+        $this->assertEquals(3, $siteData['assets_count'], 'Soft-deleted assets must be excluded from count');
+    }
+
+    public function test_gps_fields_returned_in_api()
+    {
+        $company = Company::factory()->create();
+        $user = User::factory()->create(['company_id' => $company->id]);
+        $user->givePermissionTo('sites.view');
+
+        UserManagementScope::create([
+            'user_id' => $user->id,
+            'scope_type' => 'company',
+            'scope_id' => $company->id,
+            'granted_by' => $user->id,
+        ]);
+
+        $site = Site::factory()->create([
+            'company_id' => $company->id,
+            'latitude' => 27.7172456,
+            'longitude' => 85.3239605,
+        ]);
+
+        $response = $this->actingAs($user)->getJson("/api/v1/sites/{$site->id}");
+        $response->assertStatus(200);
+        $response->assertJsonPath('data.latitude', '27.7172456');
+        $response->assertJsonPath('data.longitude', '85.3239605');
+    }
+
+    public function test_null_gps_serializes_safely()
+    {
+        $company = Company::factory()->create();
+        $user = User::factory()->create(['company_id' => $company->id]);
+        $user->givePermissionTo('sites.view');
+
+        UserManagementScope::create([
+            'user_id' => $user->id,
+            'scope_type' => 'company',
+            'scope_id' => $company->id,
+            'granted_by' => $user->id,
+        ]);
+
+        $site = Site::factory()->create([
+            'company_id' => $company->id,
+            'latitude' => null,
+            'longitude' => null,
+        ]);
+
+        $response = $this->actingAs($user)->getJson("/api/v1/sites/{$site->id}");
+        $response->assertStatus(200);
+        $response->assertJsonPath('data.latitude', null);
+        $response->assertJsonPath('data.longitude', null);
+    }
+
 }

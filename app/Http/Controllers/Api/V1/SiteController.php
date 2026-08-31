@@ -29,8 +29,9 @@ class SiteController extends Controller
         if ($request->filled('search')) {
             $search = $request->input('search');
             $query->where(function($q) use ($search) {
-                $q->where('site_code', 'like', "%{$search}%")
-                  ->orWhere('name', 'like', "%{$search}%");
+                $q->where('site_code', 'ilike', "%{$search}%")
+                  ->orWhere('name', 'ilike', "%{$search}%")
+                  ->orWhere('address', 'ilike', "%{$search}%");
             });
         }
 

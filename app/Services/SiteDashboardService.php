@@ -20,13 +20,14 @@ class SiteDashboardService
         $scopedQuery = Site::query();
         $this->scopeService->applyScopeToQuery($scopedQuery, $user, Site::class);
 
-        // 1. Basic Counts by Status
-        $statusCounts = $scopedQuery->selectRaw('status, count(*) as count')
+        // 1. Total Sites (MUST be counted BEFORE any groupBy mutates the query)
+        $totalSites = (clone $scopedQuery)->count();
+
+        // Basic Counts by Status (use clone to avoid mutating base query)
+        $statusCounts = (clone $scopedQuery)->selectRaw('status, count(*) as count')
             ->groupBy('status')
             ->pluck('count', 'status')
             ->toArray();
-
-        $totalSites = $scopedQuery->count();
         $activeSites = $statusCounts['active'] ?? 0;
         $plannedSites = $statusCounts['planned'] ?? 0;
         $maintenanceSites = $statusCounts['maintenance'] ?? 0;
