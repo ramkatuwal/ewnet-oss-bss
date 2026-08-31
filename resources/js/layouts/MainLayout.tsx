@@ -41,7 +41,8 @@ export const MainLayout = () => {
                 position="fixed"
                 elevation={0}
                 sx={{
-                    zIndex: (theme) => theme.zIndex.drawer + 1,
+                    zIndex: 1100,
+                    bgcolor: '#0b0f19',
                     width: { sm: `calc(100% - ${DRAWER_WIDTH}px)` },
                     ml: { sm: `${DRAWER_WIDTH}px` },
                 }}
