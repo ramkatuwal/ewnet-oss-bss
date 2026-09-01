@@ -54,7 +54,7 @@ export const SitesPage = () => {
     const [importFile, setImportFile] = useState<File | null>(null);
     const [importStatus, setImportStatus] = useState<string>('');
     const [page, setPage] = useState(0);
-    const [pageSize, setPageSize] = useState(15);
+    const [pageSize, setPageSize] = useState(25);
 
     // Column visibility with localStorage persistence
     const [columnVisibilityModel, setColumnVisibilityModel] = useState(() => {

@@ -235,7 +235,7 @@ class LibreNMSImportService
             'category' => 'NETWORK',
             'manufacturer' => $device['hardware'] ?? null,
             'model' => $device['hardware'] ?? null,
-            'serial_number' => $device['serial'] ?? null,
+            'serial_number' => (!empty($device['serial']) && strtolower($device['serial']) !== 'n/a') ? $device['serial'] : null,
             'status' => $status,
             'condition' => 'GOOD',
             'quantity' => 1,
