@@ -37,11 +37,15 @@ class AuthController extends Controller
             'last_login_at' => now(),
         ]);
 
-        try { $request->session()->regenerate(); } catch (\RuntimeException $e) { /* Session not available */ }
+        // Force session start and save
+        if (!$request->hasSession()) {
+            $request->session()->start();
+        }
+        $request->session()->regenerate();
+        $request->session()->save();
 
         AuditService::log('auth.login.success', 'success', $user);
 
-        // Return user data for frontend hydration
         $user->load(['roles.permissions', 'company', 'branch.region.company', 'department.branch']);
 
         return response()->json([
@@ -63,12 +67,12 @@ class AuthController extends Controller
 
         Auth::guard('web')->logout();
 
-        // Safely handle session invalidation (may fail in stateless/test contexts)
         try {
             $request->session()->invalidate();
             $request->session()->regenerateToken();
+            $request->session()->save();
         } catch (\RuntimeException $e) {
-            // Session not available (API-only or test context)
+            // Session not available
         }
 
         return response()->json(['message' => 'Logged out successfully']);
