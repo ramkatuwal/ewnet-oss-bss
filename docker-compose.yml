@@ -1,112 +1,120 @@
-services:
-  postgres:
-    image: postgis/postgis:17-3.5
-    container_name: ewnet-postgres
-    restart: unless-stopped
-    environment:
-      - POSTGRES_DB=ewnet
-      - POSTGRES_USER=ewnet
-      - POSTGRES_PASSWORD=ewnet123
-    ports:
-      - "127.0.0.1:5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - ewnet-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ewnet -d ewnet"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7.4-alpine
-    container_name: ewnet-redis
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - ewnet-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: ewnet-app
-    container_name: ewnet-app
-    restart: unless-stopped
-    working_dir: /var/www/html
-    volumes:
-      - ./:/var/www/html
-      - /var/www/html/vendor
-      - /var/www/html/node_modules
-    networks:
-      - ewnet-network
-    environment:
-      - APP_ENV=production
-      - APP_DEBUG=false
-      - APP_URL=https://oss.ewnet.com.np
-      - DB_CONNECTION=pgsql
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_DATABASE=ewnet
-      - DB_USERNAME=ewnet
-      - DB_PASSWORD=ewnet123
-      - REDIS_HOST=redis
-      - REDIS_PASSWORD=null
-      - REDIS_PORT=6379
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  horizon:
-    image: ewnet-app
-    container_name: ewnet-horizon
-    restart: unless-stopped
-    working_dir: /var/www/html
-    command: php artisan horizon
-    volumes:
-      - ./:/var/www/html
-      - /var/www/html/vendor
-    networks:
-      - ewnet-network
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  web:
-    image: nginx:1.26-alpine
-    container_name: ewnet-web
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./:/var/www/html
-      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - /etc/letsencrypt:/etc/letsencrypt:ro
-    networks:
-      - ewnet-network
-    depends_on:
-      app:
-        condition: service_started
-
 networks:
   ewnet-network:
     driver: bridge
     name: ewnet-network
-
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ewnet-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+    - APP_ENV=production
+    - APP_DEBUG=false
+    - APP_URL=https://oss.ewnet.com.np
+    - DB_CONNECTION=pgsql
+    - DB_HOST=postgres
+    - DB_PORT=5432
+    - DB_DATABASE=ewnet
+    - DB_USERNAME=ewnet
+    - DB_PASSWORD=ewnet123
+    - REDIS_HOST=redis
+    - REDIS_PASSWORD=null
+    - REDIS_PORT=6379
+    image: ewnet-app
+    networks:
+    - ewnet-network
+    restart: unless-stopped
+    volumes:
+    - ./:/var/www/html
+    - ./docker/nginx/logs:/var/log/nginx
+    - /var/www/html/vendor
+    - /var/www/html/node_modules
+    - ./docker/nginx/logs:/var/log/nginx:ro
+    working_dir: /var/www/html
+  horizon:
+    command: php artisan horizon
+    container_name: ewnet-horizon
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    image: ewnet-app
+    networks:
+    - ewnet-network
+    restart: unless-stopped
+    volumes:
+    - ./:/var/www/html
+    - ./docker/nginx/logs:/var/log/nginx
+    - /var/www/html/vendor
+    working_dir: /var/www/html
+  postgres:
+    container_name: ewnet-postgres
+    environment:
+    - POSTGRES_DB=ewnet
+    - POSTGRES_USER=ewnet
+    - POSTGRES_PASSWORD=ewnet123
+    healthcheck:
+      interval: 10s
+      retries: 5
+      test:
+      - CMD-SHELL
+      - pg_isready -U ewnet -d ewnet
+      timeout: 5s
+    image: postgis/postgis:17-3.5
+    networks:
+    - ewnet-network
+    ports:
+    - 127.0.0.1:5432:5432
+    restart: unless-stopped
+    volumes:
+    - postgres_data:/var/lib/postgresql/data
+  redis:
+    container_name: ewnet-redis
+    healthcheck:
+      interval: 10s
+      retries: 5
+      test:
+      - CMD
+      - redis-cli
+      - ping
+      timeout: 5s
+    image: redis:7.4-alpine
+    networks:
+    - ewnet-network
+    ports:
+    - 127.0.0.1:6379:6379
+    restart: unless-stopped
+    volumes:
+    - redis_data:/data
+  web:
+    container_name: ewnet-web
+    depends_on:
+      app:
+        condition: service_started
+    image: nginx:1.26-alpine
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
+    networks:
+    - ewnet-network
+    ports:
+    - 80:80
+    - 443:443
+    restart: unless-stopped
+    volumes:
+    - ./:/var/www/html
+    - ./docker/nginx/logs:/var/log/nginx
+    - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    - /etc/letsencrypt:/etc/letsencrypt:ro
 volumes:
   postgres_data:
     name: ewnet_postgres_data
