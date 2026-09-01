@@ -1,36 +1,33 @@
-# Environment & Secrets
+
+*~
+backups/
+# Build Artifacts
+/coverage/
+# Dependencies
+/.docker/
+# Docker
+docker/nginx/logs/
+.DS_Store
 .env
 .env.backup
+# Environment & Secrets
 .env.production
-.phpunit.result.cache
 Homestead.json
 Homestead.yaml
-npm-debug.log
-yarn-error.log
-
-# Dependencies
-/vendor/
+.idea/
+# IDE & Editor Files
+# Logs
 /node_modules/
-
-# Build Artifacts
+npm-debug.log
+.phpunit.result.cache
 /public/build/
 /public/hot
 /public/storage
 /storage/*.key
-
-# IDE & Editor Files
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-.DS_Store
-
-# Logs
 /storage/logs/*.log
-
+*.swo
+*.swp
 # Testing
-/coverage/
-
-# Docker
-/.docker/
+/vendor/
+.vscode/
+yarn-error.log
