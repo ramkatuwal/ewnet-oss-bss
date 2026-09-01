@@ -33,6 +33,7 @@ services:
     volumes:
     - ./:/var/www/html
     - ./docker/nginx/logs:/var/log/nginx
+    - ./docker/nginx/logs:/var/log/nginx
     - /var/www/html/vendor
     - /var/www/html/node_modules
     - ./docker/nginx/logs:/var/log/nginx:ro
@@ -51,6 +52,7 @@ services:
     restart: unless-stopped
     volumes:
     - ./:/var/www/html
+    - ./docker/nginx/logs:/var/log/nginx
     - ./docker/nginx/logs:/var/log/nginx
     - /var/www/html/vendor
     working_dir: /var/www/html
@@ -112,6 +114,7 @@ services:
     restart: unless-stopped
     volumes:
     - ./:/var/www/html
+    - ./docker/nginx/logs:/var/log/nginx
     - ./docker/nginx/logs:/var/log/nginx
     - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     - /etc/letsencrypt:/etc/letsencrypt:ro
