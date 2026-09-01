@@ -90,6 +90,7 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     // Debug
     Route::middleware(['auth:sanctum', 'can:system.debug.view'])->get('/debug/status', [DebugController::class, 'status']);
     Route::middleware(['auth:sanctum', 'can:system.debug.view'])->get('/debug/logs', [DebugController::class, 'logs']);
+    Route::get('/debug/summary', [DebugController::class, 'summary']);
 });
 
 // Management Scopes

@@ -7,6 +7,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import SecurityIcon from '@mui/icons-material/Security';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import PolicyIcon from '@mui/icons-material/Policy';
+import DescriptionIcon from '@mui/icons-material/Description';
 import ManageSearchIcon from '@mui/icons-material/ManageSearch';
 import ApartmentIcon from '@mui/icons-material/Apartment';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -39,6 +40,7 @@ export const navigationItems: NavItem[] = [
         icon: <ManageSearchIcon />,
         children: [
             { label: 'Security Activity', path: '/audit/security', icon: <PolicyIcon />, permission: 'system.debug.view' },
+            { label: 'System Logs', path: '/audit/system-logs', icon: <DescriptionIcon />, permission: 'system.debug.view' },
             { label: 'System Info', path: '/audit/system-info', icon: <InfoIcon />, permission: 'system.info.view' },
         ],
     },

@@ -28,6 +28,7 @@ const RolesPage = lazy(() => import('@/features/roles/pages/RolesPage').then(m =
 const RoleDetailPage = lazy(() => import('@/features/roles/pages/RoleDetailPage').then(m => ({ default: m.RoleDetailPage })));
 const PermissionsPage = lazy(() => import('@/features/permissions/pages/PermissionsPage').then(m => ({ default: m.PermissionsPage })));
 const SecurityActivityPage = lazy(() => import('@/features/audit/pages/SecurityActivityPage').then(m => ({ default: m.SecurityActivityPage })));
+const SystemLogsPage = lazy(() => import('@/features/system/pages/SystemLogsPage').then(m => ({ default: m.SystemLogsPage })));
 const ProfilePage = lazy(() => import('@/features/account/pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 
 // Network Sites
@@ -89,7 +90,10 @@ export const AppRouter = () => (
                         <Route path="roles/:id" element={<RoleDetailPage />} />
                         <Route path="permissions" element={<PermissionsPage />} />
                     </Route>
-                    <Route path="audit"><Route path="security" element={<SecurityActivityPage />} /></Route>
+                    <Route path="audit">
+                        <Route path="security" element={<SecurityActivityPage />} />
+                        <Route path="system-logs" element={<SystemLogsPage />} />
+                    </Route>
                     {/* Legacy redirects */}
                     <Route path="companies" element={<Navigate to="/manage/companies" replace />} />
                     <Route path="regions" element={<Navigate to="/manage/regions" replace />} />
