@@ -25,9 +25,21 @@ class UispDuplicateDetector
             return ['action' => 'error', 'reason' => 'Missing external ID'];
         }
 
+        // Extract device details
+        $identification = $uispDevice['identification'] ?? [];
+        $serial = $this->normalizeSerial($identification['serialNumber'] ?? null);
+        $mac = $this->normalizeMac($identification['mac'] ?? null);
+        $name = $this->normalizeName($identification['name'] ?? null);
+        // FIX: IP is at root level, not in overview
+        $ip = $this->normalizeIp($uispDevice['ipAddress'] ?? null);
+        $model = $identification['model'] ?? $identification['modelName'] ?? null;
+        $vendor = $identification['vendor'] ?? $identification['vendorName'] ?? null;
+
         $matches = [];
         $action = 'create';
         $confidence = 'none';
+        $asset = null;
+        $assetId = null;
 
         // CHECK 1: UISP External Reference
         $uispRef = AssetExternalReference::where('provider', 'uisp')
@@ -36,23 +48,26 @@ class UispDuplicateDetector
             ->first();
 
         if ($uispRef && $uispRef->asset) {
+            $asset = $uispRef->asset;
+            $assetId = $asset->id;
             return [
                 'action' => 'link',
                 'confidence' => 'exact',
-                'asset_id' => $uispRef->asset_id,
-                'asset' => $uispRef->asset,
+                'asset_id' => $assetId,
+                'asset' => $asset,
                 'reason' => 'Exact UISP external reference exists.',
                 'matches' => ['external_id' => true],
+                'serial' => $serial,
+                'mac' => $mac,
+                'name' => $name,
+                'ip' => $ip,
+                'model' => $model,
+                'vendor' => $vendor,
+                'external_id' => $externalId,
             ];
         }
 
-        $identification = $uispDevice['identification'] ?? [];
-        $serial = $this->normalizeSerial($identification['serialNumber'] ?? null);
-        $mac = $this->normalizeMac($identification['mac'] ?? null);
-        $name = $this->normalizeName($identification['name'] ?? null);
-        $ip = $this->normalizeIp($uispDevice['overview']['ipAddress'] ?? null);
-
-        // CHECK 2: Serial Number
+        // CHECK 2: Serial Number (if valid)
         if ($serial) {
             $serialAsset = Asset::where('serial_number', $serial)->first();
             if ($serialAsset) {
@@ -60,59 +75,63 @@ class UispDuplicateDetector
                 $action = 'link';
                 $confidence = 'strong';
                 $asset = $serialAsset;
+                $assetId = $asset->id;
             }
         }
 
         // CHECK 3: MAC Address (in specifications)
-        if ($mac && !isset($asset)) {
+        if ($mac && !$asset) {
             $macAsset = Asset::whereJsonContains('specifications', ['mac_address' => $mac])->first();
             if ($macAsset) {
                 $matches[] = 'mac';
                 $action = 'link';
                 $confidence = 'strong';
                 $asset = $macAsset;
+                $assetId = $asset->id;
             }
         }
 
         // CHECK 4: LibreNMS Cross-Provider
-        if ($mac && !isset($asset)) {
+        if ($mac && !$asset) {
             $libreNmsRef = LibreNmsObject::where('data->mac', $mac)->first();
             if ($libreNmsRef) {
-                // Look for Asset linked to this LibreNMS object via specs
                 $libreAsset = Asset::whereJsonContains('specifications', ['librenms_device_id' => $libreNmsRef->external_id])->first();
                 if ($libreAsset) {
                     $matches[] = 'librenms';
                     $action = 'link';
                     $confidence = 'strong';
                     $asset = $libreAsset;
+                    $assetId = $asset->id;
                 }
             }
         }
 
         // CHECK 5: IP Address
-        if ($ip && !isset($asset)) {
+        if ($ip && !$asset) {
             $ipAsset = Asset::whereJsonContains('specifications', ['ip_address' => $ip])->first();
             if ($ipAsset) {
                 $matches[] = 'ip';
                 $action = 'review';
                 $confidence = 'moderate';
                 $asset = $ipAsset;
+                $assetId = $asset->id;
             }
         }
 
         // CHECK 6: Name (weakest)
-        if ($name && !isset($asset)) {
+        if ($name && !$asset) {
             $nameAsset = Asset::where('description', 'ilike', $name)->first();
             if ($nameAsset) {
                 $matches[] = 'name';
                 $action = 'review';
                 $confidence = 'weak';
                 $asset = $nameAsset;
+                $assetId = $asset->id;
             }
         }
 
         // If we have an asset, determine if it's a conflict or safe link
-        if (isset($asset)) {
+        if ($asset) {
             // Check if serial or MAC conflicts
             if ($serial && $asset->serial_number && $asset->serial_number !== $serial) {
                 return [
@@ -122,6 +141,13 @@ class UispDuplicateDetector
                     'asset' => $asset,
                     'reason' => "Serial number mismatch: UISP '{$serial}' vs Asset '{$asset->serial_number}'",
                     'matches' => array_combine($matches, array_fill(0, count($matches), true)),
+                    'serial' => $serial,
+                    'mac' => $mac,
+                    'name' => $name,
+                    'ip' => $ip,
+                    'model' => $model,
+                    'vendor' => $vendor,
+                    'external_id' => $externalId,
                 ];
             }
 
@@ -133,6 +159,13 @@ class UispDuplicateDetector
                     'asset' => $asset,
                     'reason' => "MAC address mismatch: UISP '{$mac}' vs Asset '{$asset->specifications['mac_address']}'",
                     'matches' => array_combine($matches, array_fill(0, count($matches), true)),
+                    'serial' => $serial,
+                    'mac' => $mac,
+                    'name' => $name,
+                    'ip' => $ip,
+                    'model' => $model,
+                    'vendor' => $vendor,
+                    'external_id' => $externalId,
                 ];
             }
 
@@ -147,6 +180,9 @@ class UispDuplicateDetector
                 'mac' => $mac,
                 'name' => $name,
                 'ip' => $ip,
+                'model' => $model,
+                'vendor' => $vendor,
+                'external_id' => $externalId,
             ];
         }
 
@@ -162,6 +198,9 @@ class UispDuplicateDetector
             'mac' => $mac,
             'name' => $name,
             'ip' => $ip,
+            'model' => $model,
+            'vendor' => $vendor,
+            'external_id' => $externalId,
         ];
     }
 
@@ -174,6 +213,10 @@ class UispDuplicateDetector
         if (!$externalId) {
             return ['action' => 'error', 'reason' => 'Missing external ID'];
         }
+
+        $name = $this->normalizeName($uispSite['name'] ?? null);
+        $location = $uispSite['location'] ?? [];
+        $address = $uispSite['address'] ?? [];
 
         // CHECK 1: UISP External Reference
         $uispRef = SiteExternalReference::where('provider', 'uisp')
@@ -189,11 +232,13 @@ class UispDuplicateDetector
                 'site' => $uispRef->site,
                 'reason' => 'Exact UISP external reference exists.',
                 'matches' => ['external_id' => true],
+                'name' => $name,
+                'address' => $address['fullAddress'] ?? null,
+                'latitude' => $location['lat'] ?? null,
+                'longitude' => $location['lon'] ?? null,
+                'external_id' => $externalId,
             ];
         }
-
-        $name = $this->normalizeName($uispSite['name'] ?? null);
-        $location = $uispSite['location'] ?? [];
 
         // CHECK 2: Name match
         if ($name) {
@@ -206,6 +251,11 @@ class UispDuplicateDetector
                     'site' => $site,
                     'reason' => "Name match found: '{$name}'",
                     'matches' => ['name' => true],
+                    'name' => $name,
+                    'address' => $address['fullAddress'] ?? null,
+                    'latitude' => $location['lat'] ?? null,
+                    'longitude' => $location['lon'] ?? null,
+                    'external_id' => $externalId,
                 ];
             }
         }
@@ -219,8 +269,10 @@ class UispDuplicateDetector
             'reason' => 'No matching Site found. Safe to create.',
             'matches' => [],
             'name' => $name,
+            'address' => $address['fullAddress'] ?? null,
             'latitude' => $location['lat'] ?? null,
             'longitude' => $location['lon'] ?? null,
+            'external_id' => $externalId,
         ];
     }
 
