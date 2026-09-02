@@ -145,3 +145,9 @@ Route::middleware('auth:sanctum')->prefix('v1/integrations')->group(function () 
         Route::post('/{integration}/sites/map', [\App\Http\Controllers\Api\V1\LibreNMSSiteController::class, 'map']);
         Route::post('/{integration}/sites/import', [\App\Http\Controllers\Api\V1\LibreNMSSiteController::class, 'import']);
     });
+
+// UISP Import
+Route::prefix('v1/integrations/uisp')->middleware('auth:sanctum')->group(function () {
+    Route::post('/import/preview', [App\Http\Controllers\Api\V1\UispImportController::class, 'preview']);
+    Route::post('/import/analyze', [App\Http\Controllers\Api\V1\UispImportController::class, 'analyzeSingle']);
+});
