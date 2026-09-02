@@ -8,11 +8,16 @@ use App\Services\Integrations\Uisp\UispImportService;
 use App\Services\Integrations\Uisp\UispDuplicateDetector;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class UispImportController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('auth:sanctum');
+        $this->middleware('can:integration.uisp.import');
+    }
+
     public function preview(Request $request): JsonResponse
     {
         $integration = $this->getIntegration($request);

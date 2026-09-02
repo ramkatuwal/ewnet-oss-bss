@@ -13,6 +13,7 @@ const IntegrationsPage = lazy(() => import("@/features/integrations/pages/Integr
 const IntegrationDetailPage = lazy(() => import("@/features/integrations/pages/IntegrationDetailPage").then(m => ({ default: m.IntegrationDetailPage })));
 const LibreNMSImportPage = lazy(() => import('@/features/integrations/pages/LibreNMSImportPage'));
 const LibreNMSSiteImportPage = lazy(() => import('@/features/integrations/pages/LibreNMSSiteImportPage'));
+const UispImportPage = lazy(() => import('@/features/integrations/uisp/pages/UispImportPage'));
 
 const CompaniesPage = lazy(() => import('@/features/companies/pages/CompaniesPage').then(m => ({ default: m.CompaniesPage })));
 const CompanyDetailPage = lazy(() => import('@/features/companies/pages/CompanyDetailPage').then(m => ({ default: m.CompanyDetailPage })));
@@ -64,6 +65,7 @@ export const AppRouter = () => (
                     <Route path="system/integrations/:id" element={<IntegrationDetailPage />} />
                     <Route path="system/integrations/librenms/import" element={<LibreNMSImportPage />} />
                     <Route path="system/integrations/librenms/sites" element={<LibreNMSSiteImportPage />} />
+                    <Route path="system/integrations/uisp/import" element={<UispImportPage />} />
 
                     {/* Network Section */}
                     <Route path="network">
@@ -90,10 +92,16 @@ export const AppRouter = () => (
                         <Route path="roles/:id" element={<RoleDetailPage />} />
                         <Route path="permissions" element={<PermissionsPage />} />
                     </Route>
+
                     <Route path="audit">
                         <Route path="security" element={<SecurityActivityPage />} />
                         <Route path="system-logs" element={<SystemLogsPage />} />
                     </Route>
+
+                    <Route path="account">
+                        <Route path="profile" element={<ProfilePage />} />
+                    </Route>
+
                     {/* Legacy redirects */}
                     <Route path="companies" element={<Navigate to="/manage/companies" replace />} />
                     <Route path="regions" element={<Navigate to="/manage/regions" replace />} />
@@ -104,9 +112,6 @@ export const AppRouter = () => (
                     <Route path="debug" element={<Navigate to="/audit/security" replace />} />
                     <Route path="*" element={<NotFoundPage />} />
                 </Route>
-                    <Route path="account">
-                        <Route path="profile" element={<ProfilePage />} />
-                    </Route>
             </Route>
         </Routes>
     </Suspense>
