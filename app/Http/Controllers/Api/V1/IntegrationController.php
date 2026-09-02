@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Api\V1\IntegrationRequest;
+use App\Http\Requests\Api\V1\StoreIntegrationRequest;
+use App\Http\Requests\Api\V1\UpdateIntegrationRequest;
 use App\Http\Resources\V1\IntegrationResource;
 use App\Http\Resources\V1\IntegrationSyncResource;
 use App\Models\Integration;
+use App\Models\IntegrationCredential;
 use App\Services\AuditService;
 use App\Services\Integrations\IntegrationManager;
 use Illuminate\Http\Request;
@@ -40,7 +42,7 @@ class IntegrationController extends Controller
         return IntegrationResource::collection($integrations);
     }
 
-    public function store(IntegrationRequest $request)
+    public function store(StoreIntegrationRequest $request)
     {
         $this->authorize('create', Integration::class);
 
@@ -62,6 +64,20 @@ class IntegrationController extends Controller
 
         $integration = Integration::create($data);
 
+        // Handle Credential Creation if provided
+        if (!empty($data['credential_type']) && !empty($data['credential_value'])) {
+            $cred = new IntegrationCredential([
+                'integration_id' => $integration->id,
+                'credential_type' => $data['credential_type'],
+                'label' => $data['credential_label'] ?? 'Primary',
+                'is_active' => true,
+            ]);
+            $cred->setSecretValue($data['credential_value']);
+            $cred->save();
+            
+            AuditService::log('integration.credential.created', 'success', $integration);
+        }
+
         AuditService::log('integration.created', 'success', $integration);
 
         return new IntegrationResource($integration->fresh());
@@ -74,7 +90,7 @@ class IntegrationController extends Controller
         return new IntegrationResource($integration->load(['creator', 'updater']));
     }
 
-    public function update(IntegrationRequest $request, Integration $integration)
+    public function update(UpdateIntegrationRequest $request, Integration $integration)
     {
         $this->authorize('update', $integration);
 
@@ -82,6 +98,23 @@ class IntegrationController extends Controller
         $data['updated_by'] = auth()->id();
 
         $integration->update($data);
+
+        // Handle Credential Replacement if provided
+        if (!empty($data['credential_type']) && !empty($data['credential_value'])) {
+            // Deactivate old credentials of the same type
+            $integration->credentials()->where('credential_type', $data['credential_type'])->update(['is_active' => false]);
+            
+            $cred = new IntegrationCredential([
+                'integration_id' => $integration->id,
+                'credential_type' => $data['credential_type'],
+                'label' => $data['credential_label'] ?? 'Primary',
+                'is_active' => true,
+            ]);
+            $cred->setSecretValue($data['credential_value']);
+            $cred->save();
+            
+            AuditService::log('integration.credential.updated', 'success', $integration);
+        }
 
         AuditService::log('integration.updated', 'success', $integration);
 

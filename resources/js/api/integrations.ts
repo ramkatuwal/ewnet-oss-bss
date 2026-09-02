@@ -56,10 +56,18 @@ export const integrationApi = {
   get: (id: number) =>
     api.get<{ data: Integration }>(`/integrations/${id}`).then(r => r.data),
 
-  create: (data: Partial<Integration>) =>
+  create: (data: Partial<Integration> & { 
+    credential_type?: string; 
+    credential_value?: string; 
+    credential_label?: string; 
+  }) =>
     api.post<{ data: Integration }>('/integrations', data).then(r => r.data),
 
-  update: (id: number, data: Partial<Integration>) =>
+  update: (id: number, data: Partial<Integration> & { 
+    credential_type?: string; 
+    credential_value?: string; 
+    credential_label?: string; 
+  }) =>
     api.put<{ data: Integration }>(`/integrations/${id}`, data).then(r => r.data),
 
   delete: (id: number) =>
