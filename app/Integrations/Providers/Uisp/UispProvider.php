@@ -42,6 +42,11 @@ class UispProvider implements IntegrationProviderInterface
             $errors[] = 'The api_url must use HTTPS in production environments.';
         }
 
+        // Ensure tls_verify is set to true by default if not provided
+        if (!isset($config['tls_verify'])) {
+            $config['tls_verify'] = true;
+        }
+
         return $errors;
     }
 
@@ -50,7 +55,7 @@ class UispProvider implements IntegrationProviderInterface
         try {
             $start = microtime(true);
             $client = new UispClient($integration);
-            $client->request('GET', '/nms/api/v2.1/nms/heartbeat');
+            $client->getHeartbeat();
             $duration = round((microtime(true) - $start) * 1000);
 
             return [
@@ -75,7 +80,7 @@ class UispProvider implements IntegrationProviderInterface
     {
         try {
             $client = new UispClient($integration);
-            $result = $client->request('GET', '/nms/api/v2.1/nms/heartbeat');
+            $result = $client->getHeartbeat();
             
             $isAlive = isset($result['result']) && $result['result'] === true;
 

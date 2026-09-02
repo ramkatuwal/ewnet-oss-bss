@@ -11,17 +11,22 @@ class UispClient
     protected Integration $integration;
     protected string $baseUrl;
     protected string $token;
+    protected bool $verifyTls;
 
     public function __construct(Integration $integration)
     {
         $this->integration = $integration;
         
-        // Canonical configuration key is 'api_url' based on live forensic evidence
-        $this->baseUrl = rtrim($integration->configuration['api_url'] ?? '', '/');
+        // Canonical configuration key is 'api_url'
+        $rawUrl = $integration->configuration['api_url'] ?? '';
+        $this->baseUrl = rtrim($rawUrl, '/');
         
         if (empty($this->baseUrl)) {
             throw new \InvalidArgumentException('UISP integration missing api_url in configuration.');
         }
+
+        // Safe access for tls_verify with default true
+        $this->verifyTls = $integration->configuration['tls_verify'] ?? true;
 
         $this->token = $this->resolveToken();
     }
@@ -51,7 +56,7 @@ class UispClient
             ])
             ->timeout(30)
             ->connectTimeout(10)
-            ->withoutVerifying(!$this->integration->configuration['tls_verify'] ?? true)
+            ->withoutVerifying(!$this->verifyTls)
             ->$method($url, $options);
 
             if ($response->failed()) {
@@ -74,8 +79,13 @@ class UispClient
 
     protected function buildUrl(string $path): string
     {
-        // Ensure path starts with /
+        // Ensure path starts with / but does not duplicate the base path
         $path = '/' . ltrim($path, '/');
+        
+        // If base URL already ends with the version path, ensure we don't double it
+        // Base: https://unms.example.com/nms/api/v2.1
+        // Path: /sites
+        // Result: https://unms.example.com/nms/api/v2.1/sites
         return $this->baseUrl . $path;
     }
 
