@@ -17,13 +17,15 @@ class UispSiteSyncService
         'created' => 0,
         'updated' => 0,
         'unchanged' => 0,
+        'skipped' => 0,
         'failed' => 0,
+        'processed' => 0,
     ];
 
     public function __construct(Integration $integration)
     {
         $this->integration = $integration;
-        $this->client = new \App\Integrations\Providers\Uisp\UispClient($integration);
+        $this->client = new UispClient($integration);
     }
 
     public function execute(): array
@@ -32,10 +34,17 @@ class UispSiteSyncService
 
         try {
             $uispSites = $this->client->getSites();
-            
+
             foreach ($uispSites as $uispSite) {
                 $this->syncSingleSite($uispSite);
             }
+
+            $this->counts['processed'] = 
+                $this->counts['created'] + 
+                $this->counts['updated'] + 
+                $this->counts['unchanged'] + 
+                $this->counts['skipped'] + 
+                $this->counts['failed'];
 
             Log::info('UISP Site Synchronization Completed', $this->counts);
             return $this->counts;
@@ -56,7 +65,6 @@ class UispSiteSyncService
             return;
         }
 
-        // Find existing reference
         $reference = SiteExternalReference::where('provider', 'uisp')
             ->where('external_type', 'site')
             ->where('external_id', $externalId)
@@ -74,10 +82,14 @@ class UispSiteSyncService
                     $this->counts['unchanged']++;
                 }
             } else {
-                // Generate a unique site_code if not present
                 $siteCode = $siteData['site_code'] ?? 'UISP-' . substr($externalId, 0, 8);
+                $baseCode = $siteCode;
+                $counter = 1;
+                while (Site::where('site_code', $siteCode)->exists()) {
+                    $siteCode = $baseCode . '-' . $counter++;
+                }
                 $siteData['site_code'] = $siteCode;
-                
+
                 $site = Site::create($siteData);
                 SiteExternalReference::create([
                     'site_id' => $site->id,
@@ -94,8 +106,7 @@ class UispSiteSyncService
     {
         $location = $uispSite['location'] ?? [];
         $address = $uispSite['address'] ?? [];
-        
-        // Map UISP status to EWNET status
+
         $status = match ($uispSite['status'] ?? null) {
             'active' => 'active',
             'inactive' => 'inactive',
@@ -104,7 +115,7 @@ class UispSiteSyncService
 
         return [
             'name' => $uispSite['name'] ?? 'Unknown Site',
-            'type' => 'pop', // Default type, can be refined later
+            'type' => 'pop',
             'status' => $status,
             'latitude' => $location['lat'] ?? null,
             'longitude' => $location['lon'] ?? null,
@@ -112,6 +123,8 @@ class UispSiteSyncService
             'metadata' => [
                 'uisp_parent_id' => $uispSite['parent'] ?? null,
                 'uisp_device_count' => $uispSite['deviceCount'] ?? 0,
+                'synced_from' => 'uisp',
+                'synced_at' => now()->toISOString(),
             ],
         ];
     }
@@ -120,7 +133,6 @@ class UispSiteSyncService
     {
         foreach ($newData as $key => $value) {
             if ($key === 'metadata') {
-                // Simple metadata check (can be improved)
                 if (json_encode($site->metadata) !== json_encode($value)) {
                     return true;
                 }

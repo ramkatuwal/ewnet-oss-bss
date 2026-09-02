@@ -18,8 +18,10 @@ class UispDeviceSyncService
         'created' => 0,
         'updated' => 0,
         'unchanged' => 0,
+        'skipped' => 0,
         'failed' => 0,
         'site_mapping_failed' => 0,
+        'processed' => 0,
     ];
 
     public function __construct(Integration $integration)
@@ -35,7 +37,7 @@ class UispDeviceSyncService
         try {
             $uispDevices = $this->client->getDevices();
             Log::info('Fetched devices from UISP', ['count' => count($uispDevices)]);
-            
+
             foreach ($uispDevices as $index => $uispDevice) {
                 try {
                     $this->syncSingleDevice($uispDevice);
@@ -44,11 +46,17 @@ class UispDeviceSyncService
                         'index' => $index,
                         'device_id' => $uispDevice['id'] ?? $uispDevice['identification']['id'] ?? 'unknown',
                         'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
                     ]);
                     $this->counts['failed']++;
                 }
             }
+
+            $this->counts['processed'] = 
+                $this->counts['created'] + 
+                $this->counts['updated'] + 
+                $this->counts['unchanged'] + 
+                $this->counts['skipped'] + 
+                $this->counts['failed'];
 
             Log::info('UISP Device Synchronization Completed', $this->counts);
             return $this->counts;
@@ -69,18 +77,17 @@ class UispDeviceSyncService
             return;
         }
 
-        // Find existing reference
         $reference = AssetExternalReference::where('provider', 'uisp')
             ->where('external_type', 'device')
             ->where('external_id', $externalId)
             ->first();
 
         $assetData = $this->mapDeviceData($uispDevice);
-        
-        // Resolve Site ID
+
         $siteId = $this->resolveSiteId($uispDevice['identification']['site']['id'] ?? null);
         if (!$siteId) {
             $this->counts['site_mapping_failed']++;
+            $this->counts['failed']++;
             return;
         }
         $assetData['site_id'] = $siteId;
@@ -95,7 +102,6 @@ class UispDeviceSyncService
                     $this->counts['unchanged']++;
                 }
             } else {
-                // Generate a unique asset_tag
                 $assetTag = 'UISP-' . substr($externalId, 0, 8);
                 $baseTag = $assetTag;
                 $counter = 1;
@@ -103,7 +109,7 @@ class UispDeviceSyncService
                     $assetTag = $baseTag . '-' . $counter++;
                 }
                 $assetData['asset_tag'] = $assetTag;
-                
+
                 $asset = Asset::create($assetData);
                 AssetExternalReference::create([
                     'asset_id' => $asset->id,
@@ -125,11 +131,12 @@ class UispDeviceSyncService
             default => 'SPARE',
         };
 
-        // CORRECT MAPPING: MAC goes to specifications, not serial_number
         $specifications = [
             'mac_address' => $identification['mac'] ?? null,
             'firmware_version' => $identification['firmwareVersion'] ?? null,
             'ip_address' => $uispDevice['overview']['ipAddress'] ?? null,
+            'synced_from' => 'uisp',
+            'synced_at' => now()->toISOString(),
         ];
 
         return [

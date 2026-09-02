@@ -34,11 +34,17 @@ class RunIntegrationSync implements ShouldQueue
             return;
         }
 
+        if (!$this->sync->integration->enabled) {
+            Log::warning("RunIntegrationSync: Integration disabled for sync ID {$this->sync->id}");
+            $this->sync->markFailed('Integration is disabled');
+            return;
+        }
+
         $this->sync->markRunning();
 
         try {
             $provider = IntegrationManager::resolve($this->sync->integration->provider);
-            $result = $provider->synchronize($this->sync->integration, $this->sync->operation);
+            $result = $provider->synchronize($this->sync->integration);
 
             $this->sync->markCompleted([
                 'records_processed' => $result['processed'] ?? 0,
@@ -54,6 +60,9 @@ class RunIntegrationSync implements ShouldQueue
             \App\Services\AuditService::log('integration.sync_completed', 'success', $this->sync->integration, [
                 'sync_id' => $this->sync->id,
                 'processed' => $result['processed'] ?? 0,
+                'created' => $result['created'] ?? 0,
+                'updated' => $result['updated'] ?? 0,
+                'failed' => $result['failed'] ?? 0,
             ]);
         } catch (\Throwable $e) {
             Log::error("Integration sync failed: {$e->getMessage()}", [
@@ -61,11 +70,17 @@ class RunIntegrationSync implements ShouldQueue
                 'integration_id' => $this->sync->integration_id,
             ]);
 
-            $this->sync->markFailed($e->getMessage());
+            $safeMessage = preg_replace(
+                '/(password|token|secret|key|auth|credential)=\S+/i',
+                '$1=[REDACTED]',
+                $e->getMessage()
+            );
+
+            $this->sync->markFailed(mb_substr($safeMessage, 0, 500));
 
             \App\Services\AuditService::log('integration.sync_failed', 'failure', $this->sync->integration, [
                 'sync_id' => $this->sync->id,
-                'error' => mb_substr($e->getMessage(), 0, 500),
+                'error' => mb_substr($safeMessage, 0, 500),
             ]);
 
             throw $e;

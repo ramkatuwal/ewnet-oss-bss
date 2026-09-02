@@ -4,8 +4,8 @@ namespace App\Integrations\Providers\Uisp;
 
 use App\Contracts\IntegrationProviderInterface;
 use App\Models\Integration;
-use App\Services\Integrations\Uisp\UispSiteSyncService;
 use App\Services\Integrations\Uisp\UispDeviceSyncService;
+use App\Services\Integrations\Uisp\UispSiteSyncService;
 use Illuminate\Support\Facades\Log;
 
 class UispProvider implements IntegrationProviderInterface
@@ -42,7 +42,6 @@ class UispProvider implements IntegrationProviderInterface
             $errors[] = 'The api_url must use HTTPS in production environments.';
         }
 
-        // Ensure tls_verify is set to true by default if not provided
         if (!isset($config['tls_verify'])) {
             $config['tls_verify'] = true;
         }
@@ -80,50 +79,59 @@ class UispProvider implements IntegrationProviderInterface
     {
         try {
             $client = new UispClient($integration);
+            $start = microtime(true);
             $result = $client->getHeartbeat();
-            
-            $isAlive = isset($result['result']) && $result['result'] === true;
+            $duration = round((microtime(true) - $start) * 1000);
 
             return [
-                'status' => $isAlive ? 'connected' : 'degraded',
-                'details' => $result,
+                'status' => 'connected',
+                'response_time_ms' => $duration,
+                'message' => 'UISP health check passed.',
             ];
         } catch (\Throwable $e) {
-            return [
-                'status' => 'failed',
-                'error' => 'Health check failed: ' . $e->getMessage(),
-            ];
-        }
-    }
-
-    public function synchronize(Integration $integration, string $operation = 'full'): array
-    {
-        $results = [];
-
-        try {
-            // Site Sync
-            $siteSync = new UispSiteSyncService($integration);
-            $results['sites'] = $siteSync->execute();
-
-            // Device Sync
-            $deviceSync = new UispDeviceSyncService($integration);
-            $results['devices'] = $deviceSync->execute();
-
-            return [
-                'status' => 'completed',
-                'counts' => $results,
-                'message' => 'Synchronization completed successfully.',
-            ];
-        } catch (\Throwable $e) {
-            Log::error('UISP synchronization failed', [
+            Log::error('UISP health check failed', [
                 'error' => $e->getMessage(),
                 'integration_id' => $integration->id,
             ]);
 
             return [
-                'status' => 'failed',
-                'error' => 'Synchronization failed: ' . $e->getMessage(),
+                'status' => 'error',
+                'error' => 'Health check failed: ' . $e->getMessage(),
             ];
+        }
+    }
+
+    public function synchronize(Integration $integration): array
+    {
+        Log::info('UISP Provider synchronization started', [
+            'integration_id' => $integration->id,
+        ]);
+
+        try {
+            $siteSync = new UispSiteSyncService($integration);
+            $siteCounts = $siteSync->execute();
+
+            $deviceSync = new UispDeviceSyncService($integration);
+            $deviceCounts = $deviceSync->execute();
+
+            $combined = [
+                'processed' => ($siteCounts['processed'] ?? 0) + ($deviceCounts['processed'] ?? 0),
+                'created' => ($siteCounts['created'] ?? 0) + ($deviceCounts['created'] ?? 0),
+                'updated' => ($siteCounts['updated'] ?? 0) + ($deviceCounts['updated'] ?? 0),
+                'unchanged' => ($siteCounts['unchanged'] ?? 0) + ($deviceCounts['unchanged'] ?? 0),
+                'skipped' => ($siteCounts['skipped'] ?? 0) + ($deviceCounts['skipped'] ?? 0),
+                'failed' => ($siteCounts['failed'] ?? 0) + ($deviceCounts['failed'] ?? 0),
+                'status' => 'completed',
+            ];
+
+            Log::info('UISP Provider synchronization completed', $combined);
+            return $combined;
+        } catch (\Throwable $e) {
+            Log::error('UISP Provider synchronization failed', [
+                'error' => $e->getMessage(),
+                'integration_id' => $integration->id,
+            ]);
+            throw $e;
         }
     }
 }

@@ -6,24 +6,23 @@ use App\Models\Integration;
 
 interface IntegrationProviderInterface
 {
-    /** Unique provider identifier */
     public function identity(): string;
 
-    /** Human-readable provider name */
     public function displayName(): string;
 
-    /** Declared capabilities */
     public function capabilities(): array;
 
-    /** Validate integration configuration before save */
     public function validateConfiguration(array $config): array;
 
-    /** Test connectivity to external system */
     public function testConnection(Integration $integration): array;
 
-    /** Perform health check against external system */
     public function healthCheck(Integration $integration): array;
 
-    /** Execute synchronization */
-    public function synchronize(Integration $integration, string $operation = 'full'): array;
+    /**
+     * Synchronize data between EWNET and the external provider.
+     *
+     * @param Integration $integration The integration to synchronize
+     * @return array{processed:int, created:int, updated:int, unchanged:int, skipped:int, failed:int, status?:string}
+     */
+    public function synchronize(Integration $integration): array;
 }
