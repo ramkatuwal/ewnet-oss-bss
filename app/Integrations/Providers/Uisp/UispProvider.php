@@ -115,13 +115,13 @@ class UispProvider implements IntegrationProviderInterface
             $deviceCounts = $deviceSync->execute();
 
             $combined = [
+                'status' => 'completed',
                 'processed' => ($siteCounts['processed'] ?? 0) + ($deviceCounts['processed'] ?? 0),
                 'created' => ($siteCounts['created'] ?? 0) + ($deviceCounts['created'] ?? 0),
                 'updated' => ($siteCounts['updated'] ?? 0) + ($deviceCounts['updated'] ?? 0),
                 'unchanged' => ($siteCounts['unchanged'] ?? 0) + ($deviceCounts['unchanged'] ?? 0),
                 'skipped' => ($siteCounts['skipped'] ?? 0) + ($deviceCounts['skipped'] ?? 0),
                 'failed' => ($siteCounts['failed'] ?? 0) + ($deviceCounts['failed'] ?? 0),
-                'status' => 'completed',
             ];
 
             Log::info('UISP Provider synchronization completed', $combined);
