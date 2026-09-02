@@ -1,0 +1,133 @@
+<?php
+
+namespace App\Services\Integrations\Uisp;
+
+use App\Integrations\Providers\Uisp\UispClient;
+use App\Models\Integration;
+use App\Models\Site;
+use App\Models\SiteExternalReference;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+
+class UispSiteSyncService
+{
+    protected Integration $integration;
+    protected UispClient $client;
+    protected array $counts = [
+        'created' => 0,
+        'updated' => 0,
+        'unchanged' => 0,
+        'failed' => 0,
+    ];
+
+    public function __construct(Integration $integration)
+    {
+        $this->integration = $integration;
+        $this->client = new \App\Integrations\Providers\Uisp\UispClient($integration);
+    }
+
+    public function execute(): array
+    {
+        Log::info('Starting UISP Site Synchronization', ['integration_id' => $this->integration->id]);
+
+        try {
+            $uispSites = $this->client->getSites();
+            
+            foreach ($uispSites as $uispSite) {
+                $this->syncSingleSite($uispSite);
+            }
+
+            Log::info('UISP Site Synchronization Completed', $this->counts);
+            return $this->counts;
+        } catch (\Throwable $e) {
+            Log::error('UISP Site Synchronization Failed', [
+                'error' => $e->getMessage(),
+                'integration_id' => $this->integration->id,
+            ]);
+            throw $e;
+        }
+    }
+
+    protected function syncSingleSite(array $uispSite): void
+    {
+        $externalId = $uispSite['id'] ?? null;
+        if (!$externalId) {
+            $this->counts['failed']++;
+            return;
+        }
+
+        // Find existing reference
+        $reference = SiteExternalReference::where('provider', 'uisp')
+            ->where('external_type', 'site')
+            ->where('external_id', $externalId)
+            ->first();
+
+        $siteData = $this->mapSiteData($uispSite);
+
+        DB::transaction(function () use ($reference, $siteData, $externalId) {
+            if ($reference) {
+                $site = $reference->site;
+                if ($this->hasChanges($site, $siteData)) {
+                    $site->update($siteData);
+                    $this->counts['updated']++;
+                } else {
+                    $this->counts['unchanged']++;
+                }
+            } else {
+                // Generate a unique site_code if not present
+                $siteCode = $siteData['site_code'] ?? 'UISP-' . substr($externalId, 0, 8);
+                $siteData['site_code'] = $siteCode;
+                
+                $site = Site::create($siteData);
+                SiteExternalReference::create([
+                    'site_id' => $site->id,
+                    'provider' => 'uisp',
+                    'external_type' => 'site',
+                    'external_id' => $externalId,
+                ]);
+                $this->counts['created']++;
+            }
+        });
+    }
+
+    protected function mapSiteData(array $uispSite): array
+    {
+        $location = $uispSite['location'] ?? [];
+        $address = $uispSite['address'] ?? [];
+        
+        // Map UISP status to EWNET status
+        $status = match ($uispSite['status'] ?? null) {
+            'active' => 'active',
+            'inactive' => 'inactive',
+            default => 'planned',
+        };
+
+        return [
+            'name' => $uispSite['name'] ?? 'Unknown Site',
+            'type' => 'pop', // Default type, can be refined later
+            'status' => $status,
+            'latitude' => $location['lat'] ?? null,
+            'longitude' => $location['lon'] ?? null,
+            'address' => $address['fullAddress'] ?? null,
+            'metadata' => [
+                'uisp_parent_id' => $uispSite['parent'] ?? null,
+                'uisp_device_count' => $uispSite['deviceCount'] ?? 0,
+            ],
+        ];
+    }
+
+    protected function hasChanges(Site $site, array $newData): bool
+    {
+        foreach ($newData as $key => $value) {
+            if ($key === 'metadata') {
+                // Simple metadata check (can be improved)
+                if (json_encode($site->metadata) !== json_encode($value)) {
+                    return true;
+                }
+            } elseif ($site->{$key} != $value) {
+                return true;
+            }
+        }
+        return false;
+    }
+}
