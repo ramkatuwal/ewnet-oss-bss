@@ -34,6 +34,7 @@ class UispSiteSyncService
 
         try {
             $uispSites = $this->client->getSites();
+            Log::info('Fetched sites from UISP', ['count' => count($uispSites)]);
 
             foreach ($uispSites as $uispSite) {
                 $this->syncSingleSite($uispSite);
@@ -62,6 +63,14 @@ class UispSiteSyncService
         $externalId = $uispSite['id'] ?? null;
         if (!$externalId) {
             $this->counts['failed']++;
+            Log::warning('UISP site missing ID', ['site' => $uispSite]);
+            return;
+        }
+
+        // Skip sites without required data
+        if (empty($uispSite['name'] ?? null)) {
+            $this->counts['skipped']++;
+            Log::warning('UISP site skipped: missing name', ['external_id' => $externalId]);
             return;
         }
 
@@ -72,16 +81,25 @@ class UispSiteSyncService
 
         $siteData = $this->mapSiteData($uispSite);
 
-        DB::transaction(function () use ($reference, $siteData, $externalId) {
+        DB::transaction(function () use ($reference, $siteData, $externalId, $uispSite) {
             if ($reference) {
                 $site = $reference->site;
+                if (!$site) {
+                    // Orphan reference — recreate
+                    $this->counts['skipped']++;
+                    Log::warning('Orphan site external reference', ['external_id' => $externalId]);
+                    return;
+                }
                 if ($this->hasChanges($site, $siteData)) {
-                    $site->update($siteData);
+                    // Only update fields owned by UISP
+                    $site->update($this->getUispOwnedFields($site, $siteData));
                     $this->counts['updated']++;
+                    Log::debug('UISP site updated', ['external_id' => $externalId, 'site_id' => $site->id]);
                 } else {
                     $this->counts['unchanged']++;
                 }
             } else {
+                // Generate a unique site_code
                 $siteCode = $siteData['site_code'] ?? 'UISP-' . substr($externalId, 0, 8);
                 $baseCode = $siteCode;
                 $counter = 1;
@@ -98,6 +116,7 @@ class UispSiteSyncService
                     'external_id' => $externalId,
                 ]);
                 $this->counts['created']++;
+                Log::info('UISP site created', ['external_id' => $externalId, 'site_id' => $site->id]);
             }
         });
     }
@@ -113,7 +132,7 @@ class UispSiteSyncService
             default => 'planned',
         };
 
-        return [
+        $siteData = [
             'name' => $uispSite['name'] ?? 'Unknown Site',
             'type' => 'pop',
             'status' => $status,
@@ -127,19 +146,54 @@ class UispSiteSyncService
                 'synced_at' => now()->toISOString(),
             ],
         ];
+
+        // Preserve existing metadata if updating
+        return $siteData;
+    }
+
+    /**
+     * Get only fields that UISP is allowed to update.
+     * Preserves manual EWNET-managed fields.
+     */
+    protected function getUispOwnedFields(Site $site, array $newData): array
+    {
+        $allowed = ['name', 'status', 'latitude', 'longitude', 'address'];
+        $updates = [];
+
+        foreach ($allowed as $field) {
+            if (isset($newData[$field]) && $site->{$field} != $newData[$field]) {
+                $updates[$field] = $newData[$field];
+            }
+        }
+
+        // Merge metadata (preserve existing keys)
+        $existingMetadata = $site->metadata ?? [];
+        $newMetadata = $newData['metadata'] ?? [];
+        $mergedMetadata = array_merge($existingMetadata, $newMetadata);
+        $updates['metadata'] = $mergedMetadata;
+
+        return $updates;
     }
 
     protected function hasChanges(Site $site, array $newData): bool
     {
-        foreach ($newData as $key => $value) {
-            if ($key === 'metadata') {
-                if (json_encode($site->metadata) !== json_encode($value)) {
-                    return true;
-                }
-            } elseif ($site->{$key} != $value) {
+        $allowed = ['name', 'status', 'latitude', 'longitude', 'address'];
+        foreach ($allowed as $field) {
+            if (isset($newData[$field]) && $site->{$field} != $newData[$field]) {
                 return true;
             }
         }
+
+        // Check metadata changes (only for UISP keys)
+        $existingMeta = $site->metadata ?? [];
+        $newMeta = $newData['metadata'] ?? [];
+        $uispKeys = ['uisp_parent_id', 'uisp_device_count', 'synced_from', 'synced_at'];
+        foreach ($uispKeys as $key) {
+            if (($existingMeta[$key] ?? null) != ($newMeta[$key] ?? null)) {
+                return true;
+            }
+        }
+
         return false;
     }
 }

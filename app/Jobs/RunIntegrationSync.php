@@ -46,6 +46,18 @@ class RunIntegrationSync implements ShouldQueue
             $provider = IntegrationManager::resolve($this->sync->integration->provider);
             $result = $provider->synchronize($this->sync->integration);
 
+            // Log detailed results
+            Log::info('Sync completed', [
+                'sync_id' => $this->sync->id,
+                'provider' => $this->sync->integration->provider,
+                'processed' => $result['processed'] ?? 0,
+                'created' => $result['created'] ?? 0,
+                'updated' => $result['updated'] ?? 0,
+                'unchanged' => $result['unchanged'] ?? 0,
+                'skipped' => $result['skipped'] ?? 0,
+                'failed' => $result['failed'] ?? 0,
+            ]);
+
             $this->sync->markCompleted([
                 'records_processed' => $result['processed'] ?? 0,
                 'records_created' => $result['created'] ?? 0,
@@ -62,6 +74,8 @@ class RunIntegrationSync implements ShouldQueue
                 'processed' => $result['processed'] ?? 0,
                 'created' => $result['created'] ?? 0,
                 'updated' => $result['updated'] ?? 0,
+                'unchanged' => $result['unchanged'] ?? 0,
+                'skipped' => $result['skipped'] ?? 0,
                 'failed' => $result['failed'] ?? 0,
             ]);
         } catch (\Throwable $e) {

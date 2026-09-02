@@ -71,9 +71,19 @@ class UispDeviceSyncService
 
     protected function syncSingleDevice(array $uispDevice): void
     {
-        $externalId = $uispDevice['id'] ?? $uispDevice['identification']['id'] ?? null;
+        $identification = $uispDevice['identification'] ?? [];
+        $externalId = $uispDevice['id'] ?? $identification['id'] ?? null;
+        
         if (!$externalId) {
             $this->counts['failed']++;
+            Log::warning('UISP device missing ID', ['device' => $uispDevice]);
+            return;
+        }
+
+        // Skip devices without required data
+        if (empty($identification['name'] ?? null) && empty($identification['model'] ?? null)) {
+            $this->counts['skipped']++;
+            Log::warning('UISP device skipped: missing required data', ['external_id' => $externalId]);
             return;
         }
 
@@ -84,10 +94,17 @@ class UispDeviceSyncService
 
         $assetData = $this->mapDeviceData($uispDevice);
 
-        $siteId = $this->resolveSiteId($uispDevice['identification']['site']['id'] ?? null);
+        // Resolve Site ID
+        $uispSiteId = $identification['site']['id'] ?? null;
+        $siteId = $this->resolveSiteId($uispSiteId);
+        
         if (!$siteId) {
             $this->counts['site_mapping_failed']++;
-            $this->counts['failed']++;
+            $this->counts['skipped']++;
+            Log::warning('UISP device skipped: site not mapped', [
+                'external_id' => $externalId,
+                'uisp_site_id' => $uispSiteId,
+            ]);
             return;
         }
         $assetData['site_id'] = $siteId;
@@ -95,13 +112,21 @@ class UispDeviceSyncService
         DB::transaction(function () use ($reference, $assetData, $externalId) {
             if ($reference) {
                 $asset = $reference->asset;
+                if (!$asset) {
+                    // Orphan reference — recreate
+                    $this->counts['skipped']++;
+                    Log::warning('Orphan asset external reference', ['external_id' => $externalId]);
+                    return;
+                }
                 if ($this->hasChanges($asset, $assetData)) {
-                    $asset->update($assetData);
+                    $asset->update($this->getUispOwnedFields($asset, $assetData));
                     $this->counts['updated']++;
+                    Log::debug('UISP device updated', ['external_id' => $externalId, 'asset_id' => $asset->id]);
                 } else {
                     $this->counts['unchanged']++;
                 }
             } else {
+                // Generate a unique asset_tag
                 $assetTag = 'UISP-' . substr($externalId, 0, 8);
                 $baseTag = $assetTag;
                 $counter = 1;
@@ -118,6 +143,7 @@ class UispDeviceSyncService
                     'external_id' => $externalId,
                 ]);
                 $this->counts['created']++;
+                Log::info('UISP device created', ['external_id' => $externalId, 'asset_id' => $asset->id]);
             }
         });
     }
@@ -151,6 +177,30 @@ class UispDeviceSyncService
         ];
     }
 
+    /**
+     * Get only fields that UISP is allowed to update.
+     * Preserves manual EWNET-managed fields.
+     */
+    protected function getUispOwnedFields(Asset $asset, array $newData): array
+    {
+        $allowed = ['model', 'manufacturer', 'serial_number', 'type', 'category', 'status', 'description'];
+        $updates = [];
+
+        foreach ($allowed as $field) {
+            if (isset($newData[$field]) && $asset->{$field} != $newData[$field]) {
+                $updates[$field] = $newData[$field];
+            }
+        }
+
+        // Merge specifications (preserve existing keys)
+        $existingSpecs = $asset->specifications ?? [];
+        $newSpecs = $newData['specifications'] ?? [];
+        $mergedSpecs = array_merge($existingSpecs, $newSpecs);
+        $updates['specifications'] = $mergedSpecs;
+
+        return $updates;
+    }
+
     protected function resolveSiteId(?string $uispSiteId): ?int
     {
         if (!$uispSiteId) return null;
@@ -165,13 +215,23 @@ class UispDeviceSyncService
 
     protected function hasChanges(Asset $asset, array $newData): bool
     {
-        foreach ($newData as $key => $value) {
-            if ($key === 'specifications') {
-                if (json_encode($asset->specifications) !== json_encode($value)) return true;
-            } elseif ($asset->{$key} != $value) {
+        $allowed = ['model', 'manufacturer', 'serial_number', 'type', 'category', 'status', 'description'];
+        foreach ($allowed as $field) {
+            if (isset($newData[$field]) && $asset->{$field} != $newData[$field]) {
                 return true;
             }
         }
+
+        // Check specifications changes (only for UISP keys)
+        $existingSpecs = $asset->specifications ?? [];
+        $newSpecs = $newData['specifications'] ?? [];
+        $uispKeys = ['mac_address', 'firmware_version', 'ip_address', 'synced_from', 'synced_at'];
+        foreach ($uispKeys as $key) {
+            if (($existingSpecs[$key] ?? null) != ($newSpecs[$key] ?? null)) {
+                return true;
+            }
+        }
+
         return false;
     }
 }
