@@ -5,6 +5,7 @@ namespace App\Integrations\Providers\Uisp;
 use App\Contracts\IntegrationProviderInterface;
 use App\Models\Integration;
 use App\Services\Integrations\Uisp\UispSiteSyncService;
+use App\Services\Integrations\Uisp\UispDeviceSyncService;
 use Illuminate\Support\Facades\Log;
 
 class UispProvider implements IntegrationProviderInterface
@@ -92,14 +93,21 @@ class UispProvider implements IntegrationProviderInterface
 
     public function synchronize(Integration $integration, string $operation = 'full'): array
     {
+        $results = [];
+
         try {
-            $syncService = new UispSiteSyncService($integration);
-            $counts = $syncService->execute();
+            // Site Sync
+            $siteSync = new UispSiteSyncService($integration);
+            $results['sites'] = $siteSync->execute();
+
+            // Device Sync
+            $deviceSync = new UispDeviceSyncService($integration);
+            $results['devices'] = $deviceSync->execute();
 
             return [
                 'status' => 'completed',
-                'counts' => $counts,
-                'message' => 'Site synchronization completed successfully.',
+                'counts' => $results,
+                'message' => 'Synchronization completed successfully.',
             ];
         } catch (\Throwable $e) {
             Log::error('UISP synchronization failed', [

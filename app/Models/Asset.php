@@ -94,4 +94,9 @@ class Asset extends Model
     {
         return $this->hasMany(AssetPhoto::class);
     }
+
+    public function externalReferences(): HasMany
+    {
+        return $this->hasMany(AssetExternalReference::class);
+    }
 }

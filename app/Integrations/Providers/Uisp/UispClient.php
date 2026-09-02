@@ -149,7 +149,23 @@ class UispClient
      */
     public function getSites(): array
     {
-        return $this->request('GET', '/nms/api/v2.1/sites');
+        return $this->request('GET', '/sites');
+    }
+
+    /**
+     * Fetch all devices from UISP
+     */
+    public function getDevices(): array
+    {
+        return $this->request('GET', '/devices');
+    }
+
+    /**
+     * Fetch heartbeat for health check
+     */
+    public function getHeartbeat(): array
+    {
+        return $this->request('GET', '/nms/heartbeat');
     }
 
     /**
@@ -157,6 +173,6 @@ class UispClient
      */
     public function getChangedSince(string $timestamp): array
     {
-        return $this->request('GET', '/nms/api/v2.1/nms/changed', ['since' => $timestamp]);
+        return $this->request('GET', '/nms/changed', ['since' => $timestamp]);
     }
 }

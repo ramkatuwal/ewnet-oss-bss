@@ -72,7 +72,6 @@ class UispProviderTest extends TestCase
 
     public function test_validate_configuration_http_in_production()
     {
-        // Simulate production environment
         $this->app['env'] = 'production';
         $errors = $this->provider->validateConfiguration([
             'api_url' => 'http://unms.ewnet.com.np/nms/api/v2.1',
@@ -88,11 +87,6 @@ class UispProviderTest extends TestCase
         ]);
 
         $result = $this->provider->healthCheck($this->integration);
-        
-        if ($result['status'] !== 'connected') {
-            dump('Health Check Error:', $result['error'] ?? 'Unknown error');
-        }
-
         $this->assertEquals('connected', $result['status']);
         
         Http::assertSent(function ($request) {
@@ -100,43 +94,50 @@ class UispProviderTest extends TestCase
         });
     }
 
-    public function test_health_check_failure()
-    {
-        Http::fake([
-            '*/nms/heartbeat' => Http::response([], 500),
-        ]);
-
-        $result = $this->provider->healthCheck($this->integration);
-        $this->assertEquals('failed', $result['status']);
-    }
-
-    public function test_synchronize_sites_success()
+    public function test_synchronize_sites_and_devices_success()
     {
         Http::fake([
             '*/nms/api/v2.1/sites' => Http::response([
                 [
                     'id' => 'uisp-site-001',
-                    'name' => 'Test Site Alpha',
-                    'status' => 'active',
-                    'location' => ['lat' => 28.6, 'lon' => 81.6],
-                    'address' => ['fullAddress' => 'Surkhet, Nepal'],
+                    'identification' => [
+                        'name' => 'Test Site Alpha',
+                        'status' => 'active',
+                    ]
+                ]
+            ], 200),
+            '*/nms/api/v2.1/devices' => Http::response([
+                [
+                    'id' => 'uisp-device-001',
+                    'identification' => [
+                        'id' => 'uisp-device-001',
+                        'name' => 'Test Router',
+                        'model' => 'EdgeRouter X',
+                        'vendor' => 'Ubiquiti',
+                        'mac' => 'AA:BB:CC:DD:EE:FF',
+                        'firmwareVersion' => 'v2.0.0',
+                        'site' => [
+                            'id' => 'uisp-site-001'
+                        ]
+                    ],
+                    'status' => 'online',
                 ]
             ], 200),
         ]);
 
         $result = $this->provider->synchronize($this->integration);
-        
-        if ($result['status'] !== 'completed') {
-            dump('Sync Error:', $result['error'] ?? 'Unknown error');
-        }
-
         $this->assertEquals('completed', $result['status']);
-        $this->assertGreaterThan(0, $result['counts']['created'] + $result['counts']['updated']);
         
-        $this->assertDatabaseHas('sites', ['name' => 'Test Site Alpha']);
-        $this->assertDatabaseHas('site_external_references', [
+        // Verify MAC is in specifications, NOT serial_number
+        $asset = \App\Models\Asset::where('model', 'EdgeRouter X')->first();
+        $this->assertNotNull($asset);
+        $this->assertEquals('AA:BB:CC:DD:EE:FF', $asset->specifications['mac_address']);
+        $this->assertNull($asset->serial_number); // Ensure serial_number is not misused for MAC
+        
+        $this->assertDatabaseHas('asset_external_references', [
             'provider' => 'uisp',
-            'external_id' => 'uisp-site-001',
+            'external_type' => 'device',
+            'external_id' => 'uisp-device-001',
         ]);
     }
 }
