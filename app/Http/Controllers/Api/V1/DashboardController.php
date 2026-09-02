@@ -96,11 +96,19 @@ class DashboardController extends Controller
         if (!$isSuperAdmin) {
             // For non-super-admin, filter by scope (actor or target is the user, or within their org)
             $activityQuery->where(function($q) use ($user, $companyIds, $branchIds, $departmentIds) {
-                $q->where('actor_id', $user->id)
-                  ->orWhere('target_id', $user->id)
-                  ->orWhereIn('company_id', $companyIds)
-                  ->orWhereIn('branch_id', $branchIds)
-                  ->orWhereIn('department_id', $departmentIds);
+                $q->where("actor_id", $user->id)
+                  ->orWhere("target_id", $user->id);
+
+                // Filter by organization_context JSONB column (audit_logs schema)
+                if (!empty($companyIds)) {
+                    $q->orWhereRaw("organization_context->>" . chr(39) . "company_id" . chr(39) . " IN (" . implode(",", array_fill(0, count($companyIds), "?")) . ")", array_map("strval", $companyIds));
+                }
+                if (!empty($branchIds)) {
+                    $q->orWhereRaw("organization_context->>" . chr(39) . "branch_id" . chr(39) . " IN (" . implode(",", array_fill(0, count($branchIds), "?")) . ")", array_map("strval", $branchIds));
+                }
+                if (!empty($departmentIds)) {
+                    $q->orWhereRaw("organization_context->>" . chr(39) . "department_id" . chr(39) . " IN (" . implode(",", array_fill(0, count($departmentIds), "?")) . ")", array_map("strval", $departmentIds));
+                }
             });
         }
 
