@@ -2,9 +2,9 @@
 
 namespace App\Services\Imports;
 
+use App\Contracts\ImportSourceInterface;
 use App\Models\Asset;
 use App\Models\AssetExternalReference;
-use App\Models\Integration;
 use App\Models\Site;
 use App\Models\SiteExternalReference;
 use Illuminate\Support\Facades\DB;
@@ -15,8 +15,17 @@ class GenericImportService
     protected ImportSourceInterface $source;
     protected ReconciliationEngine $engine;
 
-    public function __construct(ImportSourceInterface $source)
+    /**
+     * @param mixed $source
+     */
+    public function __construct($source)
     {
+        if (!$source instanceof ImportSourceInterface) {
+            throw new \InvalidArgumentException(
+                'Source must implement ImportSourceInterface. Got: ' . get_class($source)
+            );
+        }
+        
         $this->source = $source;
         $this->engine = new ReconciliationEngine();
     }
