@@ -6,7 +6,6 @@ use App\Contracts\ImportSourceInterface;
 use App\Dto\Imports\NormalizedRecord;
 use App\Integrations\Providers\Uisp\UispClient;
 use App\Models\Integration;
-use Illuminate\Support\Arr;
 
 class UispSourceAdapter implements ImportSourceInterface
 {
@@ -47,20 +46,18 @@ class UispSourceAdapter implements ImportSourceInterface
         $id = $raw['id'] ?? $raw['identification']['id'] ?? null;
         if (!$id) throw new \InvalidArgumentException('UISP device missing ID');
 
+        $ip = $this->extractIp($raw);
         $name = $raw['name'] ?? $raw['identification']['name'] ?? 'Unknown Device';
         $mac = $raw['mac'] ?? $raw['identification']['mac'] ?? null;
-        $ip = $raw['ip'] ?? $raw['managementIp'] ?? null;
         $serial = $raw['serialNumber'] ?? $raw['identification']['serialNumber'] ?? null;
         $model = $raw['model'] ?? $raw['identification']['model'] ?? null;
         $manufacturer = $raw['manufacturer'] ?? $raw['identification']['vendor'] ?? null;
         
-        // Resolve Site Name from raw data if available
         $siteName = null;
+        $siteId = $raw['siteId'] ?? null;
         if (isset($raw['site']) && is_array($raw['site'])) {
             $siteName = $raw['site']['name'] ?? null;
-        } elseif (isset($raw['siteId'])) {
-            // In some UISP versions, siteId is just an ID. We might need to map it later.
-            // For now, we'll store the ID in metadata.
+            $siteId = $siteId ?? ($raw['site']['id'] ?? null);
         }
 
         return new NormalizedRecord(
@@ -74,9 +71,9 @@ class UispSourceAdapter implements ImportSourceInterface
             serialNumber: $serial,
             manufacturer: $manufacturer,
             model: $model,
-            status: $raw['status'] ?? 'unknown',
+            status: $raw['status'] ?? $raw['identification']['status'] ?? 'unknown',
             metadata: [
-                'site_id' => $raw['siteId'] ?? null,
+                'site_id' => $siteId,
                 'site_name' => $siteName,
                 'firmware_version' => $raw['firmwareVersion'] ?? null,
             ],
@@ -86,32 +83,80 @@ class UispSourceAdapter implements ImportSourceInterface
 
     public function normalizeSite(array $raw): NormalizedRecord
     {
-        $id = $raw['id'] ?? null;
+        $id = $raw['id'] ?? $raw['identification']['id'] ?? null;
         if (!$id) throw new \InvalidArgumentException('UISP site missing ID');
 
-        // Safe navigation for nested arrays
-        $addressData = $raw['address'] ?? [];
-        $locationData = $raw['location'] ?? [];
+        // Correct mapping for UISP v2.1 structure
+        $identification = is_array($raw['identification'] ?? null) ? $raw['identification'] : [];
+        $description = is_array($raw['description'] ?? null) ? $raw['description'] : [];
+        $location = is_array($description['location'] ?? null) ? $description['location'] : [];
+
+        $name = $identification['name'] ?? 'Unknown Site';
+        $status = $identification['status'] ?? 'active';
+        
+        // Handle note/description text
+        $note = $description['note'] ?? null;
+        if (is_array($note)) {
+            $note = json_encode($note);
+        }
+
+        // Extract first IP if available in description
+        $ipList = $description['ipAddresses'] ?? [];
+        $primaryIp = is_array($ipList) && count($ipList) > 0 ? $ipList[0] : null;
 
         return new NormalizedRecord(
             provider: 'uisp',
             sourceType: 'site',
             externalId: (string) $id,
-            name: $raw['name'] ?? 'Unknown Site',
-            description: $raw['description'] ?? null,
-            ipAddress: null,
+            name: $name,
+            description: $note,
+            ipAddress: $this->normalizeIp($primaryIp),
             macAddress: null,
             serialNumber: null,
             manufacturer: null,
             model: null,
-            status: $raw['status'] ?? 'active',
+            status: $status,
             metadata: [
-                'address' => $addressData['fullAddress'] ?? $addressData['street'] ?? null,
-                'latitude' => $locationData['lat'] ?? $locationData['latitude'] ?? null,
-                'longitude' => $locationData['lon'] ?? $locationData['longitude'] ?? null,
+                'address' => null, // UISP sites don't always have a structured street address
+                'latitude' => $location['latitude'] ?? null,
+                'longitude' => $location['longitude'] ?? null,
+                'parent_id' => $identification['parent']['id'] ?? null,
+                'parent_name' => $identification['parent']['name'] ?? null,
+                'device_count' => $description['deviceCount'] ?? 0,
             ],
             rawSource: $raw
         );
+    }
+
+    protected function extractIp(array $raw): ?string
+    {
+        if (!empty($raw['ip'])) return $raw['ip'];
+        if (!empty($raw['managementIp'])) return $raw['managementIp'];
+        if (!empty($raw['ipAddress'])) return $raw['ipAddress'];
+        
+        if (!empty($raw['ipAddressList']) && is_array($raw['ipAddressList'])) {
+            foreach ($raw['ipAddressList'] as $entry) {
+                if (isset($entry['address'])) return $entry['address'];
+                if (isset($entry['ip'])) return $entry['ip'];
+            }
+        }
+
+        if (!empty($raw['interfaces']) && is_array($raw['interfaces'])) {
+            foreach ($raw['interfaces'] as $iface) {
+                if (!is_array($iface)) continue;
+                if (!empty($iface['ip'])) return $iface['ip'];
+                
+                if (!empty($iface['addresses']) && is_array($iface['addresses'])) {
+                    foreach ($iface['addresses'] as $addr) {
+                        if (isset($addr['address'])) {
+                            return preg_replace('/\/\d+$/', '', $addr['address']);
+                        }
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     protected function normalizeIp(?string $value): ?string
