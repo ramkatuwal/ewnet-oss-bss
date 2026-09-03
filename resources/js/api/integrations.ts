@@ -56,17 +56,17 @@ export const integrationApi = {
   get: (id: number) =>
     api.get<{ data: Integration }>(`/integrations/${id}`).then(r => r.data),
 
-  create: (data: Partial<Integration> & { 
-    credential_type?: string; 
-    credential_value?: string; 
-    credential_label?: string; 
+  create: (data: Partial<Integration> & {
+    credential_type?: string;
+    credential_value?: string;
+    credential_label?: string;
   }) =>
     api.post<{ data: Integration }>('/integrations', data).then(r => r.data),
 
-  update: (id: number, data: Partial<Integration> & { 
-    credential_type?: string; 
-    credential_value?: string; 
-    credential_label?: string; 
+  update: (id: number, data: Partial<Integration> & {
+    credential_type?: string;
+    credential_value?: string;
+    credential_label?: string;
   }) =>
     api.put<{ data: Integration }>(`/integrations/${id}`, data).then(r => r.data),
 
@@ -93,4 +93,15 @@ export const integrationApi = {
 
   deleteCredential: (integrationId: number, credentialId: number) =>
     api.delete(`/integrations/${integrationId}/credentials/${credentialId}`),
+};
+
+export const uispImportApi = {
+  preview: () =>
+    api.post('/integrations/uisp/import/preview').then(r => r.data),
+
+  execute: (selected: { sites?: any[]; devices?: any[] }) =>
+    api.post('/integrations/uisp/import/execute', selected).then(r => r.data),
+
+  analyzeSingle: (type: 'site' | 'device', data: any) =>
+    api.post('/integrations/uisp/import/analyze', { type, data }).then(r => r.data),
 };

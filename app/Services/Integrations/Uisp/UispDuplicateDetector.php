@@ -27,16 +27,25 @@ class UispDuplicateDetector
     public function analyzeDevice(array $uispDevice): array
     {
         // === STEP 1: Extract SOURCE device data ===
-        $externalId = $uispDevice['id'] ?? $uispDevice['identification']['id'] ?? null;
+        $identification = $uispDevice['identification'] ?? [];
+        $externalId = $uispDevice['id'] ?? $identification['id'] ?? null;
+        
         if (!$externalId) {
             return ['action' => 'error', 'reason' => 'Missing external ID'];
         }
 
-        $identification = $uispDevice['identification'] ?? [];
         $serial = $this->normalizeSerial($identification['serialNumber'] ?? null);
         $mac = $this->normalizeMac($identification['mac'] ?? null);
         $name = $this->normalizeName($identification['name'] ?? null);
-        $ip = $this->normalizeIp($uispDevice['ipAddress'] ?? null);
+        
+        // Robust IP extraction from multiple possible locations
+        $rawIp = $uispDevice['ipAddress'] 
+               ?? $uispDevice['overview']['ipAddress'] 
+               ?? $uispDevice['overview']['ip'] 
+               ?? $identification['ip'] 
+               ?? null;
+        $ip = $this->normalizeIp($rawIp);
+
         $model = $identification['model'] ?? $identification['modelName'] ?? null;
         $vendor = $identification['vendor'] ?? $identification['vendorName'] ?? null;
 
@@ -85,7 +94,7 @@ class UispDuplicateDetector
             }
         }
 
-        // 2d: Check IP Address (MODERATE)
+        // 2d: Check IP Address (MODERATE) - Support both 'ip' and 'ip_address' keys
         if ($ip) {
             $ipAsset = Asset::where(function($query) use ($ip) {
                 $query->whereJsonContains('specifications', ['ip_address' => $ip])
@@ -185,7 +194,7 @@ class UispDuplicateDetector
                 'asset' => $asset,
                 'reason' => $this->buildReason($assetEvidence, $ipChanged),
                 'evidence' => $assetEvidence,
-                'matches' => $matchFields,  // ← FIXED: Now populated!
+                'matches' => $matchFields,
                 'candidates' => [$assetId => $asset],
                 'ip_changed' => $ipChanged,
                 'serial' => $serial,
@@ -223,7 +232,7 @@ class UispDuplicateDetector
                 'asset' => $strongMatchAssetId,
                 'reason' => 'Strong evidence (MAC/serial) identifies one asset. Weak name match reviewed.',
                 'evidence' => $assetEvidence,
-                'matches' => $matchFields,  // ← FIXED: Now populated!
+                'matches' => $matchFields,
                 'candidates' => $candidates,
                 'weak_matches' => array_filter($evidence, function($evs, $id) use ($strongMatchAssetId) {
                     return $id !== $strongMatchAssetId;
@@ -246,7 +255,7 @@ class UispDuplicateDetector
             'asset' => null,
             'reason' => 'Multiple EWNET assets match this device. Manual review required.',
             'evidence' => $evidence,
-            'matches' => [],  // No single match
+            'matches' => [],
             'candidates' => $candidates,
             'candidate_ids' => $uniqueCandidateIds,
             'serial' => $serial,

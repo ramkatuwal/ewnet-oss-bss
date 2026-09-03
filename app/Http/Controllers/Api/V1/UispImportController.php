@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Integration;
 use App\Services\Integrations\Uisp\UispImportService;
-use App\Services\Integrations\Uisp\UispDuplicateDetector;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -45,6 +44,38 @@ class UispImportController extends Controller
         }
     }
 
+    public function execute(Request $request): JsonResponse
+    {
+        $integration = $this->getIntegration($request);
+        if (!$integration) {
+            return response()->json(['error' => 'UISP integration not found'], 404);
+        }
+
+        $selectedRecords = $request->validate([
+            'sites' => 'array',
+            'devices' => 'array',
+        ]);
+
+        try {
+            $service = new UispImportService($integration);
+            $results = $service->execute($selectedRecords);
+
+            return response()->json([
+                'success' => true,
+                'data' => $results,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('UISP import execution failed', [
+                'error' => $e->getMessage(),
+                'integration_id' => $integration->id,
+            ]);
+            return response()->json([
+                'success' => false,
+                'error' => 'Import failed: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function analyzeSingle(Request $request): JsonResponse
     {
         $integration = $this->getIntegration($request);
@@ -60,7 +91,7 @@ class UispImportController extends Controller
         }
 
         try {
-            $detector = new UispDuplicateDetector();
+            $detector = new \App\Services\Integrations\Uisp\UispDuplicateDetector();
 
             if ($type === 'site') {
                 $result = $detector->analyzeSite($data);
