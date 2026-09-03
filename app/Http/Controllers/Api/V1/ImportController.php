@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Integration;
 use App\Services\Imports\GenericImportService;
 use App\Services\Imports\UispSourceAdapter;
+use App\Services\Imports\LibreNmsSourceAdapter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -14,31 +15,42 @@ class ImportController extends Controller
     public function __construct()
     {
         $this->middleware('auth:sanctum');
-        $this->middleware('can:integration.uisp.import');
+        $this->middleware('can:integration.uisp.import'); 
     }
 
     public function providers()
     {
         try {
+            Log::info('Import Providers: Starting');
             $integrations = Integration::where('enabled', true)->get();
+            Log::info('Import Providers: Found ' . $integrations->count() . ' enabled integrations');
+            
             $providers = [];
             
             foreach ($integrations as $int) {
-                if ($int->provider === 'uisp') {
-                    try {
-                        $adapter = new UispSourceAdapter($int);
+                try {
+                    Log::info('Import Providers: Processing integration ' . $int->id . ' (' . $int->provider . ')');
+                    $adapter = $this->resolveAdapter($int);
+                    if ($adapter) {
+                        Log::info('Import Providers: Adapter resolved for ' . $int->id);
                         $providers[] = [
                             'id' => $int->id,
                             'name' => $adapter->getDisplayName(),
                             'identity' => $adapter->getIdentity(),
                             'capabilities' => $adapter->getCapabilities()
                         ];
-                    } catch (\Exception $e) {
-                        Log::warning('Failed to load UISP adapter for integration ' . $int->id, ['error' => $e->getMessage()]);
+                    } else {
+                        Log::warning('Import Providers: Adapter returned null for ' . $int->id);
                     }
+                } catch (\Exception $e) {
+                    Log::error('Import Providers: Failed to load adapter for integration ' . $int->id, [
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
                 }
             }
             
+            Log::info('Import Providers: Returning ' . count($providers) . ' providers');
             return response()->json(['data' => $providers]);
         } catch (\Exception $e) {
             Log::error('Providers endpoint failed', ['error' => $e->getMessage()]);
@@ -55,14 +67,14 @@ class ImportController extends Controller
             ]);
 
             $integration = Integration::findOrFail($request->integration_id);
+            $adapter = $this->resolveAdapter($integration);
             
-            if ($integration->provider === 'uisp') {
-                $adapter = new UispSourceAdapter($integration);
-                $service = new GenericImportService($adapter);
-                return response()->json(['data' => $service->preview($request->source_type)]);
+            if (!$adapter) {
+                return response()->json(['error' => 'Provider not supported'], 400);
             }
 
-            return response()->json(['error' => 'Provider not supported yet'], 400);
+            $service = new GenericImportService($adapter);
+            return response()->json(['data' => $service->preview($request->source_type)]);
         } catch (\Exception $e) {
             Log::error('Preview endpoint failed', [
                 'user_id' => auth()->id(),
@@ -82,14 +94,14 @@ class ImportController extends Controller
             ]);
 
             $integration = Integration::findOrFail($request->integration_id);
+            $adapter = $this->resolveAdapter($integration);
             
-            if ($integration->provider === 'uisp') {
-                $adapter = new UispSourceAdapter($integration);
-                $service = new GenericImportService($adapter);
-                return response()->json(['data' => $service->execute($request->items)]);
+            if (!$adapter) {
+                return response()->json(['error' => 'Provider not supported'], 400);
             }
 
-            return response()->json(['error' => 'Provider not supported yet'], 400);
+            $service = new GenericImportService($adapter);
+            return response()->json(['data' => $service->execute($request->items)]);
         } catch (\Exception $e) {
             Log::error('Execute endpoint failed', [
                 'user_id' => auth()->id(),
@@ -98,5 +110,14 @@ class ImportController extends Controller
             ]);
             return response()->json(['error' => 'Execution failed: ' . $e->getMessage()], 500);
         }
+    }
+
+    protected function resolveAdapter(Integration $integration): ?object
+    {
+        return match ($integration->provider) {
+            'uisp' => new UispSourceAdapter($integration),
+            'librenms' => new LibreNmsSourceAdapter($integration),
+            default => null
+        };
     }
 }
