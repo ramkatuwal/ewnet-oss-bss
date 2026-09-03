@@ -3,9 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Box, Button, Container, Grid, Paper, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Typography, Chip, Checkbox, Tooltip,
-  FormControl, InputLabel, Select, MenuItem
+  FormControl, InputLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
-import { Refresh, PlayArrow, Warning, CheckCircle } from '@mui/icons-material';
+import { Refresh, PlayArrow, Warning, CheckCircle, Error as ErrorIcon } from '@mui/icons-material';
 import { PageHeader } from '@/components/layout/PageHeader';
 import toast from 'react-hot-toast';
 import { importApi, ImportItem, ImportProvider } from '@/api/import';
@@ -25,6 +25,7 @@ const ImportPage: React.FC = () => {
   const [selectedProvider, setSelectedProvider] = useState<number | ''>('');
   const [sourceType, setSourceType] = useState<'devices' | 'sites'>('devices');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [resultDialog, setResultDialog] = useState<any>(null);
 
   const { data: providers } = useQuery({
     queryKey: ['import-providers'],
@@ -41,19 +42,18 @@ const ImportPage: React.FC = () => {
   const importMutation = useMutation({
     mutationFn: () => {
       if (!preview || !selectedProvider) throw new Error('No preview data');
-      // preview is already ImportPreviewResponse due to .then(r => r.data) in api
       const itemsToImport = preview.records.filter((_: ImportItem, idx: number) => 
         selectedItems.has(`item-${idx}`)
       );
       return importApi.execute(selectedProvider, itemsToImport);
     },
-    onSuccess: () => {
-      toast.success('Import completed successfully');
-      setSelectedItems(new Set());
+    onSuccess: (data) => {
+      setResultDialog(data.data);
       queryClient.invalidateQueries({ queryKey: ['import-preview'] });
+      setSelectedItems(new Set());
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Import failed');
+      toast.error(error.response?.data?.message || 'Import request failed');
     },
   });
 
@@ -211,6 +211,61 @@ const ImportPage: React.FC = () => {
           </TableContainer>
         </>
       )}
+
+      <Dialog open={!!resultDialog} onClose={() => setResultDialog(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Import Results</DialogTitle>
+        <DialogContent>
+          {resultDialog && (
+            <Box>
+              <Typography variant="body1" gutterBottom>
+                Processed: {resultDialog.processed}
+              </Typography>
+              <Typography variant="body1" color="success.main">
+                Created: {resultDialog.created}
+              </Typography>
+              <Typography variant="body1" color="primary.main">
+                Linked: {resultDialog.linked}
+              </Typography>
+              <Typography variant="body1" color="error.main">
+                Failed: {resultDialog.failed}
+              </Typography>
+              
+              {resultDialog.details && resultDialog.details.length > 0 && (
+                <TableContainer component={Paper} sx={{ mt: 2 }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Name</TableCell>
+                        <TableCell>Status</TableCell>
+                        <TableCell>Message</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {resultDialog.details.map((d: any, i: number) => (
+                        <TableRow key={i}>
+                          <TableCell>{d.name}</TableCell>
+                          <TableCell>
+                            <Chip 
+                              label={d.status} 
+                              color={d.status === 'success' ? 'success' : 'error'} 
+                              size="small" 
+                              icon={d.status === 'success' ? <CheckCircle /> : <ErrorIcon />}
+                            />
+                          </TableCell>
+                          <TableCell>{d.message}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setResultDialog(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

@@ -2,14 +2,13 @@
 
 namespace App\Services\Imports;
 
-use App\Contracts\ImportSourceInterface;
-use App\Dto\Imports\NormalizedRecord;
 use App\Models\Asset;
 use App\Models\AssetExternalReference;
 use App\Models\Integration;
 use App\Models\Site;
 use App\Models\SiteExternalReference;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class GenericImportService
 {
@@ -37,7 +36,7 @@ class GenericImportService
                     'analysis' => $this->engine->reconcile($norm)
                 ];
             } catch (\Exception $e) {
-                // Skip invalid records
+                Log::error('Import normalization failed', ['error' => $e->getMessage(), 'raw' => $raw]);
             }
         }
 
@@ -51,17 +50,48 @@ class GenericImportService
 
     public function execute(array $selectedItems): array
     {
-        $results = ['created' => 0, 'linked' => 0, 'updated' => 0, 'failed' => 0];
+        $results = [
+            'success' => true,
+            'processed' => 0,
+            'created' => 0,
+            'linked' => 0,
+            'updated' => 0,
+            'skipped' => 0,
+            'failed' => 0,
+            'details' => []
+        ];
 
         DB::transaction(function () use ($selectedItems, &$results) {
             foreach ($selectedItems as $item) {
+                $results['processed']++;
+                $detail = [
+                    'source_id' => $item['record']['external_id'] ?? 'unknown',
+                    'name' => $item['record']['name'] ?? 'unknown',
+                    'status' => 'pending',
+                    'message' => ''
+                ];
+
                 try {
                     $this->processItem($item, $results);
+                    $detail['status'] = 'success';
+                    $detail['message'] = "Successfully processed.";
                 } catch (\Exception $e) {
                     $results['failed']++;
+                    $detail['status'] = 'failed';
+                    $detail['message'] = $e->getMessage();
+                    Log::error('Import item failed', [
+                        'source_id' => $detail['source_id'],
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
                 }
+                $results['details'][] = $detail;
             }
         });
+
+        if ($results['failed'] > 0) {
+            $results['success'] = false;
+        }
 
         return $results;
     }
@@ -70,8 +100,11 @@ class GenericImportService
     {
         $recordData = $item['record'];
         $analysis = $item['analysis'];
-        
-        if ($analysis['decision'] === 'CONFLICT') return;
+
+        if ($analysis['decision'] === 'CONFLICT') {
+            $results['skipped']++;
+            throw new \Exception('Record has unresolved conflicts.');
+        }
 
         if ($recordData['source_type'] === 'device') {
             $this->processAsset($recordData, $analysis, $results);
@@ -87,20 +120,31 @@ class GenericImportService
         if ($destId) {
             // LINK or UPDATE
             $asset = Asset::find($destId);
-            if ($asset) {
-                // Update logic here if needed
-                $results['linked']++;
-                // Ensure external ref exists
-                AssetExternalReference::updateOrCreate(
-                    ['provider' => $data['provider'], 'external_type' => 'device', 'external_id' => $data['external_id']],
-                    ['asset_id' => $asset->id]
-                );
-            }
+            if (!$asset) throw new \Exception("Destination asset #{$destId} not found.");
+            
+            $results['linked']++;
+            // Ensure external ref exists
+            AssetExternalReference::updateOrCreate(
+                ['provider' => $data['provider'], 'external_type' => 'device', 'external_id' => $data['external_id']],
+                ['asset_id' => $asset->id]
+            );
         } else {
             // CREATE
+            $siteId = 1; // Default site or logic to resolve site from metadata
+            if (isset($data['metadata']['site_id'])) {
+                $siteId = $data['metadata']['site_id'];
+            }
+
+            $assetTag = 'IMP-' . substr($data['external_id'], 0, 8);
+            $baseTag = $assetTag;
+            $counter = 1;
+            while (Asset::where('asset_tag', $assetTag)->exists()) {
+                $assetTag = $baseTag . '-' . $counter++;
+            }
+
             $asset = Asset::create([
-                'site_id' => 1, // Default or resolved from site mapping
-                'asset_tag' => 'IMP-' . substr($data['external_id'], 0, 8),
+                'site_id' => $siteId,
+                'asset_tag' => $assetTag,
                 'serial_number' => $data['serial_number'],
                 'category' => 'NETWORK',
                 'type' => 'Network Device',
@@ -136,8 +180,15 @@ class GenericImportService
                 ['site_id' => $destId]
             );
         } else {
+            $siteCode = 'IMP-' . substr($data['external_id'], 0, 8);
+            $baseCode = $siteCode;
+            $counter = 1;
+            while (Site::where('site_code', $siteCode)->exists()) {
+                $siteCode = $baseCode . '-' . $counter++;
+            }
+
             $site = Site::create([
-                'site_code' => 'IMP-' . substr($data['external_id'], 0, 8),
+                'site_code' => $siteCode,
                 'name' => $data['name'] ?? 'Unknown Site',
                 'type' => 'pop',
                 'status' => 'active',

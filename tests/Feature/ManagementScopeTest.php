@@ -36,6 +36,8 @@ class ManagementScopeTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Reset Faker unique history to prevent collisions
+        \Faker\Factory::create()->unique(true);
 
         // Create permissions
         $perms = [
