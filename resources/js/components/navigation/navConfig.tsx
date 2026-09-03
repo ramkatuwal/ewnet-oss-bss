@@ -15,6 +15,7 @@ import InfoIcon from '@mui/icons-material/Info';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import SyncIcon from '@mui/icons-material/Sync';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import type { NavItem } from '@/types';
 
 export const navigationItems: NavItem[] = [
@@ -62,6 +63,8 @@ export const navigationItems: NavItem[] = [
             { label: 'LibreNMS Import', path: '/system/integrations/librenms/import', icon: <SyncIcon />, permission: 'librenms.import' },
             { label: 'LibreNMS Site Import', path: '/system/integrations/librenms/sites', icon: <LocationOnIcon />, permission: 'librenms.import' },
             { label: 'UISP Import', path: '/system/integrations/uisp/import', icon: <CloudUploadIcon />, permission: 'integration.uisp.import' },
+            { label: 'System Import', path: '/system/import', icon: <CloudDownloadIcon />, permission: 'integration.uisp.import' },
+
         ],
     },
 ];

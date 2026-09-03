@@ -151,3 +151,38 @@ Route::prefix('v1/integrations/uisp')->middleware('auth:sanctum')->group(functio
     Route::post('/import/preview', [App\Http\Controllers\Api\V1\UispImportController::class, 'preview']);
     Route::post('/import/analyze', [App\Http\Controllers\Api\V1\UispImportController::class, 'analyzeSingle']);
 });
+
+// Generic Import System
+Route::prefix('v1/import')->middleware('auth:sanctum')->group(function () {
+    Route::get('/providers', [App\Http\Controllers\Api\V1\ImportController::class, 'providers']);
+    Route::post('/preview', [App\Http\Controllers\Api\V1\ImportController::class, 'preview']);
+    Route::post('/execute', [App\Http\Controllers\Api\V1\ImportController::class, 'execute']);
+});
+
+// Generic Import System
+Route::prefix('v1/import')->middleware('auth:sanctum')->group(function () {
+    Route::get('/providers', [App\Http\Controllers\Api\V1\ImportController::class, 'providers']);
+    Route::post('/preview', [App\Http\Controllers\Api\V1\ImportController::class, 'preview']);
+    Route::post('/execute', [App\Http\Controllers\Api\V1\ImportController::class, 'execute']);
+});
+
+// Generic Import System
+Route::prefix('v1/import')->middleware('auth:sanctum')->group(function () {
+    Route::get('/providers', [App\Http\Controllers\Api\V1\ImportController::class, 'providers']);
+    Route::post('/preview', [App\Http\Controllers\Api\V1\ImportController::class, 'preview']);
+    Route::post('/execute', [App\Http\Controllers\Api\V1\ImportController::class, 'execute']);
+});
+
+// Generic Import System
+Route::prefix('v1/import')->middleware('auth:sanctum')->group(function () {
+    Route::get('/providers', [App\Http\Controllers\Api\V1\ImportController::class, 'providers']);
+    Route::post('/preview', [App\Http\Controllers\Api\V1\ImportController::class, 'preview']);
+    Route::post('/execute', [App\Http\Controllers\Api\V1\ImportController::class, 'execute']);
+});
+
+// Generic Import System
+Route::prefix('v1/import')->middleware('auth:sanctum')->group(function () {
+    Route::get('/providers', [App\Http\Controllers\Api\V1\ImportController::class, 'providers']);
+    Route::post('/preview', [App\Http\Controllers\Api\V1\ImportController::class, 'preview']);
+    Route::post('/execute', [App\Http\Controllers\Api\V1\ImportController::class, 'execute']);
+});

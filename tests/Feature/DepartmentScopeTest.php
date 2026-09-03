@@ -33,6 +33,8 @@ class DepartmentScopeTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Reset Faker unique history to prevent collisions in parallel/repeated runs
+        \Faker\Factory::create()->unique(true);
 
         $perms = ['departments.view', 'departments.create', 'departments.update', 'departments.delete'];
         foreach ($perms as $p) Permission::firstOrCreate(['name' => $p]);
