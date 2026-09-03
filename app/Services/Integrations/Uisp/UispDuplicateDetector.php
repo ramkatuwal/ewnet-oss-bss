@@ -7,175 +7,153 @@ use App\Models\AssetExternalReference;
 use App\Models\LibreNmsObject;
 use App\Models\Site;
 use App\Models\SiteExternalReference;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * UISP Device → EWNET Asset Reconciliation
+ *
+ * SOURCE: ONE UISP device from the API
+ * DESTINATION: Existing EWNET assets in PostgreSQL
+ * NEVER: Compare UISP devices against each other
+ */
 class UispDuplicateDetector
 {
-    protected array $matches = [];
-    protected array $siteMatches = [];
-
     /**
      * Analyze a UISP device against existing EWNET Assets.
+     *
+     * @param array $uispDevice ONE UISP device from API (SOURCE)
+     * @return array Reconciliation result with destination asset(s)
      */
     public function analyzeDevice(array $uispDevice): array
     {
+        // === STEP 1: Extract SOURCE device data ===
         $externalId = $uispDevice['id'] ?? $uispDevice['identification']['id'] ?? null;
         if (!$externalId) {
             return ['action' => 'error', 'reason' => 'Missing external ID'];
         }
 
-        // Extract device details
         $identification = $uispDevice['identification'] ?? [];
         $serial = $this->normalizeSerial($identification['serialNumber'] ?? null);
         $mac = $this->normalizeMac($identification['mac'] ?? null);
         $name = $this->normalizeName($identification['name'] ?? null);
-        // FIX: IP is at root level, not in overview
         $ip = $this->normalizeIp($uispDevice['ipAddress'] ?? null);
         $model = $identification['model'] ?? $identification['modelName'] ?? null;
         $vendor = $identification['vendor'] ?? $identification['vendorName'] ?? null;
 
-        $matches = [];
-        $action = 'create';
-        $confidence = 'none';
-        $asset = null;
-        $assetId = null;
+        // === STEP 2: Search DESTINATION (EWNET assets) ===
+        $candidates = [];
+        $evidence = [];
 
-        // CHECK 1: UISP External Reference
+        // 2a: Check External Reference (already linked)
         $uispRef = AssetExternalReference::where('provider', 'uisp')
             ->where('external_type', 'device')
             ->where('external_id', $externalId)
             ->first();
 
         if ($uispRef && $uispRef->asset) {
-            $asset = $uispRef->asset;
-            $assetId = $asset->id;
-            return [
-                'action' => 'link',
-                'confidence' => 'exact',
-                'asset_id' => $assetId,
-                'asset' => $asset,
-                'reason' => 'Exact UISP external reference exists.',
-                'matches' => ['external_id' => true],
-                'serial' => $serial,
-                'mac' => $mac,
-                'name' => $name,
-                'ip' => $ip,
-                'model' => $model,
-                'vendor' => $vendor,
-                'external_id' => $externalId,
+            $candidates[$uispRef->asset_id] = $uispRef->asset;
+            $evidence[$uispRef->asset_id][] = [
+                'field' => 'external_id',
+                'strength' => 'exact',
+                'value' => $externalId,
             ];
         }
 
-        // CHECK 2: Serial Number (if valid)
+        // 2b: Check MAC Address (STRONG)
+        if ($mac && $mac !== '00:00:00:00:00:00') {
+            $macAsset = Asset::whereJsonContains('specifications', ['mac_address' => $mac])->first();
+            if ($macAsset) {
+                $candidates[$macAsset->id] = $macAsset;
+                $evidence[$macAsset->id][] = [
+                    'field' => 'mac',
+                    'strength' => 'strong',
+                    'value' => $mac,
+                ];
+            }
+        }
+
+        // 2c: Check Serial Number (STRONG)
         if ($serial) {
             $serialAsset = Asset::where('serial_number', $serial)->first();
             if ($serialAsset) {
-                $matches[] = 'serial';
-                $action = 'link';
-                $confidence = 'strong';
-                $asset = $serialAsset;
-                $assetId = $asset->id;
+                $candidates[$serialAsset->id] = $serialAsset;
+                $evidence[$serialAsset->id][] = [
+                    'field' => 'serial',
+                    'strength' => 'strong',
+                    'value' => $serial,
+                ];
             }
         }
 
-        // CHECK 3: MAC Address (in specifications)
-        if ($mac && !$asset) {
-            $macAsset = Asset::whereJsonContains('specifications', ['mac_address' => $mac])->first();
-            if ($macAsset) {
-                $matches[] = 'mac';
-                $action = 'link';
-                $confidence = 'strong';
-                $asset = $macAsset;
-                $assetId = $asset->id;
+        // 2d: Check IP Address (MODERATE)
+        if ($ip) {
+            $ipAsset = Asset::where(function($query) use ($ip) {
+                $query->whereJsonContains('specifications', ['ip_address' => $ip])
+                      ->orWhereJsonContains('specifications', ['ip' => $ip]);
+            })->first();
+
+            if ($ipAsset) {
+                $candidates[$ipAsset->id] = $ipAsset;
+                $evidence[$ipAsset->id][] = [
+                    'field' => 'ip',
+                    'strength' => 'moderate',
+                    'value' => $ip,
+                ];
             }
         }
 
-        // CHECK 4: LibreNMS Cross-Provider
-        if ($mac && !$asset) {
+        // 2e: Check Name (WEAK - EXACT match only)
+        if ($name) {
+            $nameAsset = Asset::where('description', $name)->first();
+            if ($nameAsset) {
+                $candidates[$nameAsset->id] = $nameAsset;
+                $evidence[$nameAsset->id][] = [
+                    'field' => 'name',
+                    'strength' => 'weak',
+                    'value' => $name,
+                ];
+            }
+        }
+
+        // 2f: Check LibreNMS Cross-Provider (STRONG)
+        if ($mac && $mac !== '00:00:00:00:00:00') {
             $libreNmsRef = LibreNmsObject::where('data->mac', $mac)->first();
             if ($libreNmsRef) {
                 $libreAsset = Asset::whereJsonContains('specifications', ['librenms_device_id' => $libreNmsRef->external_id])->first();
                 if ($libreAsset) {
-                    $matches[] = 'librenms';
-                    $action = 'link';
-                    $confidence = 'strong';
-                    $asset = $libreAsset;
-                    $assetId = $asset->id;
+                    $candidates[$libreAsset->id] = $libreAsset;
+                    $evidence[$libreAsset->id][] = [
+                        'field' => 'librenms',
+                        'strength' => 'strong',
+                        'value' => $libreNmsRef->external_id,
+                    ];
                 }
             }
         }
 
-        // CHECK 5: IP Address
-        if ($ip && !$asset) {
-            $ipAsset = Asset::whereJsonContains('specifications', ['ip_address' => $ip])->first();
-            if ($ipAsset) {
-                $matches[] = 'ip';
-                $action = 'review';
-                $confidence = 'moderate';
-                $asset = $ipAsset;
-                $assetId = $asset->id;
-            }
-        }
+        // === STEP 3: Analyze DESTINATION candidates ===
+        $candidateIds = array_keys($candidates);
+        $uniqueCandidateIds = array_unique($candidateIds);
+        $candidateCount = count($uniqueCandidateIds);
 
-        // CHECK 6: Name (weakest)
-        if ($name && !$asset) {
-            $nameAsset = Asset::where('description', 'ilike', $name)->first();
-            if ($nameAsset) {
-                $matches[] = 'name';
-                $action = 'review';
-                $confidence = 'weak';
-                $asset = $nameAsset;
-                $assetId = $asset->id;
-            }
-        }
+        // Helper: Extract match field names from evidence
+        $extractMatchFields = function($evidenceList) {
+            return array_map(function($ev) {
+                return $ev['field'];
+            }, $evidenceList);
+        };
 
-        // If we have an asset, determine if it's a conflict or safe link
-        if ($asset) {
-            // Check if serial or MAC conflicts
-            if ($serial && $asset->serial_number && $asset->serial_number !== $serial) {
-                return [
-                    'action' => 'conflict',
-                    'confidence' => 'conflict',
-                    'asset_id' => $asset->id,
-                    'asset' => $asset,
-                    'reason' => "Serial number mismatch: UISP '{$serial}' vs Asset '{$asset->serial_number}'",
-                    'matches' => array_combine($matches, array_fill(0, count($matches), true)),
-                    'serial' => $serial,
-                    'mac' => $mac,
-                    'name' => $name,
-                    'ip' => $ip,
-                    'model' => $model,
-                    'vendor' => $vendor,
-                    'external_id' => $externalId,
-                ];
-            }
-
-            if ($mac && isset($asset->specifications['mac_address']) && $asset->specifications['mac_address'] !== $mac) {
-                return [
-                    'action' => 'conflict',
-                    'confidence' => 'conflict',
-                    'asset_id' => $asset->id,
-                    'asset' => $asset,
-                    'reason' => "MAC address mismatch: UISP '{$mac}' vs Asset '{$asset->specifications['mac_address']}'",
-                    'matches' => array_combine($matches, array_fill(0, count($matches), true)),
-                    'serial' => $serial,
-                    'mac' => $mac,
-                    'name' => $name,
-                    'ip' => $ip,
-                    'model' => $model,
-                    'vendor' => $vendor,
-                    'external_id' => $externalId,
-                ];
-            }
-
+        // 3a: NO DESTINATION → CREATE
+        if ($candidateCount === 0) {
             return [
-                'action' => $action,
-                'confidence' => $confidence,
-                'asset_id' => $asset->id,
-                'asset' => $asset,
-                'reason' => $this->buildReason($matches, $serial, $mac, $name, $ip),
-                'matches' => array_combine($matches, array_fill(0, count($matches), true)),
+                'action' => 'create',
+                'confidence' => 'none',
+                'asset_id' => null,
+                'asset' => null,
+                'reason' => 'No matching EWNET asset found. Safe to create.',
+                'evidence' => [],
+                'matches' => [],
+                'candidates' => [],
                 'serial' => $serial,
                 'mac' => $mac,
                 'name' => $name,
@@ -186,14 +164,91 @@ class UispDuplicateDetector
             ];
         }
 
-        // No matches found — safe to create
+        // 3b: ONE DESTINATION → LINK
+        if ($candidateCount === 1) {
+            $assetId = $uniqueCandidateIds[0];
+            $asset = $candidates[$assetId];
+            $assetEvidence = $evidence[$assetId] ?? [];
+
+            $matchFields = $extractMatchFields($assetEvidence);
+
+            $ipChanged = false;
+            $assetIp = $asset->specifications['ip_address'] ?? $asset->specifications['ip'] ?? null;
+            if ($ip && $assetIp && $assetIp !== $ip) {
+                $ipChanged = true;
+            }
+
+            return [
+                'action' => 'link',
+                'confidence' => $this->calculateConfidence($assetEvidence),
+                'asset_id' => $assetId,
+                'asset' => $asset,
+                'reason' => $this->buildReason($assetEvidence, $ipChanged),
+                'evidence' => $assetEvidence,
+                'matches' => $matchFields,  // ← FIXED: Now populated!
+                'candidates' => [$assetId => $asset],
+                'ip_changed' => $ipChanged,
+                'serial' => $serial,
+                'mac' => $mac,
+                'name' => $name,
+                'ip' => $ip,
+                'model' => $model,
+                'vendor' => $vendor,
+                'external_id' => $externalId,
+            ];
+        }
+
+        // 3c: MULTIPLE DESTINATION CANDIDATES → REVIEW / CONFLICT
+        $strongMatchFound = false;
+        $strongMatchAssetId = null;
+        foreach ($evidence as $assetId => $evidences) {
+            foreach ($evidences as $ev) {
+                if (in_array($ev['strength'], ['exact', 'strong'])) {
+                    $strongMatchFound = true;
+                    $strongMatchAssetId = $assetId;
+                    break 2;
+                }
+            }
+        }
+
+        if ($strongMatchFound && $candidateCount === 2) {
+            $asset = $candidates[$strongMatchAssetId];
+            $assetEvidence = $evidence[$strongMatchAssetId] ?? [];
+            $matchFields = $extractMatchFields($assetEvidence);
+
+            return [
+                'action' => 'link',
+                'confidence' => 'strong',
+                'asset_id' => $strongMatchAssetId,
+                'asset' => $strongMatchAssetId,
+                'reason' => 'Strong evidence (MAC/serial) identifies one asset. Weak name match reviewed.',
+                'evidence' => $assetEvidence,
+                'matches' => $matchFields,  // ← FIXED: Now populated!
+                'candidates' => $candidates,
+                'weak_matches' => array_filter($evidence, function($evs, $id) use ($strongMatchAssetId) {
+                    return $id !== $strongMatchAssetId;
+                }, ARRAY_FILTER_USE_BOTH),
+                'serial' => $serial,
+                'mac' => $mac,
+                'name' => $name,
+                'ip' => $ip,
+                'model' => $model,
+                'vendor' => $vendor,
+                'external_id' => $externalId,
+            ];
+        }
+
+        // Multiple candidates with conflicting strong evidence → CONFLICT
         return [
-            'action' => 'create',
-            'confidence' => 'none',
+            'action' => 'conflict',
+            'confidence' => 'conflict',
             'asset_id' => null,
             'asset' => null,
-            'reason' => 'No matching Asset found. Safe to create.',
-            'matches' => [],
+            'reason' => 'Multiple EWNET assets match this device. Manual review required.',
+            'evidence' => $evidence,
+            'matches' => [],  // No single match
+            'candidates' => $candidates,
+            'candidate_ids' => $uniqueCandidateIds,
             'serial' => $serial,
             'mac' => $mac,
             'name' => $name,
@@ -204,9 +259,29 @@ class UispDuplicateDetector
         ];
     }
 
-    /**
-     * Analyze a UISP Site against existing EWNET Sites.
-     */
+    protected function calculateConfidence(array $evidence): string
+    {
+        foreach ($evidence as $ev) {
+            if ($ev['strength'] === 'exact') return 'exact';
+            if ($ev['strength'] === 'strong') return 'strong';
+            if ($ev['strength'] === 'moderate') return 'moderate';
+        }
+        return 'weak';
+    }
+
+    protected function buildReason(array $evidence, bool $ipChanged = false): string
+    {
+        $parts = [];
+        foreach ($evidence as $ev) {
+            $parts[] = ucfirst($ev['field']) . ' match';
+        }
+        $reason = implode('; ', $parts);
+        if ($ipChanged) {
+            $reason .= '; IP changed (will update)';
+        }
+        return $reason ?: 'No evidence';
+    }
+
     public function analyzeSite(array $uispSite): array
     {
         $externalId = $uispSite['id'] ?? null;
@@ -218,7 +293,6 @@ class UispDuplicateDetector
         $location = $uispSite['location'] ?? [];
         $address = $uispSite['address'] ?? [];
 
-        // CHECK 1: UISP External Reference
         $uispRef = SiteExternalReference::where('provider', 'uisp')
             ->where('external_type', 'site')
             ->where('external_id', $externalId)
@@ -231,7 +305,8 @@ class UispDuplicateDetector
                 'site_id' => $uispRef->site_id,
                 'site' => $uispRef->site,
                 'reason' => 'Exact UISP external reference exists.',
-                'matches' => ['external_id' => true],
+                'evidence' => [['field' => 'external_id', 'strength' => 'exact']],
+                'matches' => ['external_id'],
                 'name' => $name,
                 'address' => $address['fullAddress'] ?? null,
                 'latitude' => $location['lat'] ?? null,
@@ -240,9 +315,8 @@ class UispDuplicateDetector
             ];
         }
 
-        // CHECK 2: Name match
         if ($name) {
-            $site = Site::where('name', 'ilike', $name)->first();
+            $site = Site::where('name', $name)->first();
             if ($site) {
                 return [
                     'action' => 'link',
@@ -250,7 +324,8 @@ class UispDuplicateDetector
                     'site_id' => $site->id,
                     'site' => $site,
                     'reason' => "Name match found: '{$name}'",
-                    'matches' => ['name' => true],
+                    'evidence' => [['field' => 'name', 'strength' => 'moderate']],
+                    'matches' => ['name'],
                     'name' => $name,
                     'address' => $address['fullAddress'] ?? null,
                     'latitude' => $location['lat'] ?? null,
@@ -260,13 +335,13 @@ class UispDuplicateDetector
             }
         }
 
-        // No matches — safe to create
         return [
             'action' => 'create',
             'confidence' => 'none',
             'site_id' => null,
             'site' => null,
             'reason' => 'No matching Site found. Safe to create.',
+            'evidence' => [],
             'matches' => [],
             'name' => $name,
             'address' => $address['fullAddress'] ?? null,
@@ -291,6 +366,7 @@ class UispDuplicateDetector
         if (!$value) return null;
         $value = preg_replace('/[^a-fA-F0-9]/', '', $value);
         if (strlen($value) !== 12) return null;
+        if ($value === '000000000000') return null;
         return strtolower(implode(':', str_split($value, 2)));
     }
 
@@ -306,20 +382,10 @@ class UispDuplicateDetector
     {
         if (!$value) return null;
         $value = trim($value);
+        $value = preg_replace('/\/\d+$/', '', $value);
         if (filter_var($value, FILTER_VALIDATE_IP)) {
             return $value;
         }
         return null;
-    }
-
-    protected function buildReason(array $matches, ?string $serial, ?string $mac, ?string $name, ?string $ip): string
-    {
-        $parts = [];
-        if (in_array('serial', $matches)) $parts[] = "Serial match: '{$serial}'";
-        if (in_array('mac', $matches)) $parts[] = "MAC match: '{$mac}'";
-        if (in_array('librenms', $matches)) $parts[] = "LibreNMS cross-provider match";
-        if (in_array('ip', $matches)) $parts[] = "IP match: '{$ip}'";
-        if (in_array('name', $matches)) $parts[] = "Name match: '{$name}'";
-        return implode('; ', $parts);
     }
 }
