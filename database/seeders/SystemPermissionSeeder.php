@@ -11,52 +11,35 @@ class SystemPermissionSeeder extends Seeder
     public function run(): void
     {
         $permissions = [
-            // Dashboard
             'dashboard.view',
-
-            // System Info & Config
             'system.info.view',
             'system.config.view',
             'system.config.manage',
             'system.debug.view',
-
-            // Companies
             'companies.view',
             'companies.create',
             'companies.update',
             'companies.delete',
-
-            // Regions
             'regions.view',
             'regions.create',
             'regions.update',
             'regions.delete',
-
-            // Branches
             'branches.view',
             'branches.create',
             'branches.update',
             'branches.delete',
-
-            // Departments
             'departments.view',
             'departments.create',
             'departments.update',
             'departments.delete',
-
-            // Designations
             'designations.view',
             'designations.create',
             'designations.update',
             'designations.delete',
-
-            // Employees
             'employees.view',
             'employees.create',
             'employees.update',
             'employees.delete',
-
-            // Assets
             'assets.view',
             'assets.create',
             'assets.update',
@@ -68,16 +51,12 @@ class SystemPermissionSeeder extends Seeder
             'assets.transfer',
             'assets.retire',
             'assets.dispose',
-
-            // Sites
             'sites.view',
             'sites.create',
             'sites.update',
             'sites.delete',
             'sites.import',
             'sites.export',
-
-            // Integrations
             'integrations.view',
             'integrations.create',
             'integrations.update',
@@ -86,14 +65,8 @@ class SystemPermissionSeeder extends Seeder
             'integrations.credentials.manage',
             'integrations.test',
             'integrations.logs.view',
-
-            // LibreNMS
             'librenms.import',
-
-            // UISP
             'integration.uisp.import',
-
-            // Users & Roles
             'users.view',
             'users.create',
             'users.update',
@@ -106,8 +79,6 @@ class SystemPermissionSeeder extends Seeder
             'permissions.create',
             'permissions.update',
             'permissions.delete',
-
-            // Audit & Logs
             'audit.view',
             'logs.view',
         ];
@@ -116,7 +87,6 @@ class SystemPermissionSeeder extends Seeder
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
         }
 
-        // Assign all permissions to Super Admin role
         $superAdmin = Role::firstOrCreate(['name' => 'Super Admin', 'guard_name' => 'web']);
         $superAdmin->syncPermissions(Permission::all());
 
