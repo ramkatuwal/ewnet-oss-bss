@@ -44,6 +44,18 @@ class SystemPermissionSeeder extends Seeder
             'departments.update',
             'departments.delete',
 
+            // Designations
+            'designations.view',
+            'designations.create',
+            'designations.update',
+            'designations.delete',
+
+            // Employees
+            'employees.view',
+            'employees.create',
+            'employees.update',
+            'employees.delete',
+
             // Assets
             'assets.view',
             'assets.create',
