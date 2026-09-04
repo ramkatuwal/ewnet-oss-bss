@@ -102,7 +102,7 @@ timeout 120 bash -c 'until docker compose exec redis redis-cli ping; do sleep 2;
 
 # --- 9. Initialize Laravel ---
 echo -e "${YELLOW}Initializing application...${NC}"
-docker compose exec app php artisan migrate --force
+docker compose exec app php artisan migrate:fresh --force
 docker compose exec app php artisan db:seed --force
 docker compose exec app php artisan storage:link
 docker compose exec app php artisan config:cache
