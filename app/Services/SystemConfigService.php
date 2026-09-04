@@ -45,8 +45,16 @@ class SystemConfigService
             if (in_array($key, ['show_logo', 'show_title', 'show_user_menu', 'show_notifications', 'dark_mode'])) {
                 $value = filter_var($value, FILTER_VALIDATE_BOOLEAN);
             }
+            
+            // FIX: Robustly clean storage paths to prevent double /storage/ prefixes
             if (in_array($key, ['logo_path', 'favicon_path']) && $value) {
-                $cleanValue = str_replace('storage/app/public/', '', $value);
+                $cleanValue = $value;
+                // Remove common filesystem prefixes if they exist in the DB
+                $cleanValue = str_replace('storage/app/public/', '', $cleanValue);
+                $cleanValue = str_replace('public/', '', $cleanValue);
+                $cleanValue = str_replace('storage/', '', $cleanValue);
+                $cleanValue = ltrim($cleanValue, '/');
+                
                 $result[$group][$key] = url('storage/' . $cleanValue);
             } else {
                 $result[$group][$key] = $value;
