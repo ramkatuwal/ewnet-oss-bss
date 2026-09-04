@@ -230,7 +230,7 @@ class LibreNMSImportService
 
         return [
             'site_id' => $site->id,
-            'asset_tag' => $hostname ?: $sysName,
+            'asset_tag' => $device['display'] ?? $device['sysName'] ?? $device['hostname'] ?? $device['device_id'],
             'type' => $device['type'] ?? 'network_device',
             'category' => 'NETWORK',
             'manufacturer' => $device['hardware'] ?? null,

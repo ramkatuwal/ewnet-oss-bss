@@ -152,7 +152,7 @@ class LibreNMSProvider implements IntegrationProviderInterface
                 'device',
                 $externalId,
                 $device,
-                $device['hostname'] ?? $device['sysName'] ?? null,
+                $device['display'] ?? $device['sysName'] ?? $device['hostname'] ?? null,
                 $device['status'] ?? null,
             );
 
