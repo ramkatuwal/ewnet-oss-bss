@@ -93,3 +93,6 @@ class SystemPermissionSeeder extends Seeder
         $this->command->info('System permissions seeded successfully.');
     }
 }
+
+            // Import UI access
+            'imports.view',

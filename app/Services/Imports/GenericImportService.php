@@ -9,6 +9,7 @@ use App\Models\Site;
 use App\Models\SiteExternalReference;
 use App\Models\AssetInterface;
 use App\Models\IpAddress;
+use App\Services\ManagementScopeService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -16,6 +17,7 @@ class GenericImportService
 {
     protected ImportSourceInterface $source;
     protected ReconciliationEngine $engine;
+    protected $user;
 
     public function __construct($source)
     {
@@ -27,6 +29,7 @@ class GenericImportService
 
         $this->source = $source;
         $this->engine = new ReconciliationEngine();
+        $this->user = auth()->user();
     }
 
     public function preview(string $type): array
@@ -89,8 +92,7 @@ class GenericImportService
                     $detail['message'] = $e->getMessage();
                     Log::error('Import item failed', [
                         'source_id' => $detail['source_id'],
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
+                        'error' => $e->getMessage()
                     ]);
                 }
                 $results['details'][] = $detail;
@@ -126,8 +128,14 @@ class GenericImportService
         $destId = $analysis['destination_id'];
 
         if ($destId) {
+            // EXISTING ASSET — verify user has scope
             $asset = Asset::find($destId);
             if (!$asset) throw new \Exception("Destination asset #{$destId} not found.");
+            
+            // Verify management scope
+            if (!$this->isAssetInScope($asset)) {
+                throw new \Exception("You do not have permission to update asset #{$destId}");
+            }
 
             $results['linked']++;
             AssetExternalReference::updateOrCreate(
@@ -135,17 +143,16 @@ class GenericImportService
                 ['asset_id' => $asset->id]
             );
         } else {
-            $siteId = 1;
-            if (isset($data['metadata']['site_id'])) {
-                $siteId = $data['metadata']['site_id'];
+            // NEW ASSET — determine destination site first
+            $siteId = $this->resolveSiteId($data);
+            
+            // Verify the site is in scope
+            if (!$this->isSiteInScope($siteId)) {
+                throw new \Exception("You do not have permission to create assets at site #{$siteId}");
             }
 
-            $assetTag = 'IMP-' . substr($data['external_id'], 0, 8);
-            $baseTag = $assetTag;
-            $counter = 1;
-            while (Asset::where('asset_tag', $assetTag)->exists()) {
-                $assetTag = $baseTag . '-' . $counter++;
-            }
+            $assetTag = $this->generateAssetTag($data['external_id']);
+            $assetTag = $this->ensureUniqueAssetTag($assetTag);
 
             $asset = Asset::create([
                 'site_id' => $siteId,
@@ -180,8 +187,120 @@ class GenericImportService
 
     protected function processSite(array $data, array $analysis, array &$results): void
     {
-        // Site processing logic
-        $results['created']++;
+        // Site processing with scope enforcement
+        $destId = $analysis['destination_id'];
+
+        if ($destId) {
+            // EXISTING SITE — verify user has scope
+            $site = Site::find($destId);
+            if (!$site) throw new \Exception("Destination site #{$destId} not found.");
+            
+            if (!$this->isSiteInScope($site->id)) {
+                throw new \Exception("You do not have permission to update site #{$destId}");
+            }
+            $results['linked']++;
+        } else {
+            // NEW SITE — verify scope based on organization context
+            $orgContext = $this->resolveSiteOrganization($data);
+            if (!$this->isOrganizationInScope($orgContext)) {
+                throw new \Exception("You do not have permission to create sites in this organization");
+            }
+
+            $site = Site::create([
+                'site_code' => $this->generateSiteCode($data['name']),
+                'name' => $data['name'] ?? 'Unknown Site',
+                'type' => 'pop',
+                'status' => 'active',
+                'description' => $data['description'] ?? null,
+                'metadata' => $data['metadata'] ?? [],
+                'company_id' => $orgContext['company_id'] ?? null,
+                'region_id' => $orgContext['region_id'] ?? null,
+                'branch_id' => $orgContext['branch_id'] ?? null,
+            ]);
+
+            SiteExternalReference::create([
+                'site_id' => $site->id,
+                'provider' => $data['provider'],
+                'external_type' => 'site',
+                'external_id' => $data['external_id'],
+                'metadata' => ['imported_at' => now()],
+            ]);
+
+            $results['created']++;
+        }
+    }
+
+    protected function isAssetInScope(Asset $asset): bool
+    {
+        if ($this->user->hasRole('Super Admin')) return true;
+        return ManagementScopeService::isInScope($this->user, $asset);
+    }
+
+    protected function isSiteInScope(int $siteId): bool
+    {
+        if ($this->user->hasRole('Super Admin')) return true;
+        $site = Site::find($siteId);
+        if (!$site) return false;
+        return ManagementScopeService::isInScope($this->user, $site);
+    }
+
+    protected function isOrganizationInScope(array $orgContext): bool
+    {
+        if ($this->user->hasRole('Super Admin')) return true;
+        
+        // Check if user has scope for this organization level
+        if (!empty($orgContext['company_id'])) {
+            $company = \App\Models\Company::find($orgContext['company_id']);
+            if ($company && ManagementScopeService::isInScope($this->user, $company)) {
+                return true;
+            }
+        }
+        // Additional org-level checks can be added here
+        return false;
+    }
+
+    protected function resolveSiteId(array $data): int
+    {
+        // Try to resolve site from metadata
+        if (isset($data['metadata']['site_id'])) {
+            return (int) $data['metadata']['site_id'];
+        }
+        // Default to first site or throw
+        $site = Site::first();
+        if (!$site) {
+            throw new \Exception('No site available for asset creation');
+        }
+        return $site->id;
+    }
+
+    protected function resolveSiteOrganization(array $data): array
+    {
+        // Try to resolve organization context from metadata
+        return [
+            'company_id' => $data['metadata']['company_id'] ?? null,
+            'region_id' => $data['metadata']['region_id'] ?? null,
+            'branch_id' => $data['metadata']['branch_id'] ?? null,
+        ];
+    }
+
+    protected function generateAssetTag(string $externalId): string
+    {
+        return 'IMP-' . substr($externalId, 0, 8);
+    }
+
+    protected function ensureUniqueAssetTag(string $assetTag): string
+    {
+        $baseTag = $assetTag;
+        $counter = 1;
+        while (Asset::where('asset_tag', $assetTag)->exists()) {
+            $assetTag = $baseTag . '-' . $counter++;
+        }
+        return $assetTag;
+    }
+
+    protected function generateSiteCode(string $name): string
+    {
+        return 'SITE-' . strtoupper(substr(md5($name . time()), 0, 8));
     }
 
     protected function processInterfacesAndIps(array $data, int $assetId, array &$results): void
@@ -195,6 +314,13 @@ class GenericImportService
 
     protected function processSingleInterface(array $interfaceData, int $assetId, array &$results): void
     {
+        // Verify asset is in scope before creating/updating interface
+        $asset = Asset::find($assetId);
+        if (!$asset || !$this->isAssetInScope($asset)) {
+            $results['failed']++;
+            return;
+        }
+
         $decision = $this->engine->reconcileInterface($interfaceData, $assetId);
 
         if ($decision['decision'] === 'CONFLICT') {
@@ -228,6 +354,13 @@ class GenericImportService
 
     protected function processSingleIp(array $ipData, int $interfaceId, int $assetId, array &$results): void
     {
+        // IP authorization inherits from Asset
+        $asset = Asset::find($assetId);
+        if (!$asset || !$this->isAssetInScope($asset)) {
+            $results['failed']++;
+            return;
+        }
+
         $decision = $this->engine->reconcileIpAddress($ipData, $interfaceId, $assetId);
 
         if ($decision['decision'] === 'CONFLICT') {
@@ -286,21 +419,3 @@ class GenericImportService
         ];
     }
 }
-
-    /**
-     * Execute import with concurrency protection
-     */
-    public function executeWithLock(array $selectedItems): array
-    {
-        $lockKey = 'import:' . $this->source->getIdentity() . ':' . md5(json_encode($selectedItems));
-        $lock = \Illuminate\Support\Facades\Cache::lock($lockKey, 60);
-        
-        try {
-            if ($lock->get()) {
-                return $this->execute($selectedItems);
-            }
-            throw new \RuntimeException('Another import is already in progress for this source.');
-        } finally {
-            $lock->release();
-        }
-    }

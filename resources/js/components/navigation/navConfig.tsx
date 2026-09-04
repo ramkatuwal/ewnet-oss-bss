@@ -60,7 +60,7 @@ export const navigationItems: NavItem[] = [
         children: [
             { label: 'Configuration', path: '/system/configuration', icon: <SettingsIcon />, permission: 'system.config.manage' },
             { label: 'Integrations', path: '/system/integrations', icon: <SettingsIcon />, permission: 'integrations.view' },
-            { label: 'System Import', path: '/system/import', icon: <CloudDownloadIcon />, permission: 'librenms.import' },
+            { label: 'System Import', path: '/system/import', icon: <CloudDownloadIcon />, permission: 'imports.view' },
 
         ],
     },
