@@ -10,36 +10,37 @@ use Illuminate\Support\Facades\Hash;
 
 class DefaultSuperAdminSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
         // Ensure Super Admin role exists
         $role = Role::firstOrCreate(['name' => 'Super Admin', 'guard_name' => 'web']);
 
-        // Check if admin user already exists
-        if (!User::where('email', 'admin@ewnet.com.np')->exists()) {
-            $user = User::create([
+        // Create or update user
+        $user = User::updateOrCreate(
+            ['email' => 'admin@ewnet.com.np'],
+            [
                 'name' => 'Super Admin',
-                'email' => 'admin@ewnet.com.np',
-                'password' => Hash::make('Admin@2026!'), // Default password - must be changed on first login
+                'password' => Hash::make('Admin@2026!'),
                 'email_verified_at' => now(),
-            ]);
+            ]
+        );
 
+        // Assign role to user
+        if (!$user->hasRole($role)) {
             $user->assignRole($role);
-
-            // Sync all permissions to Super Admin role
-            $allPermissions = Permission::all();
-            if ($allPermissions->isNotEmpty()) {
-                $role->syncPermissions($allPermissions);
-                $this->command->info('Super Admin role synced with ' . $allPermissions->count() . ' permissions.');
-            }
-
-            $this->command->info('Default Super Admin user created successfully.');
-            $this->command->warn('Please change the default password immediately after first login.');
-        } else {
-            $this->command->info('Super Admin user already exists. Skipping creation.');
         }
+
+        // Get ALL permissions currently in the database
+        $allPermissions = Permission::all();
+        
+        // Sync all permissions to the Super Admin role
+        $role->syncPermissions($allPermissions);
+
+        // Clear permission cache to ensure immediate availability
+        \Spatie\Permission\PermissionRegistrar::class;
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+
+        $this->command->info('Super Admin role synced with ' . $allPermissions->count() . ' permissions.');
+        $this->command->warn('Default Password: Admin@2026!');
     }
 }
