@@ -20,6 +20,30 @@ class SystemPermissionSeeder extends Seeder
             'system.config.manage',
             'system.debug.view',
 
+            // Companies
+            'companies.view',
+            'companies.create',
+            'companies.update',
+            'companies.delete',
+
+            // Regions
+            'regions.view',
+            'regions.create',
+            'regions.update',
+            'regions.delete',
+
+            // Branches
+            'branches.view',
+            'branches.create',
+            'branches.update',
+            'branches.delete',
+
+            // Departments
+            'departments.view',
+            'departments.create',
+            'departments.update',
+            'departments.delete',
+
             // Assets
             'assets.view',
             'assets.create',
@@ -47,6 +71,15 @@ class SystemPermissionSeeder extends Seeder
             'integrations.update',
             'integrations.delete',
             'integrations.sync',
+            'integrations.credentials.manage',
+            'integrations.test',
+            'integrations.logs.view',
+
+            // LibreNMS
+            'librenms.import',
+
+            // UISP
+            'integration.uisp.import',
 
             // Users & Roles
             'users.view',
@@ -58,6 +91,9 @@ class SystemPermissionSeeder extends Seeder
             'roles.update',
             'roles.delete',
             'permissions.view',
+            'permissions.create',
+            'permissions.update',
+            'permissions.delete',
 
             // Audit & Logs
             'audit.view',
