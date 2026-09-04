@@ -11,9 +11,6 @@ const SystemInfoPage = lazy(() => import("@/features/system/pages/SystemInfoPage
 const SystemConfigurationPage = lazy(() => import("@/features/system/pages/SystemConfigurationPage").then(m => ({ default: m.SystemConfigurationPage })));
 const IntegrationsPage = lazy(() => import("@/features/integrations/pages/IntegrationsPage").then(m => ({ default: m.IntegrationsPage })));
 const IntegrationDetailPage = lazy(() => import("@/features/integrations/pages/IntegrationDetailPage").then(m => ({ default: m.IntegrationDetailPage })));
-const LibreNMSImportPage = lazy(() => import('@/features/integrations/pages/LibreNMSImportPage'));
-const LibreNMSSiteImportPage = lazy(() => import('@/features/integrations/pages/LibreNMSSiteImportPage'));
-const UispImportPage = lazy(() => import('@/features/integrations/uisp/pages/UispImportPage'));
 const ImportPage = lazy(() => import('@/features/imports/pages/ImportPage'));
 
 const CompaniesPage = lazy(() => import('@/features/companies/pages/CompaniesPage').then(m => ({ default: m.CompaniesPage })));
@@ -64,9 +61,6 @@ export const AppRouter = () => (
                     <Route path="system/configuration" element={<SystemConfigurationPage />} />
                     <Route path="system/integrations" element={<IntegrationsPage />} />
                     <Route path="system/integrations/:id" element={<IntegrationDetailPage />} />
-                    <Route path="system/integrations/librenms/import" element={<LibreNMSImportPage />} />
-                    <Route path="system/integrations/librenms/sites" element={<LibreNMSSiteImportPage />} />
-                    <Route path="system/integrations/uisp/import" element={<UispImportPage />} />
                     <Route path="system/import" element={<ImportPage />} />
 
                     {/* Network Section */}

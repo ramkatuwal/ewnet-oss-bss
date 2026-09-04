@@ -60,10 +60,7 @@ export const navigationItems: NavItem[] = [
         children: [
             { label: 'Configuration', path: '/system/configuration', icon: <SettingsIcon />, permission: 'system.config.manage' },
             { label: 'Integrations', path: '/system/integrations', icon: <SettingsIcon />, permission: 'integrations.view' },
-            { label: 'LibreNMS Import', path: '/system/integrations/librenms/import', icon: <SyncIcon />, permission: 'librenms.import' },
-            { label: 'LibreNMS Site Import', path: '/system/integrations/librenms/sites', icon: <LocationOnIcon />, permission: 'librenms.import' },
-            { label: 'UISP Import', path: '/system/integrations/uisp/import', icon: <CloudUploadIcon />, permission: 'integration.uisp.import' },
-            { label: 'System Import', path: '/system/import', icon: <CloudDownloadIcon />, permission: 'integration.uisp.import' },
+            { label: 'System Import', path: '/system/import', icon: <CloudDownloadIcon />, permission: 'librenms.import' },
 
         ],
     },
