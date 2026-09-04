@@ -48,121 +48,149 @@ class UispSourceAdapter implements ImportSourceInterface
 
         $ip = $this->extractIp($raw);
         $name = $raw['name'] ?? $raw['identification']['name'] ?? 'Unknown Device';
-        $mac = $raw['mac'] ?? $raw['identification']['mac'] ?? null;
-        $serial = $raw['serialNumber'] ?? $raw['identification']['serialNumber'] ?? null;
-        $model = $raw['model'] ?? $raw['identification']['model'] ?? null;
-        $manufacturer = $raw['manufacturer'] ?? $raw['identification']['vendor'] ?? null;
-        
-        $siteName = null;
-        $siteId = $raw['siteId'] ?? null;
-        if (isset($raw['site']) && is_array($raw['site'])) {
-            $siteName = $raw['site']['name'] ?? null;
-            $siteId = $siteId ?? ($raw['site']['id'] ?? null);
-        }
 
-        return new NormalizedRecord(
-            provider: 'uisp',
-            sourceType: 'device',
-            externalId: (string) $id,
-            name: $name,
-            description: $name,
-            ipAddress: $this->normalizeIp($ip),
-            macAddress: $mac ? strtolower($mac) : null,
-            serialNumber: $serial,
-            manufacturer: $manufacturer,
-            model: $model,
-            status: $raw['status'] ?? $raw['identification']['status'] ?? 'unknown',
-            metadata: [
-                'site_id' => $siteId,
-                'site_name' => $siteName,
-                'firmware_version' => $raw['firmwareVersion'] ?? null,
-            ],
-            rawSource: $raw
-        );
+        $record = new NormalizedRecord();
+        $record->sourceType = 'device';
+        $record->provider = 'uisp';
+        $record->externalId = (string) $id;
+        $record->name = $name;
+        $record->description = $raw['description'] ?? null;
+        $record->serialNumber = $raw['serial'] ?? null;
+        $record->macAddress = $raw['mac'] ?? null;
+        $record->ipAddress = $ip;
+        $record->model = $raw['model'] ?? $raw['type'] ?? null;
+        $record->manufacturer = $raw['vendor'] ?? null;
+        $record->status = $raw['status'] ?? null;
+        $record->metadata = $raw;
+
+        // Extract interfaces from UISP device
+        $record->interfaces = $this->extractInterfaces($raw);
+        $record->ipAddresses = $this->extractIpAddresses($raw);
+
+        return $record;
     }
 
     public function normalizeSite(array $raw): NormalizedRecord
     {
-        $id = $raw['id'] ?? $raw['identification']['id'] ?? null;
+        $id = $raw['id'] ?? $raw['uuid'] ?? null;
         if (!$id) throw new \InvalidArgumentException('UISP site missing ID');
 
-        // Correct mapping for UISP v2.1 structure
-        $identification = is_array($raw['identification'] ?? null) ? $raw['identification'] : [];
-        $description = is_array($raw['description'] ?? null) ? $raw['description'] : [];
-        $location = is_array($description['location'] ?? null) ? $description['location'] : [];
+        $record = new NormalizedRecord();
+        $record->sourceType = 'site';
+        $record->provider = 'uisp';
+        $record->externalId = (string) $id;
+        $record->name = $raw['name'] ?? 'Unknown Site';
+        $record->description = $raw['description'] ?? null;
+        $record->metadata = $raw;
 
-        $name = $identification['name'] ?? 'Unknown Site';
-        $status = $identification['status'] ?? 'active';
-        
-        // Handle note/description text
-        $note = $description['note'] ?? null;
-        if (is_array($note)) {
-            $note = json_encode($note);
-        }
-
-        // Extract first IP if available in description
-        $ipList = $description['ipAddresses'] ?? [];
-        $primaryIp = is_array($ipList) && count($ipList) > 0 ? $ipList[0] : null;
-
-        return new NormalizedRecord(
-            provider: 'uisp',
-            sourceType: 'site',
-            externalId: (string) $id,
-            name: $name,
-            description: $note,
-            ipAddress: $this->normalizeIp($primaryIp),
-            macAddress: null,
-            serialNumber: null,
-            manufacturer: null,
-            model: null,
-            status: $status,
-            metadata: [
-                'address' => null, // UISP sites don't always have a structured street address
-                'latitude' => $location['latitude'] ?? null,
-                'longitude' => $location['longitude'] ?? null,
-                'parent_id' => $identification['parent']['id'] ?? null,
-                'parent_name' => $identification['parent']['name'] ?? null,
-                'device_count' => $description['deviceCount'] ?? 0,
-            ],
-            rawSource: $raw
-        );
+        return $record;
     }
 
     protected function extractIp(array $raw): ?string
     {
-        if (!empty($raw['ip'])) return $raw['ip'];
-        if (!empty($raw['managementIp'])) return $raw['managementIp'];
-        if (!empty($raw['ipAddress'])) return $raw['ipAddress'];
-        
-        if (!empty($raw['ipAddressList']) && is_array($raw['ipAddressList'])) {
-            foreach ($raw['ipAddressList'] as $entry) {
-                if (isset($entry['address'])) return $entry['address'];
-                if (isset($entry['ip'])) return $entry['ip'];
-            }
-        }
-
-        if (!empty($raw['interfaces']) && is_array($raw['interfaces'])) {
-            foreach ($raw['interfaces'] as $iface) {
-                if (!is_array($iface)) continue;
-                if (!empty($iface['ip'])) return $iface['ip'];
-                
-                if (!empty($iface['addresses']) && is_array($iface['addresses'])) {
-                    foreach ($iface['addresses'] as $addr) {
-                        if (isset($addr['address'])) {
-                            return preg_replace('/\/\d+$/', '', $addr['address']);
-                        }
-                    }
-                }
-            }
-        }
-
-        return null;
+        return $raw['ip'] ?? $raw['management_ip'] ?? $raw['address'] ?? null;
     }
 
-    protected function normalizeIp(?string $value): ?string
+    /**
+     * Extract interfaces from UISP device data
+     */
+    protected function extractInterfaces(array $device): array
     {
-        if (!$value) return null;
-        $value = trim(preg_replace('/\/\d+$/', '', $value));
-        return filter_var($value, FILTER_VALIDATE_IP) ? $value : null;
+        $interfaces = [];
+        $deviceId = $device['id'] ?? $device['uuid'] ?? null;
+
+        foreach ($device['interfaces'] ?? [] as $interface) {
+            $interfaces[] = [
+                'name' => $interface['name'] ?? 'unknown',
+                'display_name' => $interface['name'] ?? null,
+                'description' => $interface['description'] ?? null,
+                'type' => $interface['type'] ?? null,
+                'mac_address' => $interface['mac'] ?? null,
+                'speed' => isset($interface['speed']) ? (int) $interface['speed'] : null,
+                'status' => $interface['status'] ?? null,
+                'provider' => 'uisp',
+                'external_type' => 'interface',
+                'external_id' => (string) ($interface['id'] ?? $interface['uuid'] ?? null),
+                'metadata' => $interface,
+                'ip_addresses' => $this->extractIpAddressesFromInterface($interface),
+            ];
+        }
+
+        // Also add management IP as an interface if present
+        if (!empty($device['management_ip'])) {
+            $interfaces[] = [
+                'name' => 'management',
+                'display_name' => 'Management IP',
+                'description' => 'Management interface',
+                'type' => 'management',
+                'provider' => 'uisp',
+                'external_type' => 'management_ip',
+                'external_id' => $deviceId . '_mgmt',
+                'metadata' => ['management_ip' => $device['management_ip']],
+                'ip_addresses' => [
+                    [
+                        'ip' => $device['management_ip'],
+                        'prefix' => 32,
+                        'is_primary' => true,
+                        'is_management' => true,
+                        'provider' => 'uisp',
+                        'external_type' => 'management_ip',
+                        'external_id' => $deviceId . '_mgmt_ip',
+                    ]
+                ],
+            ];
+        }
+
+        return $interfaces;
+    }
+
+    /**
+     * Extract IP addresses from UISP interface
+     */
+    protected function extractIpAddressesFromInterface(array $interface): array
+    {
+        $ips = [];
+
+        foreach ($interface['ip_addresses'] ?? [] as $ipData) {
+            $ip = $ipData['address'] ?? $ipData['ip'] ?? null;
+            if (!$ip) continue;
+
+            $ips[] = [
+                'ip' => $ip,
+                'prefix' => $ipData['prefix'] ?? $ipData['mask'] ?? null,
+                'is_primary' => $ipData['primary'] ?? false,
+                'is_management' => $ipData['management'] ?? false,
+                'provider' => 'uisp',
+                'external_type' => 'interface_ip',
+                'external_id' => $ipData['id'] ?? null,
+                'metadata' => $ipData,
+            ];
+        }
+
+        return $ips;
+    }
+
+    /**
+     * Extract IP addresses from UISP device
+     */
+    protected function extractIpAddresses(array $device): array
+    {
+        $ips = [];
+
+        // Device-level IPs
+        if (!empty($device['ip'])) {
+            $ips[] = [
+                'ip' => $device['ip'],
+                'prefix' => null,
+                'is_primary' => true,
+                'is_management' => true,
+                'provider' => 'uisp',
+                'external_type' => 'device_ip',
+                'external_id' => ($device['id'] ?? $device['uuid'] ?? '') . '_ip',
+                'metadata' => ['source' => 'device'],
+            ];
+        }
+
+        return $ips;
     }
 }

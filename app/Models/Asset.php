@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Asset extends Model
 {
@@ -98,5 +99,31 @@ class Asset extends Model
     public function externalReferences(): HasMany
     {
         return $this->hasMany(AssetExternalReference::class);
+    }
+
+    // New relationships for interfaces and IP addresses
+    public function interfaces(): HasMany
+    {
+        return $this->hasMany(AssetInterface::class);
+    }
+
+    public function ipAddresses(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            IpAddress::class,
+            AssetInterface::class,
+            'asset_id',          // Foreign key on asset_interfaces
+            'asset_interface_id', // Foreign key on ip_addresses
+            'id',                // Local key on assets
+            'id'                 // Local key on asset_interfaces
+        );
+    }
+
+    public function managementIp(): ?IpAddress
+    {
+        return $this->ipAddresses()
+            ->where('is_management', true)
+            ->orWhere('is_primary', true)
+            ->first();
     }
 }

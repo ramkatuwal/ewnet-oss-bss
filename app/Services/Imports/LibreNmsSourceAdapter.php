@@ -35,7 +35,6 @@ class LibreNmsSourceAdapter implements ImportSourceInterface
     public function fetchDevices(): array
     {
         try {
-            // LibreNMSClient::listDevices returns the 'devices' array directly
             return $this->client->listDevices(['type' => 'all']);
         } catch (\Throwable $e) {
             Log::error('LibreNMS fetchDevices failed', ['error' => $e->getMessage()]);
@@ -46,31 +45,24 @@ class LibreNmsSourceAdapter implements ImportSourceInterface
     public function fetchSites(): array
     {
         // LibreNMS doesn't have a native "Site" endpoint like UISP.
-        // We derive sites from the 'location' or 'sysLocation' of devices, 
-        // or use the existing SiteMappingService logic if available.
-        // For now, we will fetch all devices and extract unique locations.
-        try {
-            $devices = $this->client->listDevices(['type' => 'all']);
-            $sites = [];
-            $seenLocations = [];
+        // We derive sites from the 'location' or 'sysLocation' of devices.
+        $devices = $this->fetchDevices();
+        $sites = [];
+        $seen = [];
 
-            foreach ($devices as $device) {
-                $location = $device['sysLocation'] ?? $device['location'] ?? null;
-                if ($location && !isset($seenLocations[$location])) {
-                    $seenLocations[$location] = true;
-                    $sites[] = [
-                        'id' => md5($location), // Generate a stable ID for the location
-                        'name' => $location,
-                        'description' => "Derived from LibreNMS location: {$location}",
-                        'device_count' => 0 // Will be calculated if needed
-                    ];
-                }
+        foreach ($devices as $device) {
+            $location = $device['location'] ?? $device['sysLocation'] ?? null;
+            if ($location && !in_array($location, $seen)) {
+                $seen[] = $location;
+                $sites[] = [
+                    'name' => $location,
+                    'external_id' => 'location-' . md5($location),
+                    'devices' => array_filter($devices, fn($d) => ($d['location'] ?? $d['sysLocation'] ?? null) === $location),
+                ];
             }
-            return array_values($sites);
-        } catch (\Throwable $e) {
-            Log::error('LibreNMS fetchSites failed', ['error' => $e->getMessage()]);
-            throw $e;
         }
+
+        return $sites;
     }
 
     public function normalizeDevice(array $raw): NormalizedRecord
@@ -78,83 +70,109 @@ class LibreNmsSourceAdapter implements ImportSourceInterface
         $id = $raw['device_id'] ?? null;
         if (!$id) throw new \InvalidArgumentException('LibreNMS device missing device_id');
 
-        $name = $raw['sysName'] ?? $raw['hostname'] ?? 'Unknown Device';
-        $hostname = $raw['hostname'] ?? null;
-        
-        // IP Address extraction
-        $ip = $raw['ip'] ?? $raw['overwrite_ip'] ?? null;
-        
-        // MAC Address: LibreNMS devices don't always have a primary MAC in the list.
-        // We might need to look at ports, but for preview, we'll leave it null unless available.
-        $mac = $raw['mac_address'] ?? null; 
+        $record = new NormalizedRecord();
+        $record->sourceType = 'device';
+        $record->provider = 'librenms';
+        $record->externalId = (string) $id;
+        $record->name = $raw['display'] ?? $raw['sysName'] ?? $raw['hostname'] ?? 'Unknown Device';
+        $record->description = $raw['sysDescr'] ?? null;
+        $record->serialNumber = $raw['serial'] ?? null;
+        $record->macAddress = null; // Not directly available in device endpoint
+        $record->ipAddress = $raw['ip'] ?? $raw['hostname'] ?? null;
+        $record->model = $raw['hardware'] ?? null;
+        $record->manufacturer = $raw['os'] ?? null;
+        $record->status = $raw['status'] ?? null;
+        $record->metadata = $raw;
 
-        // Model/Vendor
-        $hardware = $raw['hardware'] ?? '';
-        $vendor = $raw['vendor'] ?? '';
-        $os = $raw['os'] ?? '';
-        
-        // Status
-        $status = match ($raw['status'] ?? 0) {
-            1 => 'up',
-            0 => 'down',
-            default => 'unknown'
-        };
+        // Extract interfaces if available
+        $record->interfaces = $this->extractInterfacesFromDevice($raw);
 
-        // Site Reference
-        $siteName = $raw['sysLocation'] ?? $raw['location'] ?? null;
-
-        return new NormalizedRecord(
-            provider: 'librenms',
-            sourceType: 'device',
-            externalId: (string) $id,
-            name: $name,
-            description: $raw['sysDescr'] ?? null,
-            ipAddress: $this->normalizeIp($ip),
-            macAddress: $mac ? strtolower($mac) : null,
-            serialNumber: $raw['serial'] ?? null,
-            manufacturer: $vendor,
-            model: $hardware,
-            firmwareVersion: $os,
-            status: $status,
-            metadata: [
-                'hostname' => $hostname,
-                'site_name' => $siteName,
-                'type' => $raw['type'] ?? null,
-            ],
-            rawSource: $raw
-        );
+        return $record;
     }
 
     public function normalizeSite(array $raw): NormalizedRecord
     {
-        $id = $raw['id'] ?? null;
-        if (!$id) throw new \InvalidArgumentException('LibreNMS site missing ID');
+        $record = new NormalizedRecord();
+        $record->sourceType = 'site';
+        $record->provider = 'librenms';
+        $record->externalId = $raw['external_id'] ?? 'site-' . md5($raw['name'] ?? '');
+        $record->name = $raw['name'] ?? 'Unknown Site';
+        $record->metadata = $raw;
 
-        return new NormalizedRecord(
-            provider: 'librenms',
-            sourceType: 'site',
-            externalId: (string) $id,
-            name: $raw['name'] ?? 'Unknown Site',
-            description: $raw['description'] ?? null,
-            ipAddress: null,
-            macAddress: null,
-            serialNumber: null,
-            manufacturer: null,
-            model: null,
-            status: 'active',
-            metadata: [
-                'address' => null,
-                'latitude' => null,
-                'longitude' => null,
-            ],
-            rawSource: $raw
-        );
+        return $record;
     }
 
-    protected function normalizeIp(?string $value): ?string
+    /**
+     * Extract interfaces from LibreNMS device
+     * Note: This requires fetching ports from the API
+     */
+    protected function extractInterfacesFromDevice(array $device): array
     {
-        if (!$value) return null;
-        $value = trim(preg_replace('/\/\d+$/', '', $value));
-        return filter_var($value, FILTER_VALIDATE_IP) ? $value : null;
+        $interfaces = [];
+        $deviceId = $device['device_id'] ?? null;
+
+        if (!$deviceId) {
+            return $interfaces;
+        }
+
+        try {
+            $ports = $this->fetchInterfaces($deviceId);
+            foreach ($ports as $port) {
+                $interface = [
+                    'name' => $port['ifName'] ?? $port['ifDescr'] ?? 'unknown',
+                    'display_name' => $port['ifDescr'] ?? $port['ifName'] ?? null,
+                    'description' => $port['ifAlias'] ?? null,
+                    'type' => $port['ifType'] ?? null,
+                    'mac_address' => $port['ifPhysAddress'] ?? null,
+                    'speed' => isset($port['ifSpeed']) ? (int) $port['ifSpeed'] : null,
+                    'status' => $port['ifOperStatus'] ?? null,
+                    'provider' => 'librenms',
+                    'external_type' => 'port',
+                    'external_id' => (string) ($port['port_id'] ?? null),
+                    'metadata' => $port,
+                    'ip_addresses' => $this->extractIpAddressesFromPort($port),
+                ];
+                $interfaces[] = $interface;
+            }
+        } catch (\Exception $e) {
+            Log::warning('Failed to fetch LibreNMS interfaces', [
+                'device_id' => $deviceId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return $interfaces;
+    }
+
+    /**
+     * Fetch interfaces for a device from LibreNMS
+     */
+    protected function fetchInterfaces(string $deviceId): array
+    {
+        $result = $this->client->getDevicePorts($deviceId);
+        return $result['ports'] ?? [];
+    }
+
+    /**
+     * Extract IP addresses from a port
+     */
+    protected function extractIpAddressesFromPort(array $port): array
+    {
+        $ips = [];
+
+        if (!empty($port['ip'])) {
+            $ips[] = [
+                'ip' => $port['ip'],
+                'prefix' => $port['mask'] ?? null,
+                'is_primary' => true,
+                'is_management' => false,
+                'provider' => 'librenms',
+                'external_type' => 'port_ip',
+                'external_id' => $port['port_id'] . '_ip',
+                'metadata' => ['source' => 'port_ip'],
+            ];
+        }
+
+        return $ips;
     }
 }
