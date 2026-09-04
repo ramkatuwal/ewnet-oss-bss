@@ -12,6 +12,7 @@ use App\Models\IntegrationCredential;
 use App\Services\AuditService;
 use App\Services\Integrations\IntegrationManager;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class IntegrationController extends Controller
 {
@@ -46,6 +47,12 @@ class IntegrationController extends Controller
     {
         $this->authorize('create', Integration::class);
 
+        // DEBUG: Log incoming payload
+        Log::info('Integration Store Request', [
+            'payload' => $request->all(),
+            'user_id' => auth()->id()
+        ]);
+
         $data = $request->validated();
         $data['created_by'] = auth()->id();
         $data['updated_by'] = auth()->id();
@@ -74,7 +81,7 @@ class IntegrationController extends Controller
             ]);
             $cred->setSecretValue($data['credential_value']);
             $cred->save();
-            
+
             AuditService::log('integration.credential.created', 'success', $integration);
         }
 
@@ -103,7 +110,7 @@ class IntegrationController extends Controller
         if (!empty($data['credential_type']) && !empty($data['credential_value'])) {
             // Deactivate old credentials of the same type
             $integration->credentials()->where('credential_type', $data['credential_type'])->update(['is_active' => false]);
-            
+
             $cred = new IntegrationCredential([
                 'integration_id' => $integration->id,
                 'credential_type' => $data['credential_type'],
@@ -112,7 +119,7 @@ class IntegrationController extends Controller
             ]);
             $cred->setSecretValue($data['credential_value']);
             $cred->save();
-            
+
             AuditService::log('integration.credential.updated', 'success', $integration);
         }
 

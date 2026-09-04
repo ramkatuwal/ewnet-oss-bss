@@ -35,9 +35,12 @@ class LibreNMSProvider implements IntegrationProviderInterface
     {
         $errors = [];
 
-        if (empty($config['endpoint'])) {
+        // Support both 'endpoint' (legacy/internal) and 'api_url' (frontend)
+        $url = $config['endpoint'] ?? $config['api_url'] ?? null;
+
+        if (empty($url)) {
             $errors[] = 'Endpoint URL is required.';
-        } elseif (!filter_var($config['endpoint'], FILTER_VALIDATE_URL)) {
+        } elseif (!filter_var($url, FILTER_VALIDATE_URL)) {
             $errors[] = 'Endpoint must be a valid URL.';
         }
 
@@ -122,7 +125,7 @@ class LibreNMSProvider implements IntegrationProviderInterface
         $this->syncPorts($client, $integration, $counts);
         $this->syncAlerts($client, $integration, $counts);
         $this->syncPollers($client, $integration, $counts);
-        
+
         // New: Site Mapping using the already-fetched device list
         $this->syncSites($devices, $integration, $counts);
 
@@ -281,10 +284,10 @@ class LibreNMSProvider implements IntegrationProviderInterface
     private function syncSites(array $devices, Integration $integration, array &$counts): void
     {
         $mappingService = app(SiteMappingService::class);
-        
+
         foreach ($devices as $device) {
             $result = $mappingService->mapDevice($device, $integration);
-            
+
             $counts['processed']++;
             if ($result['status'] === 'mapped') {
                 $counts['sites_mapped']++;

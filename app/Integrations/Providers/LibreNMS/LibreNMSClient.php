@@ -16,7 +16,10 @@ class LibreNMSClient
     public function __construct(Integration $integration)
     {
         $config = $integration->configuration ?? [];
-        $this->baseUrl = rtrim($config['endpoint'] ?? '', '/');
+        
+        // Support both 'endpoint' (legacy) and 'api_url' (current/frontend)
+        $this->baseUrl = rtrim($config['api_url'] ?? $config['endpoint'] ?? '', '/');
+        
         $this->timeout = $config['timeout'] ?? 30;
         $this->tlsVerify = $config['tls_verify'] ?? true;
 
@@ -35,6 +38,10 @@ class LibreNMSClient
      */
     public function get(string $endpoint, array $query = []): array
     {
+        if (empty($this->baseUrl)) {
+            throw new \RuntimeException('LibreNMS Base URL is not configured.');
+        }
+
         $url = $this->baseUrl . '/api/v0/' . ltrim($endpoint, '/');
 
         try {

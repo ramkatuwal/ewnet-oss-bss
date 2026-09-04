@@ -27,9 +27,9 @@ class StoreIntegrationRequest extends FormRequest
 
         // Provider-specific configuration validation
         if ($this->input('provider') === 'uisp') {
-            $rules['configuration.api_url'] = ['required', 'url', 'starts_with:https://'];
+            $rules['configuration.api_url'] = ['required', 'url'];
         } elseif ($this->input('provider') === 'librenms') {
-            $rules['configuration.api_url'] = ['required', 'url', 'starts_with:https://'];
+            $rules['configuration.api_url'] = ['required', 'url'];
         }
 
         return $rules;
@@ -40,7 +40,6 @@ class StoreIntegrationRequest extends FormRequest
         return [
             'configuration.api_url.required' => 'The API URL is required for this provider.',
             'configuration.api_url.url' => 'The API URL must be a valid URL.',
-            'configuration.api_url.starts_with' => 'The API URL must use HTTPS.',
             'credential_value.required_if' => 'A credential value is required for this authentication type.',
         ];
     }
