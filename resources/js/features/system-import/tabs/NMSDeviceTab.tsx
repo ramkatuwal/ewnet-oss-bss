@@ -38,13 +38,13 @@ const NMSDeviceTab: React.FC = () => {
 
   const nmsProviders = useMemo(() => {
     if (!providers) return [];
-    return providers.filter((p: ImportProvider) => p.identity === 'librenms');
+    return providers.filter((p: ImportProvider) => p.provider === 'librenms');
   }, [providers]);
 
   const integrationForCard = useMemo((): Integration | null => {
     if (!selectedIntegration || !providers) return null;
     const p = providers.find((prov: ImportProvider) => prov.id === selectedIntegration);
-    return p ? { id: p.id, name: p.name, provider: p.identity, status: 'connected', enabled: true } : null;
+    return p ? { id: p.id, name: p.name, provider: p.provider, status: 'connected', enabled: true } : null;
   }, [selectedIntegration, providers]);
 
   const { data: previewData, isLoading: isPreviewing, refetch: runPreview } = useQuery({
@@ -114,7 +114,7 @@ const NMSDeviceTab: React.FC = () => {
         title="NMS Device Import"
         source="librenms"
         integration={integrationForCard}
-        integrations={nmsProviders.map((p: ImportProvider) => ({ id: p.id, name: p.name, provider: p.identity, status: 'connected', enabled: true }))}
+        integrations={nmsProviders.map((p: ImportProvider) => ({ id: p.id, name: p.name, provider: p.provider, status: 'connected', enabled: true }))}
         onIntegrationSelect={setSelectedIntegration}
         onRefresh={() => runPreview()}
         isLoading={isPreviewing}

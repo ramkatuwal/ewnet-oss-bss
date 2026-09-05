@@ -5,8 +5,9 @@ const api = axios.create({ baseURL: '/api/v1' });
 export interface ImportProvider {
   id: number;
   name: string;
-  identity: string;
+  provider: string; // Matches Integration::provider
   status: string;
+  enabled: boolean;
 }
 
 export interface ImportPreviewResponse {
@@ -23,7 +24,8 @@ export interface ImportItem {
 }
 
 export const importApi = {
-  getProviders: () => api.get<{ data: ImportProvider[] }>('/import/providers').then(r => r.data.data),
+  getProviders: () => 
+    api.get<{ data: ImportProvider[] }>('/integrations').then(r => r.data.data),
 
   preview: (integrationId: number, sourceType: 'devices' | 'sites') =>
     api.post<ImportPreviewResponse>(`/integrations/${integrationId}/import/preview`, { type: sourceType }).then(r => r.data),

@@ -41,12 +41,12 @@ const UISPDeviceTab: React.FC = () => {
 
   const uispProvider = useMemo(() => {
     if (!providers) return null;
-    return providers.find((p: ImportProvider) => p.identity === 'uisp') || null;
+    return providers.find((p: ImportProvider) => p.provider === 'uisp') || null;
   }, [providers]);
 
   const integrationForCard = useMemo((): Integration | null => {
     if (!uispProvider) return null;
-    return { id: uispProvider.id, name: uispProvider.name, provider: uispProvider.identity, status: 'connected', enabled: true };
+    return { id: uispProvider.id, name: uispProvider.name, provider: uispProvider.provider, status: 'connected', enabled: true };
   }, [uispProvider]);
 
   useEffect(() => {
