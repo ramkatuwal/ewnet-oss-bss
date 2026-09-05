@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Asset;
+use App\Models\AssetExternalReference;
 use App\Models\Integration;
 use App\Models\Site;
 use App\Models\User;
@@ -248,11 +249,10 @@ class LibreNMSImportService
                 'ip' => $device['ip'] ?? null,
                 'location' => $device['location'] ?? null,
                 'sysName' => $sysName,
-                'sysDescr' => $device['sysDescr'] ?? null,
-                'hardware' => $device['hardware'] ?? null,
-                'imported_from' => 'librenms',
-                'imported_at' => now()->toISOString(),
+                'hostname' => $hostname,
+                'display' => $device['display'] ?? null,
             ],
+            'description' => $device['display'] ?? $device['sysName'] ?? $device['hostname'] ?? null,
         ];
     }
 
@@ -263,5 +263,30 @@ class LibreNMSImportService
             '0' => 'MAINTENANCE',
             default => 'OPERATIONAL',
         };
+    }
+
+    protected function createAssetExternalReference(Asset $asset, array $device): void
+    {
+        $deviceId = $device['device_id'] ?? null;
+        if (!$deviceId) {
+            return;
+        }
+
+        AssetExternalReference::updateOrCreate(
+            [
+                'provider' => 'librenms',
+                'external_type' => 'device',
+                'external_id' => (string) $deviceId,
+            ],
+            [
+                'asset_id' => $asset->id,
+                'metadata' => [
+                    'hostname' => $device['hostname'] ?? null,
+                    'display' => $device['display'] ?? null,
+                    'sysName' => $device['sysName'] ?? null,
+                    'imported_at' => now()->toISOString(),
+                ],
+            ]
+        );
     }
 }

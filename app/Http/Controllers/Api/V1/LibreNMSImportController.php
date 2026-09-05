@@ -14,6 +14,7 @@ class LibreNMSImportController extends Controller
     public function __construct(LibreNMSImportService $importService)
     {
         $this->importService = $importService;
+        $this->middleware('auth:sanctum');
     }
 
     /**
