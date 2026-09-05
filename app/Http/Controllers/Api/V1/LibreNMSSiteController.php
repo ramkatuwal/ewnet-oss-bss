@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\ImportHistory;
 use App\Models\Integration;
 use App\Services\LibreNMSSiteService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class LibreNMSSiteController extends Controller
 {
@@ -14,35 +16,12 @@ class LibreNMSSiteController extends Controller
     public function __construct(LibreNMSSiteService $siteService)
     {
         $this->siteService = $siteService;
+        $this->middleware('auth:sanctum');
     }
 
-    /**
-     * Get LibreNMS locations
-     */
-    public function locations(Request $request, Integration $integration)
-    {
-        $this->authorize('librenms.import');
-
-        $result = $this->siteService->fetchDevicesWithLocations($integration);
-
-        if (isset($result['error'])) {
-            return response()->json(['error' => $result['error']], 500);
-        }
-
-        return response()->json([
-            'data' => $result['locations'],
-            'count' => $result['count'],
-            'device_count' => count($result['devices'] ?? []),
-        ]);
-    }
-
-    /**
-     * Preview site import/mapping
-     */
     public function preview(Request $request, Integration $integration)
     {
         $this->authorize('librenms.import');
-
         $result = $this->siteService->previewSites($integration, $request->user());
 
         if (isset($result['error'])) {
@@ -52,62 +31,46 @@ class LibreNMSSiteController extends Controller
         return response()->json($result);
     }
 
-    /**
-     * Map a location to an EWNET Site
-     */
-    public function map(Request $request, Integration $integration)
-    {
-        $this->authorize('librenms.import');
-
-        $request->validate([
-            'location_name' => ['required', 'string'],
-            'site_id' => ['required', 'exists:sites,id'],
-        ]);
-
-        $result = $this->siteService->mapLocation(
-            $integration,
-            $request->location_name,
-            $request->site_id,
-            $request->user()
-        );
-
-        if (!$result['success']) {
-            return response()->json(['error' => $result['error']], 422);
-        }
-
-        return response()->json([
-            'message' => 'Location mapped successfully',
-            'data' => $result['reference'],
-        ]);
-    }
-
-    /**
-     * Import sites from LibreNMS
-     */
     public function import(Request $request, Integration $integration)
     {
         $this->authorize('librenms.import');
 
-        $request->validate([
-            'dry_run' => ['sometimes', 'boolean'],
-            'locations' => ['sometimes', 'array'],
-            'locations.*' => ['string'],
+        $validated = $request->validate([
+            'sites' => 'required|array',
         ]);
 
-        $options = [
-            'dry_run' => $request->input('dry_run', false),
-            'locations' => $request->input('locations'),
-        ];
+        $history = ImportHistory::create([
+            'source' => ImportHistory::SOURCE_LIBRENMS,
+            'type' => ImportHistory::TYPE_SITE,
+            'integration_id' => $integration->id,
+            'status' => ImportHistory::STATUS_PENDING,
+            'started_by' => Auth::id(),
+            'total_records' => count($validated['sites']),
+        ]);
 
-        $result = $this->siteService->importSites($integration, $request->user(), $options);
+        try {
+            $history->markAsRunning();
+            $results = $this->siteService->execute(
+                $integration, 
+                $request->user(), 
+                $validated['sites'], 
+                $history
+            );
 
-        if (isset($result['error'])) {
-            return response()->json(['error' => $result['error']], 500);
+            $history->markAsCompleted([
+                'created_records' => $results['created'],
+                'updated_records' => $results['updated'],
+                'skipped_records' => $results['skipped'],
+                'error_records' => $results['failed'],
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => array_merge($results, ['history_id' => $history->id]),
+            ]);
+        } catch (\Exception $e) {
+            $history->markAsFailed($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
         }
-
-        return response()->json([
-            'message' => $options['dry_run'] ? 'Dry run completed.' : 'Import completed.',
-            'results' => $result,
-        ]);
     }
 }

@@ -14,8 +14,6 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import InfoIcon from '@mui/icons-material/Info';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import SyncIcon from '@mui/icons-material/Sync';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import type { NavItem } from '@/types';
 
 export const navigationItems: NavItem[] = [
@@ -60,8 +58,7 @@ export const navigationItems: NavItem[] = [
         children: [
             { label: 'Configuration', path: '/system/configuration', icon: <SettingsIcon />, permission: 'system.config.manage' },
             { label: 'Integrations', path: '/system/integrations', icon: <SettingsIcon />, permission: 'integrations.view' },
-            { label: 'System Import', path: '/system/import', icon: <CloudDownloadIcon />, permission: 'imports.view' },
-
+            { label: 'System Import', path: '/system-import', icon: <SyncIcon />, permission: 'imports.view' },
         ],
     },
 ];

@@ -32,14 +32,6 @@ class SystemPermissionSeeder extends Seeder
             'departments.create',
             'departments.update',
             'departments.delete',
-            'designations.view',
-            'designations.create',
-            'designations.update',
-            'designations.delete',
-            'employees.view',
-            'employees.create',
-            'employees.update',
-            'employees.delete',
             'assets.view',
             'assets.create',
             'assets.update',
@@ -93,6 +85,3 @@ class SystemPermissionSeeder extends Seeder
         $this->command->info('System permissions seeded successfully.');
     }
 }
-
-            // Import UI access
-            'imports.view',

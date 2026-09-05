@@ -4,12 +4,11 @@ namespace App\Services\Integrations\Uisp;
 
 use App\Models\Asset;
 use App\Models\AssetExternalReference;
+use App\Models\ImportHistory;
 use App\Models\Integration;
 use App\Models\Site;
 use App\Models\SiteExternalReference;
 use App\Integrations\Providers\Uisp\UispClient;
-use App\Services\AuditService;
-use App\Services\ManagementScopeService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -18,18 +17,14 @@ class UispImportService
     protected Integration $integration;
     protected UispClient $client;
     protected UispDuplicateDetector $detector;
-    protected $user;
-    protected array $results = [
-        'sites' => ['created' => 0, 'updated' => 0, 'linked' => 0, 'skipped' => 0, 'failed' => 0, 'conflicts' => 0],
-        'devices' => ['created' => 0, 'updated' => 0, 'linked' => 0, 'skipped' => 0, 'failed' => 0, 'conflicts' => 0],
-    ];
+    protected ?ImportHistory $history;
 
-    public function __construct(Integration $integration)
+    public function __construct(Integration $integration, ?ImportHistory $history = null)
     {
         $this->integration = $integration;
         $this->client = new UispClient($integration);
         $this->detector = new UispDuplicateDetector();
-        $this->user = auth()->user();
+        $this->history = $history;
     }
 
     public function preview(array $options = []): array
@@ -71,14 +66,12 @@ class UispImportService
         ];
 
         DB::transaction(function () use ($selectedRecords, &$results) {
-            // Process sites first
             if (!empty($selectedRecords['sites'])) {
                 foreach ($selectedRecords['sites'] as $siteData) {
                     $this->processSite($siteData, $results['sites']);
                 }
             }
 
-            // Process devices
             if (!empty($selectedRecords['devices'])) {
                 foreach ($selectedRecords['devices'] as $deviceData) {
                     $this->processDevice($deviceData, $results);
@@ -98,7 +91,6 @@ class UispImportService
         }
 
         try {
-            // Check if site already exists by external reference
             $existingRef = SiteExternalReference::where('provider', 'uisp')
                 ->where('external_type', 'site')
                 ->where('external_id', (string) $externalId)
@@ -107,7 +99,6 @@ class UispImportService
             if ($existingRef) {
                 $site = Site::find($existingRef->site_id);
                 if ($site) {
-                    // Update existing site
                     $site->update([
                         'name' => $data['name'] ?? $site->name,
                         'description' => $data['description'] ?? $site->description,
@@ -118,7 +109,6 @@ class UispImportService
                 }
             }
 
-            // Create new site with proper organization context
             $site = Site::create([
                 'site_code' => 'UISP-' . substr(md5($externalId), 0, 8),
                 'name' => $data['name'] ?? 'UISP Site ' . $externalId,
@@ -127,7 +117,6 @@ class UispImportService
                 'metadata' => ['source' => 'uisp', 'external_id' => $externalId],
             ]);
 
-            // Create external reference
             SiteExternalReference::create([
                 'site_id' => $site->id,
                 'provider' => 'uisp',
@@ -138,10 +127,7 @@ class UispImportService
 
             $results['created']++;
         } catch (\Exception $e) {
-            Log::error('UISP site import failed', [
-                'external_id' => $externalId,
-                'error' => $e->getMessage(),
-            ]);
+            Log::error('UISP site import failed', ['external_id' => $externalId, 'error' => $e->getMessage()]);
             $results['failed']++;
         }
     }
@@ -155,7 +141,6 @@ class UispImportService
         }
 
         try {
-            // Check if asset already exists
             $existingRef = AssetExternalReference::where('provider', 'uisp')
                 ->where('external_type', 'device')
                 ->where('external_id', (string) $externalId)
@@ -165,7 +150,6 @@ class UispImportService
             if ($existingRef) {
                 $asset = Asset::find($existingRef->asset_id);
                 if ($asset) {
-                    // Update existing asset
                     $asset->update([
                         'asset_tag' => $data['name'] ?? $asset->asset_tag,
                         'model' => $data['model'] ?? $asset->model,
@@ -174,17 +158,12 @@ class UispImportService
                         'specifications' => array_merge($asset->specifications ?? [], ['last_synced' => now()]),
                     ]);
                     $results['devices']['updated']++;
-
-                    // Process interfaces and IPs for existing asset
                     $this->processDeviceInterfaces($data, $asset, $results);
                     return;
                 }
             }
 
-            // Create new asset
-            // Find or create a site for this device
             $siteId = $this->resolveSiteId($data);
-
             $assetTag = 'UISP-' . substr($externalId, 0, 8);
             $baseTag = $assetTag;
             $counter = 1;
@@ -208,7 +187,6 @@ class UispImportService
                 'description' => $data['name'] ?? null,
             ]);
 
-            // Create external reference
             AssetExternalReference::create([
                 'asset_id' => $asset->id,
                 'provider' => 'uisp',
@@ -218,15 +196,10 @@ class UispImportService
             ]);
 
             $results['devices']['created']++;
-
-            // Process interfaces and IPs
             $this->processDeviceInterfaces($data, $asset, $results);
 
         } catch (\Exception $e) {
-            Log::error('UISP device import failed', [
-                'external_id' => $externalId,
-                'error' => $e->getMessage(),
-            ]);
+            Log::error('UISP device import failed', ['external_id' => $externalId, 'error' => $e->getMessage()]);
             $results['devices']['failed']++;
         }
     }
@@ -234,7 +207,6 @@ class UispImportService
     protected function processDeviceInterfaces(array $data, Asset $asset, array &$results): void
     {
         $interfaces = $data['interfaces'] ?? [];
-
         foreach ($interfaces as $interfaceData) {
             $this->processInterface($interfaceData, $asset, $results);
         }
@@ -243,14 +215,11 @@ class UispImportService
     protected function processInterface(array $interfaceData, Asset $asset, array &$results): void
     {
         $externalId = $interfaceData['external_id'] ?? null;
-
-        // Check if interface already exists
         $existing = \App\Models\AssetInterface::where('asset_id', $asset->id)
             ->where('name', $interfaceData['name'])
             ->first();
 
         if ($existing) {
-            // Update existing interface
             $existing->update([
                 'display_name' => $interfaceData['display_name'] ?? $existing->display_name,
                 'type' => $interfaceData['type'] ?? $existing->type,
@@ -261,8 +230,7 @@ class UispImportService
             ]);
             $results['interfaces']['updated']++;
         } else {
-            // Create new interface
-            $interface = \App\Models\AssetInterface::create([
+            \App\Models\AssetInterface::create([
                 'asset_id' => $asset->id,
                 'name' => $interfaceData['name'] ?? 'unknown',
                 'display_name' => $interfaceData['display_name'] ?? null,
@@ -281,7 +249,6 @@ class UispImportService
             $results['interfaces']['created']++;
         }
 
-        // Process IPs for this interface
         $ips = $interfaceData['ip_addresses'] ?? [];
         foreach ($ips as $ipData) {
             $this->processIp($ipData, $asset, $results);
@@ -290,7 +257,6 @@ class UispImportService
 
     protected function processIp(array $ipData, Asset $asset, array &$results): void
     {
-        // Find the interface for this IP (we need to resolve it)
         $interfaceName = $ipData['interface_name'] ?? null;
         if (!$interfaceName) {
             $results['ips']['skipped']++;
@@ -306,7 +272,6 @@ class UispImportService
             return;
         }
 
-        // Check if IP already exists
         $existing = \App\Models\IpAddress::where('asset_interface_id', $interface->id)
             ->where('ip_address', $ipData['ip'])
             ->first();
@@ -339,46 +304,30 @@ class UispImportService
 
     protected function resolveSiteId(array $data): int
     {
-        // Try to find site from data
         if (!empty($data['site_id'])) {
             $site = Site::find($data['site_id']);
-            if ($site) {
-                return $site->id;
-            }
+            if ($site) return $site->id;
         }
 
-        // Try to find site by external reference
         if (!empty($data['site_external_id'])) {
             $ref = SiteExternalReference::where('provider', 'uisp')
                 ->where('external_id', (string) $data['site_external_id'])
                 ->first();
-            if ($ref) {
-                return $ref->site_id;
-            }
+            if ($ref) return $ref->site_id;
         }
 
-        // Create a default site
         $site = Site::create([
             'site_code' => 'UISP-DEFAULT-' . time(),
             'name' => 'UISP Default Site',
             'type' => 'pop',
             'status' => 'active',
         ]);
-
         return $site->id;
     }
 
     protected function summarizeAnalysis(array $analysis): array
     {
-        $summary = [
-            'create' => 0,
-            'link' => 0,
-            'update' => 0,
-            'skip' => 0,
-            'conflict' => 0,
-            'review' => 0,
-        ];
-
+        $summary = ['create' => 0, 'link' => 0, 'update' => 0, 'skip' => 0, 'conflict' => 0, 'review' => 0];
         foreach ($analysis as $item) {
             $action = $item['action'] ?? 'review';
             if (isset($summary[$action])) {
@@ -387,7 +336,6 @@ class UispImportService
                 $summary['review']++;
             }
         }
-
         return $summary;
     }
 }

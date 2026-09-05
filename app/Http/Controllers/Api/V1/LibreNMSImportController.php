@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\ImportHistory;
 use App\Models\Integration;
 use App\Services\LibreNMSImportService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class LibreNMSImportController extends Controller
 {
@@ -17,32 +19,9 @@ class LibreNMSImportController extends Controller
         $this->middleware('auth:sanctum');
     }
 
-    /**
-     * Get list of devices from LibreNMS
-     */
-    public function devices(Request $request, Integration $integration)
-    {
-        $this->authorize('librenms.import');
-
-        $result = $this->importService->fetchDevices($integration);
-
-        if (isset($result['error'])) {
-            return response()->json(['error' => $result['error']], 500);
-        }
-
-        return response()->json([
-            'data' => $result['devices'],
-            'count' => $result['count'],
-        ]);
-    }
-
-    /**
-     * Preview import without making changes
-     */
     public function preview(Request $request, Integration $integration)
     {
         $this->authorize('librenms.import');
-
         $result = $this->importService->preview($integration, $request->user());
 
         if (isset($result['error'])) {
@@ -52,30 +31,46 @@ class LibreNMSImportController extends Controller
         return response()->json($result);
     }
 
-    /**
-     * Execute import
-     */
     public function import(Request $request, Integration $integration)
     {
         $this->authorize('librenms.import');
 
-        $request->validate([
-            'dry_run' => ['sometimes', 'boolean'],
+        $validated = $request->validate([
+            'devices' => 'required|array',
         ]);
 
-        $options = [
-            'dry_run' => $request->input('dry_run', false),
-        ];
+        $history = ImportHistory::create([
+            'source' => ImportHistory::SOURCE_LIBRENMS,
+            'type' => ImportHistory::TYPE_DEVICE,
+            'integration_id' => $integration->id,
+            'status' => ImportHistory::STATUS_PENDING,
+            'started_by' => Auth::id(),
+            'total_records' => count($validated['devices']),
+        ]);
 
-        $result = $this->importService->import($integration, $request->user(), $options);
+        try {
+            $history->markAsRunning();
+            $results = $this->importService->execute(
+                $integration, 
+                $request->user(), 
+                $validated['devices'], 
+                $history
+            );
 
-        if (isset($result['error'])) {
-            return response()->json(['error' => $result['error']], 500);
+            $history->markAsCompleted([
+                'created_records' => $results['created'],
+                'updated_records' => $results['updated'],
+                'skipped_records' => $results['skipped'],
+                'error_records' => $results['failed'],
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => array_merge($results, ['history_id' => $history->id]),
+            ]);
+        } catch (\Exception $e) {
+            $history->markAsFailed($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
         }
-
-        return response()->json([
-            'message' => $options['dry_run'] ? 'Dry run completed.' : 'Import completed.',
-            'results' => $result,
-        ]);
     }
 }

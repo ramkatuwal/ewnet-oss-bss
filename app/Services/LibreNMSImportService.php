@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Asset;
 use App\Models\AssetExternalReference;
+use App\Models\ImportHistory;
 use App\Models\Integration;
 use App\Models\Site;
 use App\Models\User;
@@ -46,13 +47,12 @@ class LibreNMSImportService
         $preview = [];
 
         foreach ($devices as $device) {
-            $item = $this->analyzeDevice($device, $user, $integration);
-            $preview[] = $item;
+            $preview[] = $this->analyzeDevice($device, $user, $integration);
         }
 
         return [
             'total' => count($preview),
-            'preview' => $preview,
+            'analysis' => $preview,
             'summary' => $this->summarizePreview($preview),
         ];
     }
@@ -61,232 +61,132 @@ class LibreNMSImportService
     {
         $deviceId = (string) ($device['device_id'] ?? '');
         $hostname = $device['hostname'] ?? '';
-        $status = $device['status'] ?? '';
+        $sysName = $device['sysName'] ?? $hostname;
+        $ip = $device['ip'] ?? '';
+        $os = $device['os'] ?? '';
+        $type = $device['type'] ?? '';
+        $hardware = $device['hardware'] ?? '';
 
-        $existingAsset = $this->findExistingAsset($deviceId);
+        // Check for existing asset via external reference or hostname/IP
+        $existingRef = AssetExternalReference::where('provider', 'librenms')
+            ->where('external_id', $deviceId)
+            ->first();
+        
+        $existingAsset = $existingRef ? Asset::find($existingRef->asset_id) : null;
+        if (!$existingAsset && $hostname) {
+            $existingAsset = Asset::where('description', $hostname)->orWhere('asset_tag', $hostname)->first();
+        }
 
         $siteMapping = $this->siteMapping->mapDevice($device, $integration);
 
+        $action = 'create';
+        if ($existingAsset) $action = 'update';
+        if ($siteMapping['status'] !== 'mapped') $action = 'skip_unmapped';
+
         return [
-            'device_id' => $deviceId,
+            'id' => $deviceId,
+            'external_id' => $deviceId,
+            'name' => $sysName,
             'hostname' => $hostname,
-            'status' => $status,
-            'exists' => $existingAsset !== null,
-            'existing_asset_id' => $existingAsset?->id,
-            'existing_asset_tag' => $existingAsset?->asset_tag,
-            'site_mapped' => $siteMapping['status'] === 'mapped',
+            'ip' => $ip,
+            'vendor' => $os,
+            'model' => $hardware,
+            'type' => $type,
+            'site_name' => $siteMapping['site_name'] ?? 'Unmapped',
             'site_id' => $siteMapping['site_id'] ?? null,
-            'site_message' => $siteMapping['message'] ?? 'No matching site',
-            'action' => $this->determineAction($existingAsset, $siteMapping),
-            'device_data' => $device,
+            'action' => $action,
+            'asset_id' => $existingAsset?->id,
+            'evidence' => $existingAsset ? [['field' => 'hostname', 'value' => $hostname, 'strength' => 'strong']] : [],
         ];
     }
 
-    protected function findExistingAsset(string $deviceId): ?Asset
+    public function execute(Integration $integration, User $user, array $selectedDevices, ImportHistory $history): array
     {
-        return Asset::where('specifications->external_id', $deviceId)
-            ->orWhere('specifications->librenms_device_id', $deviceId)
-            ->first();
-    }
-
-    protected function determineAction(?Asset $existingAsset, array $siteMapping): string
-    {
-        if ($siteMapping['status'] !== 'mapped') {
-            return 'skip_unmapped';
-        }
-        if ($existingAsset) {
-            return 'update';
-        }
-        return 'create';
-    }
-
-    protected function summarizePreview(array $preview): array
-    {
-        $summary = [
-            'create' => 0,
-            'update' => 0,
-            'skip_unmapped' => 0,
-            'skip_duplicate' => 0,
-            'total' => count($preview),
-        ];
-
-        foreach ($preview as $item) {
-            $action = $item['action'] ?? 'skip_unmapped';
-            if (isset($summary[$action])) {
-                $summary[$action]++;
-            }
-        }
-
-        return $summary;
-    }
-
-    public function import(Integration $integration, User $user, array $options = []): array
-    {
-        $result = $this->fetchDevices($integration);
-        if (isset($result['error'])) {
-            return ['error' => $result['error']];
-        }
-
-        $devices = $result['devices'];
         $results = [
             'created' => 0,
             'updated' => 0,
             'skipped' => 0,
             'failed' => 0,
-            'unmapped' => 0,
-            'errors' => [],
-            'details' => [],
         ];
 
-        foreach ($devices as $device) {
-            $item = $this->processDevice($device, $user, $integration, $options);
-            $results['details'][] = $item;
+        DB::transaction(function () use ($integration, $user, $selectedDevices, &$results, $history) {
+            foreach ($selectedDevices as $deviceData) {
+                try {
+                    $deviceId = $deviceData['external_id'];
+                    $client = new LibreNMSClient($integration);
+                    // Fetch full details for this specific device if needed, or use what we have
+                    $fullDevice = $deviceData; 
 
-            if ($item['status'] === 'created') {
-                $results['created']++;
-            } elseif ($item['status'] === 'updated') {
-                $results['updated']++;
-            } elseif ($item['status'] === 'skipped') {
-                $results['skipped']++;
-            } elseif ($item['status'] === 'unmapped') {
-                $results['unmapped']++;
-            } else {
-                $results['failed']++;
-                $results['errors'][] = $item['message'] ?? 'Unknown error';
+                    $siteMapping = $this->siteMapping->mapDevice($fullDevice, $integration);
+                    if ($siteMapping['status'] !== 'mapped') {
+                        $results['skipped']++;
+                        continue;
+                    }
+
+                    $existingRef = AssetExternalReference::where('provider', 'librenms')
+                        ->where('external_id', $deviceId)
+                        ->first();
+                    
+                    $asset = $existingRef ? Asset::find($existingRef->asset_id) : null;
+
+                    if ($asset) {
+                        $asset->update([
+                            'description' => $fullDevice['sysName'] ?? $fullDevice['hostname'],
+                            'manufacturer' => $fullDevice['os'] ?? null,
+                            'model' => $fullDevice['hardware'] ?? null,
+                            'site_id' => $siteMapping['site_id'],
+                            'specifications' => array_merge($asset->specifications ?? [], ['last_synced' => now()]),
+                        ]);
+                        $results['updated']++;
+                    } else {
+                        $assetTag = 'LNM-' . substr($deviceId, 0, 8);
+                        $baseTag = $assetTag;
+                        $counter = 1;
+                        while (Asset::where('asset_tag', $assetTag)->exists()) {
+                            $assetTag = $baseTag . '-' . $counter++;
+                        }
+
+                        $newAsset = Asset::create([
+                            'site_id' => $siteMapping['site_id'],
+                            'asset_tag' => $assetTag,
+                            'description' => $fullDevice['sysName'] ?? $fullDevice['hostname'],
+                            'manufacturer' => $fullDevice['os'] ?? null,
+                            'model' => $fullDevice['hardware'] ?? null,
+                            'category' => 'NETWORK',
+                            'type' => $fullDevice['type'] ?? 'device',
+                            'status' => 'OPERATIONAL',
+                            'condition' => 'GOOD',
+                            'quantity' => 1,
+                            'unit' => 'pcs',
+                            'specifications' => ['source' => 'librenms', 'external_id' => $deviceId],
+                        ]);
+
+                        AssetExternalReference::create([
+                            'asset_id' => $newAsset->id,
+                            'provider' => 'librenms',
+                            'external_type' => 'device',
+                            'external_id' => $deviceId,
+                            'metadata' => ['imported_at' => now()],
+                        ]);
+                        $results['created']++;
+                    }
+                } catch (\Exception $e) {
+                    Log::error('LibreNMS device import failed', ['device_id' => $deviceData['external_id'] ?? 'unknown', 'error' => $e->getMessage()]);
+                    $results['failed']++;
+                }
             }
-        }
-
-        $this->audit->log('librenms.import.completed', 'success', null, [
-            'integration_id' => $integration->id,
-            'results' => $results,
-        ]);
+        });
 
         return $results;
     }
 
-    protected function processDevice(array $device, User $user, Integration $integration, array $options): array
+    protected function summarizePreview(array $preview): array
     {
-        $deviceId = (string) ($device['device_id'] ?? '');
-
-        if (empty($deviceId)) {
-            return ['status' => 'failed', 'message' => 'Missing device_id'];
+        $summary = ['create' => 0, 'update' => 0, 'skip_unmapped' => 0, 'total' => count($preview)];
+        foreach ($preview as $item) {
+            $action = $item['action'] ?? 'skip_unmapped';
+            if (isset($summary[$action])) $summary[$action]++;
         }
-
-        $siteMapping = $this->siteMapping->mapDevice($device, $integration);
-
-        if ($siteMapping['status'] !== 'mapped') {
-            return [
-                'status' => 'unmapped',
-                'device_id' => $deviceId,
-                'hostname' => $device['hostname'] ?? '',
-                'message' => $siteMapping['message'] ?? 'No matching site',
-            ];
-        }
-
-        $site = Site::find($siteMapping['site_id']);
-        if (!$site) {
-            return [
-                'status' => 'failed',
-                'device_id' => $deviceId,
-                'message' => 'Site not found in database',
-            ];
-        }
-
-        if ($options['dry_run'] ?? false) {
-            return [
-                'status' => 'preview',
-                'device_id' => $deviceId,
-                'hostname' => $device['hostname'] ?? '',
-                'site_id' => $site->id,
-                'action' => $this->findExistingAsset($deviceId) ? 'update' : 'create',
-            ];
-        }
-
-        return DB::transaction(function () use ($device, $site, $deviceId) {
-            $existing = $this->findExistingAsset($deviceId);
-
-            $assetData = $this->mapDeviceToAsset($device, $site);
-
-            if ($existing) {
-                $existing->update($assetData);
-                $this->audit->log('asset.updated.from_librenms', 'success', $existing, [
-                    'device_id' => $deviceId,
-                ]);
-                return ['status' => 'updated', 'asset_id' => $existing->id, 'hostname' => $device['hostname'] ?? ''];
-            } else {
-                $asset = Asset::create($assetData);
-                $this->audit->log('asset.created.from_librenms', 'success', $asset, [
-                    'device_id' => $deviceId,
-                ]);
-                return ['status' => 'created', 'asset_id' => $asset->id, 'hostname' => $device['hostname'] ?? ''];
-            }
-        });
-    }
-
-    protected function mapDeviceToAsset(array $device, Site $site): array
-    {
-        $status = $this->mapDeviceStatus($device['status'] ?? '');
-        $hostname = $device['hostname'] ?? '';
-        $sysName = $device['sysName'] ?? '';
-
-        return [
-            'site_id' => $site->id,
-            'asset_tag' => $device['display'] ?? $device['sysName'] ?? $device['hostname'] ?? $device['device_id'],
-            'type' => $device['type'] ?? 'network_device',
-            'category' => 'NETWORK',
-            'manufacturer' => $device['hardware'] ?? null,
-            'model' => $device['hardware'] ?? null,
-            'serial_number' => (!empty($device['serial']) && strtolower($device['serial']) !== 'n/a') ? $device['serial'] : null,
-            'status' => $status,
-            'condition' => 'GOOD',
-            'quantity' => 1,
-            'unit' => 'pcs',
-            'specifications' => [
-                'librenms_device_id' => (string) ($device['device_id'] ?? ''),
-                'external_id' => (string) ($device['device_id'] ?? ''),
-                'os' => $device['os'] ?? null,
-                'version' => $device['version'] ?? null,
-                'ip' => $device['ip'] ?? null,
-                'location' => $device['location'] ?? null,
-                'sysName' => $sysName,
-                'hostname' => $hostname,
-                'display' => $device['display'] ?? null,
-            ],
-            'description' => $device['display'] ?? $device['sysName'] ?? $device['hostname'] ?? null,
-        ];
-    }
-
-    protected function mapDeviceStatus(string $libreNmsStatus): string
-    {
-        return match ($libreNmsStatus) {
-            '1' => 'OPERATIONAL',
-            '0' => 'MAINTENANCE',
-            default => 'OPERATIONAL',
-        };
-    }
-
-    protected function createAssetExternalReference(Asset $asset, array $device): void
-    {
-        $deviceId = $device['device_id'] ?? null;
-        if (!$deviceId) {
-            return;
-        }
-
-        AssetExternalReference::updateOrCreate(
-            [
-                'provider' => 'librenms',
-                'external_type' => 'device',
-                'external_id' => (string) $deviceId,
-            ],
-            [
-                'asset_id' => $asset->id,
-                'metadata' => [
-                    'hostname' => $device['hostname'] ?? null,
-                    'display' => $device['display'] ?? null,
-                    'sysName' => $device['sysName'] ?? null,
-                    'imported_at' => now()->toISOString(),
-                ],
-            ]
-        );
+        return $summary;
     }
 }

@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\ImportHistory;
 use App\Models\Integration;
 use App\Services\Integrations\Uisp\UispImportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class UispImportController extends Controller
@@ -51,24 +53,51 @@ class UispImportController extends Controller
             return response()->json(['error' => 'UISP integration not found'], 404);
         }
 
-        $selectedRecords = $request->validate([
+        $validated = $request->validate([
             'sites' => 'array',
             'devices' => 'array',
+            'type' => 'required|in:device,site',
+        ]);
+
+        $history = ImportHistory::create([
+            'source' => ImportHistory::SOURCE_UISP,
+            'type' => $validated['type'],
+            'integration_id' => $integration->id,
+            'status' => ImportHistory::STATUS_PENDING,
+            'started_by' => Auth::id(),
+            'total_records' => count($validated['sites'] ?? []) + count($validated['devices'] ?? []),
+            'metadata' => ['selected_ids' => array_merge(
+                array_column($validated['sites'] ?? [], 'external_id'),
+                array_column($validated['devices'] ?? [], 'external_id')
+            )],
         ]);
 
         try {
+            $history->markAsRunning();
             $service = new UispImportService($integration);
-            $results = $service->execute($selectedRecords);
+            $results = $service->execute($validated, $history);
+
+            $stats = [
+                'created_records' => ($results['sites']['created'] ?? 0) + ($results['devices']['created'] ?? 0),
+                'updated_records' => ($results['sites']['updated'] ?? 0) + ($results['devices']['updated'] ?? 0),
+                'skipped_records' => ($results['sites']['skipped'] ?? 0) + ($results['devices']['skipped'] ?? 0),
+                'conflict_records' => ($results['sites']['conflicts'] ?? 0) + ($results['devices']['conflicts'] ?? 0),
+                'error_records' => ($results['sites']['failed'] ?? 0) + ($results['devices']['failed'] ?? 0),
+            ];
+            
+            $history->markAsCompleted($stats);
 
             return response()->json([
                 'success' => true,
-                'data' => $results,
+                'data' => array_merge($results, ['history_id' => $history->id]),
             ]);
         } catch (\Exception $e) {
             Log::error('UISP import execution failed', [
                 'error' => $e->getMessage(),
                 'integration_id' => $integration->id,
+                'history_id' => $history->id,
             ]);
+            $history->markAsFailed($e->getMessage());
             return response()->json([
                 'success' => false,
                 'error' => 'Import failed: ' . $e->getMessage(),

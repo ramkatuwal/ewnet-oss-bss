@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ImportHistory;
 use App\Models\Integration;
 use App\Models\Site;
 use App\Models\SiteExternalReference;
@@ -21,308 +22,113 @@ class LibreNMSSiteService
         $this->audit = $audit;
     }
 
-    /**
-     * Fetch LibreNMS locations/sites
-     */
-    public function fetchLocations(Integration $integration): array
-    {
-        $client = new LibreNMSClient($integration);
-        $result = $client->get('/locations');
-
-        if ($result['status'] !== 200 || empty($result['data'])) {
-            return ['locations' => [], 'error' => 'Failed to fetch locations from LibreNMS'];
-        }
-
-        $locations = $result['data']['locations'] ?? [];
-        return ['locations' => $locations, 'count' => count($locations)];
-    }
-
-    /**
-     * Fetch devices with location info (alternative approach if locations API is limited)
-     */
     public function fetchDevicesWithLocations(Integration $integration): array
     {
         $client = new LibreNMSClient($integration);
         $result = $client->get('/devices', ['type' => 'all']);
 
         if ($result['status'] !== 200 || empty($result['data'])) {
-            return ['devices' => [], 'error' => 'Failed to fetch devices from LibreNMS'];
+            return ['locations' => [], 'error' => 'Failed to fetch devices from LibreNMS'];
         }
 
         $devices = $result['data']['devices'] ?? [];
-        
-        // Extract unique locations
         $locations = [];
+
         foreach ($devices as $device) {
             if (!empty($device['location'])) {
-                $locations[$device['location']] = [
-                    'name' => $device['location'],
-                    'device_count' => ($locations[$device['location']]['device_count'] ?? 0) + 1,
-                    'devices' => array_merge(
-                        $locations[$device['location']]['devices'] ?? [],
-                        [[
-                            'device_id' => $device['device_id'],
-                            'hostname' => $device['hostname'],
-                        ]]
-                    ),
-                ];
+                $name = $device['location'];
+                if (!isset($locations[$name])) {
+                    $locations[$name] = ['name' => $name, 'device_count' => 0, 'devices' => []];
+                }
+                $locations[$name]['device_count']++;
+                $locations[$name]['devices'][] = ['device_id' => $device['device_id'], 'hostname' => $device['hostname']];
             }
         }
 
-        return [
-            'locations' => array_values($locations),
-            'count' => count($locations),
-            'devices' => $devices,
-        ];
+        return ['locations' => array_values($locations), 'count' => count($locations)];
     }
 
-    /**
-     * Preview site mapping
-     */
     public function previewSites(Integration $integration, User $user): array
     {
         $result = $this->fetchDevicesWithLocations($integration);
-        if (isset($result['error'])) {
-            return ['error' => $result['error']];
-        }
+        if (isset($result['error'])) return ['error' => $result['error']];
 
-        $locations = $result['locations'];
         $preview = [];
-
-        foreach ($locations as $location) {
-            $locationName = $location['name'];
-            $mappedSite = $this->findMappedSite($integration, $locationName);
+        foreach ($result['locations'] as $location) {
+            $existingRef = SiteExternalReference::where('provider', 'librenms')
+                ->where('external_id', $location['name'])
+                ->first();
+            
+            $existingSite = $existingRef ? Site::find($existingRef->site_id) : null;
             
             $preview[] = [
-                'location_name' => $locationName,
+                'id' => $location['name'],
+                'external_id' => $location['name'],
+                'name' => $location['name'],
                 'device_count' => $location['device_count'],
-                'devices' => $location['devices'],
-                'mapped' => $mappedSite !== null,
-                'site_id' => $mappedSite?->id,
-                'site_name' => $mappedSite?->name,
-                'site_code' => $mappedSite?->site_code,
-                'action' => $mappedSite ? 'update' : 'create',
+                'action' => $existingSite ? 'update' : 'create',
+                'site_id' => $existingSite?->id,
+                'evidence' => $existingSite ? [['field' => 'name', 'value' => $location['name'], 'strength' => 'strong']] : [],
             ];
         }
 
         return [
             'total' => count($preview),
-            'preview' => $preview,
+            'analysis' => $preview,
             'summary' => [
-                'mapped' => count(array_filter($preview, fn($p) => $p['mapped'])),
-                'unmapped' => count(array_filter($preview, fn($p) => !$p['mapped'])),
+                'create' => count(array_filter($preview, fn($p) => $p['action'] === 'create')),
+                'update' => count(array_filter($preview, fn($p) => $p['action'] === 'update')),
             ],
         ];
     }
 
-    /**
-     * Find mapped EWNET Site for a LibreNMS location
-     */
-    protected function findMappedSite(Integration $integration, string $locationName): ?Site
+    public function execute(Integration $integration, User $user, array $selectedLocations, ImportHistory $history): array
     {
-        // Check explicit mapping
-        $ref = SiteExternalReference::where('provider', 'librenms')
-            ->where('external_type', 'location')
-            ->where('external_id', $locationName)
-            ->first();
+        $results = ['created' => 0, 'updated' => 0, 'skipped' => 0, 'failed' => 0];
 
-        if ($ref && $ref->site) {
-            return $ref->site;
-        }
+        DB::transaction(function () use ($integration, $user, $selectedLocations, &$results, $history) {
+            foreach ($selectedLocations as $locationData) {
+                try {
+                    $locationName = $locationData['external_id'];
+                    
+                    $existingRef = SiteExternalReference::where('provider', 'librenms')
+                        ->where('external_id', $locationName)
+                        ->first();
 
-        // Try to find by name match
-        return Site::where('name', $locationName)
-            ->orWhere('site_code', $locationName)
-            ->first();
-    }
+                    $site = $existingRef ? Site::find($existingRef->site_id) : null;
 
-    /**
-     * Map a LibreNMS location to an EWNET Site
-     */
-    public function mapLocation(Integration $integration, string $locationName, int $siteId, User $user): array
-    {
-        $site = Site::find($siteId);
-        if (!$site) {
-            return ['success' => false, 'error' => 'Site not found'];
-        }
+                    if ($site) {
+                        $site->update([
+                            'metadata' => array_merge($site->metadata ?? [], ['last_synced' => now(), 'source' => 'librenms']),
+                        ]);
+                        $results['updated']++;
+                    } else {
+                        // Create a new site. In a real scenario, we might need to map it to a region/branch.
+                        // For now, we create a basic site record.
+                        $newSite = Site::create([
+                            'site_code' => 'LNM-' . substr(md5($locationName), 0, 8),
+                            'name' => $locationName,
+                            'type' => 'pop',
+                            'status' => 'active',
+                            'metadata' => ['source' => 'librenms', 'external_id' => $locationName],
+                        ]);
 
-        // Check management scope
-        if (!ManagementScopeService::isInScope($user, $site)) {
-            return ['success' => false, 'error' => 'Site is outside your management scope'];
-        }
-
-        // Create or update external reference
-        $ref = SiteExternalReference::updateOrCreate(
-            [
-                'provider' => 'librenms',
-                'external_type' => 'location',
-                'external_id' => $locationName,
-            ],
-            [
-                'site_id' => $siteId,
-                'metadata' => [
-                    'mapped_by' => $user->id,
-                    'mapped_at' => now()->toISOString(),
-                    'integration_id' => $integration->id,
-                ],
-            ]
-        );
-
-        $this->audit->log('librenms.site.mapped', 'success', $site, [
-            'location_name' => $locationName,
-            'external_reference_id' => $ref->id,
-            'integration_id' => $integration->id,
-        ]);
-
-        return ['success' => true, 'reference' => $ref];
-    }
-
-    /**
-     * Import sites from LibreNMS locations
-     */
-    public function importSites(Integration $integration, User $user, array $options = []): array
-    {
-        $result = $this->fetchDevicesWithLocations($integration);
-        if (isset($result['error'])) {
-            return ['error' => $result['error']];
-        }
-
-        $locations = $result['locations'];
-        $results = [
-            'created' => 0,
-            'updated' => 0,
-            'skipped' => 0,
-            'failed' => 0,
-            'details' => [],
-        ];
-
-        // If specific locations are provided, filter
-        $targetLocations = $options['locations'] ?? null;
-        if ($targetLocations) {
-            $locations = array_filter($locations, function ($loc) use ($targetLocations) {
-                return in_array($loc['name'], $targetLocations);
-            });
-        }
-
-        foreach ($locations as $location) {
-            $locationName = $location['name'];
-            
-            // Skip if dry-run
-            if ($options['dry_run'] ?? false) {
-                $results['details'][] = [
-                    'location' => $locationName,
-                    'status' => 'preview',
-                    'action' => 'create',
-                ];
-                continue;
+                        SiteExternalReference::create([
+                            'site_id' => $newSite->id,
+                            'provider' => 'librenms',
+                            'external_type' => 'location',
+                            'external_id' => $locationName,
+                            'metadata' => ['imported_at' => now()],
+                        ]);
+                        $results['created']++;
+                    }
+                } catch (\Exception $e) {
+                    Log::error('LibreNMS site import failed', ['location' => $locationData['external_id'] ?? 'unknown', 'error' => $e->getMessage()]);
+                    $results['failed']++;
+                }
             }
-
-            // Check if already mapped
-            $existingMapping = SiteExternalReference::where('provider', 'librenms')
-                ->where('external_type', 'location')
-                ->where('external_id', $locationName)
-                ->first();
-
-            if ($existingMapping) {
-                $results['skipped']++;
-                $results['details'][] = [
-                    'location' => $locationName,
-                    'status' => 'skipped',
-                    'action' => 'already_mapped',
-                    'site_id' => $existingMapping->site_id,
-                ];
-                continue;
-            }
-
-            // Create site
-            try {
-                $site = DB::transaction(function () use ($locationName, $user, $integration, $location) {
-                    $site = Site::create([
-                        'site_code' => $this->generateSiteCode($locationName),
-                        'name' => $locationName,
-                        'type' => 'pop',
-                        'status' => 'active',
-                        'company_id' => $this->getDefaultCompany($user),
-                    ]);
-
-                    SiteExternalReference::create([
-                        'site_id' => $site->id,
-                        'provider' => 'librenms',
-                        'external_type' => 'location',
-                        'external_id' => $locationName,
-                        'metadata' => [
-                            'created_by' => $user->id,
-                            'created_at' => now()->toISOString(),
-                            'integration_id' => $integration->id,
-                            'device_count' => $location['device_count'],
-                        ],
-                    ]);
-
-                    return $site;
-                });
-
-                $results['created']++;
-                $results['details'][] = [
-                    'location' => $locationName,
-                    'status' => 'created',
-                    'site_id' => $site->id,
-                    'site_code' => $site->site_code,
-                ];
-
-                $this->audit->log('librenms.site.created', 'success', $site, [
-                    'location_name' => $locationName,
-                    'integration_id' => $integration->id,
-                ]);
-
-            } catch (\Exception $e) {
-                $results['failed']++;
-                $results['details'][] = [
-                    'location' => $locationName,
-                    'status' => 'failed',
-                    'error' => $e->getMessage(),
-                ];
-            }
-        }
+        });
 
         return $results;
-    }
-
-    /**
-     * Generate a site code from a location name
-     */
-    protected function generateSiteCode(string $locationName): string
-    {
-        // Sanitize: uppercase, remove special chars, limit to 10 chars
-        $code = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $locationName));
-        $code = substr($code, 0, 10);
-        
-        // Make unique if needed
-        $existing = Site::where('site_code', $code)->exists();
-        if ($existing) {
-            $code = $code . '-' . strtoupper(substr(uniqid(), -4));
-        }
-        
-        return $code;
-    }
-
-    /**
-     * Get the default company for a user
-     */
-    protected function getDefaultCompany(User $user): ?int
-    {
-        // Use user's company if available
-        if ($user->company_id) {
-            return $user->company_id;
-        }
-
-        // Fallback to first company in user's management scope
-        $scopes = ManagementScopeService::getEffectiveScopes($user);
-        foreach ($scopes as $scope) {
-            if ($scope['scope_type'] === 'company') {
-                return $scope['scope_id'];
-            }
-        }
-
-        return null;
     }
 }

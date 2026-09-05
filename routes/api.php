@@ -153,36 +153,11 @@ Route::prefix('v1/integrations/uisp')->middleware('auth:sanctum')->group(functio
 });
 
 // Generic Import System
-Route::prefix('v1/import')->middleware('auth:sanctum')->group(function () {
-    Route::get('/providers', [App\Http\Controllers\Api\V1\ImportController::class, 'providers']);
-    Route::post('/preview', [App\Http\Controllers\Api\V1\ImportController::class, 'preview']);
-    Route::post('/execute', [App\Http\Controllers\Api\V1\ImportController::class, 'execute']);
-});
 
 // Generic Import System
-Route::prefix('v1/import')->middleware('auth:sanctum')->group(function () {
-    Route::get('/providers', [App\Http\Controllers\Api\V1\ImportController::class, 'providers']);
-    Route::post('/preview', [App\Http\Controllers\Api\V1\ImportController::class, 'preview']);
-    Route::post('/execute', [App\Http\Controllers\Api\V1\ImportController::class, 'execute']);
-});
 
 // Generic Import System
-Route::prefix('v1/import')->middleware('auth:sanctum')->group(function () {
-    Route::get('/providers', [App\Http\Controllers\Api\V1\ImportController::class, 'providers']);
-    Route::post('/preview', [App\Http\Controllers\Api\V1\ImportController::class, 'preview']);
-    Route::post('/execute', [App\Http\Controllers\Api\V1\ImportController::class, 'execute']);
-});
 
 // Generic Import System
-Route::prefix('v1/import')->middleware('auth:sanctum')->group(function () {
-    Route::get('/providers', [App\Http\Controllers\Api\V1\ImportController::class, 'providers']);
-    Route::post('/preview', [App\Http\Controllers\Api\V1\ImportController::class, 'preview']);
-    Route::post('/execute', [App\Http\Controllers\Api\V1\ImportController::class, 'execute']);
-});
 
 // Generic Import System
-Route::prefix('v1/import')->middleware('auth:sanctum')->group(function () {
-    Route::get('/providers', [App\Http\Controllers\Api\V1\ImportController::class, 'providers']);
-    Route::post('/preview', [App\Http\Controllers\Api\V1\ImportController::class, 'preview']);
-    Route::post('/execute', [App\Http\Controllers\Api\V1\ImportController::class, 'execute']);
-});

@@ -105,3 +105,11 @@ export const uispImportApi = {
   analyzeSingle: (type: 'site' | 'device', data: any) =>
     api.post('/integrations/uisp/import/analyze', { type, data }).then(r => r.data),
 };
+
+export const integrationImportApi = {
+  preview: (integrationId: number) =>
+    api.post<{ data: any }>(`/integrations/${integrationId}/import/preview`).then(r => r.data),
+
+  execute: (integrationId: number, data: { devices?: any[]; sites?: any[] }) =>
+    api.post<{ data: any }>(`/integrations/${integrationId}/import`, data).then(r => r.data),
+};
