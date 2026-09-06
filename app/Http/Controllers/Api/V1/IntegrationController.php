@@ -75,6 +75,7 @@ class IntegrationController extends Controller
         if (!empty($data['credential_type']) && !empty($data['credential_value'])) {
             $cred = new IntegrationCredential([
                 'integration_id' => $integration->id,
+                'provider' => $integration->provider,
                 'credential_type' => $data['credential_type'],
                 'label' => $data['credential_label'] ?? 'Primary',
                 'is_active' => true,
@@ -113,6 +114,7 @@ class IntegrationController extends Controller
 
             $cred = new IntegrationCredential([
                 'integration_id' => $integration->id,
+                'provider' => $integration->provider,
                 'credential_type' => $data['credential_type'],
                 'label' => $data['credential_label'] ?? 'Primary',
                 'is_active' => true,
@@ -215,13 +217,15 @@ class IntegrationController extends Controller
         } catch (\Exception $e) {
             Log::error('Import preview failed', [
                 'integration_id' => $integration->id,
+                'provider' => $integration->provider,
                 'resource_type' => $resourceType,
-                'error' => $e->getMessage(),
+                'exception_class' => get_class($e),
+                'error_message' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'error' => 'Preview failed: ' . $e->getMessage(),
+                'error' => 'Preview could not be completed. Please try again later.',
             ], 500);
         }
     }
