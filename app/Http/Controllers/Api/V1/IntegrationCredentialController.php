@@ -8,6 +8,8 @@ use App\Http\Resources\V1\IntegrationCredentialResource;
 use App\Models\Integration;
 use App\Models\IntegrationCredential;
 use App\Services\AuditService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class IntegrationCredentialController extends Controller
 {
@@ -66,5 +68,37 @@ class IntegrationCredentialController extends Controller
         ]);
 
         return response()->json(null, 204);
+    }
+
+    public function rotate(Request $request, Integration $integration, IntegrationCredential $credential)
+    {
+        $this->authorize('manageCredentials', $integration);
+
+        if ($credential->integration_id !== $integration->id) {
+            abort(404);
+        }
+
+        $request->validate(['value' => 'required|string']);
+
+        DB::transaction(function () use ($request, $integration, $credential) {
+            $new = new IntegrationCredential([
+                'integration_id' => $integration->id,
+                'credential_type' => $credential->credential_type,
+                'label' => $credential->label,
+                'is_active' => true,
+            ]);
+            $new->setSecretValue($request->input('value'));
+            $new->save();
+
+            $credential->update(['is_active' => false]);
+
+            AuditService::log('integration.credential_rotated', 'success', $integration, [
+                'credential_type' => $new->credential_type,
+                'label' => $new->label,
+                'previous_credential_id' => $credential->id,
+            ]);
+        });
+
+        return response()->json(['success' => true]);
     }
 }

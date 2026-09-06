@@ -5,11 +5,16 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreIntegrationRequest;
 use App\Http\Requests\Api\V1\UpdateIntegrationRequest;
+use App\Http\Resources\V1\AuditLogResource;
 use App\Http\Resources\V1\IntegrationResource;
 use App\Http\Resources\V1\IntegrationSyncResource;
+use App\Models\AssetExternalReference;
+use App\Models\AuditLog;
 use App\Models\ImportHistory;
 use App\Models\Integration;
 use App\Models\IntegrationCredential;
+use App\Models\IntegrationSync;
+use App\Models\SiteExternalReference;
 use App\Services\AuditService;
 use App\Services\Integrations\IntegrationManager;
 use App\Services\Integrations\Uisp\UispImportService;
@@ -25,7 +30,7 @@ class IntegrationController extends Controller
     {
         $this->authorize('viewAny', Integration::class);
 
-        $query = Integration::query()->with(['creator']);
+        $query = Integration::query()->with(['creator', 'company']);
 
         if (! ManagementScopeService::hasGlobalScope($request->user())) {
             $allowedIds = ManagementScopeService::resolveAllowedIntegrationIds($request->user());
@@ -106,7 +111,7 @@ class IntegrationController extends Controller
     {
         $this->authorize('view', $integration);
 
-        return new IntegrationResource($integration->load(['creator', 'updater']));
+        return new IntegrationResource($integration->load(['creator', 'updater', 'company']));
     }
 
     public function update(UpdateIntegrationRequest $request, Integration $integration)
@@ -216,6 +221,68 @@ class IntegrationController extends Controller
             ->paginate($request->get('per_page', 15));
 
         return IntegrationSyncResource::collection($syncs);
+    }
+
+    public function stats(Request $request, Integration $integration)
+    {
+        $this->authorize('view', $integration);
+
+        $syncQuery = IntegrationSync::query()->where('integration_id', $integration->id);
+
+        $totals = (new IntegrationSync)->newQuery()
+            ->where('integration_id', $integration->id)
+            ->selectRaw('count(*) as total')
+            ->selectRaw("sum(case when status = 'completed' then 1 else 0 end) as completed")
+            ->selectRaw("sum(case when status = 'failed' then 1 else 0 end) as failed")
+            ->selectRaw('sum(case when status = \'running\' or status = \'pending\' then 1 else 0 end) as running')
+            ->selectRaw('coalesce(sum(records_created), 0) as created')
+            ->selectRaw('coalesce(sum(records_updated), 0) as updated')
+            ->selectRaw('coalesce(sum(records_skipped), 0) as skipped')
+            ->selectRaw('coalesce(sum(records_failed), 0) as failed_records')
+            ->first();
+
+        $lastSync = $syncQuery->clone()
+            ->whereNotNull('finished_at')
+            ->orderByDesc('finished_at')
+            ->first();
+
+        $sites = SiteExternalReference::where('provider', $integration->provider)->count();
+        $assets = AssetExternalReference::where('provider', $integration->provider)->count();
+
+        return response()->json([
+            'data' => [
+                'total_objects' => $sites + $assets,
+                'syncs_total' => (int) ($totals->total ?? 0),
+                'syncs_completed' => (int) ($totals->completed ?? 0),
+                'syncs_failed' => (int) ($totals->failed ?? 0),
+                'syncs_running' => (int) ($totals->running ?? 0),
+                'success_rate' => ($totals->total ?? 0) > 0 ? round((($totals->completed ?? 0) / $totals->total) * 100, 1) : null,
+                'records_created_total' => (int) ($totals->created ?? 0),
+                'records_updated_total' => (int) ($totals->updated ?? 0),
+                'records_skipped_total' => (int) ($totals->skipped ?? 0),
+                'records_failed_total' => (int) ($totals->failed_records ?? 0),
+                'last_sync_at' => $lastSync?->finished_at?->toISOString(),
+                'last_sync_operation' => $lastSync?->operation,
+                'last_sync_status' => $lastSync?->status,
+                'last_sync_duration_seconds' => $lastSync?->started_at && $lastSync?->finished_at
+                    ? max(0, (int) $lastSync->started_at->diffInSeconds($lastSync->finished_at))
+                    : null,
+                'last_error_summary' => $lastSync?->error_summary,
+            ],
+        ]);
+    }
+
+    public function auditLogs(Request $request, Integration $integration)
+    {
+        $this->authorize('viewLogs', $integration);
+
+        $logs = AuditLog::where('target_type', Integration::class)
+            ->where('target_id', $integration->id)
+            ->with('actor')
+            ->orderByDesc('created_at')
+            ->paginate($request->integer('per_page', 15));
+
+        return AuditLogResource::collection($logs);
     }
 
     /**

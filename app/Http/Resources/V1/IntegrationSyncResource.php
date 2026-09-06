@@ -16,10 +16,14 @@ class IntegrationSyncResource extends JsonResource
             'status' => $this->status,
             'started_at' => $this->started_at?->toISOString(),
             'finished_at' => $this->finished_at?->toISOString(),
+            'duration_seconds' => $this->started_at && $this->finished_at
+                ? max(0, (int) $this->started_at->diffInSeconds($this->finished_at))
+                : null,
             'records_processed' => $this->records_processed,
             'records_created' => $this->records_created,
             'records_updated' => $this->records_updated,
             'records_unchanged' => $this->records_unchanged,
+            'records_skipped' => $this->records_skipped,
             'records_failed' => $this->records_failed,
             'error_summary' => $this->error_summary,
             'initiated_by' => $this->whenLoaded('initiator', fn () => $this->initiator->name ?? null),

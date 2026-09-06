@@ -127,6 +127,8 @@ Route::middleware('auth:sanctum')->prefix('v1/integrations')->group(function () 
     Route::get('/{integration}', [IntegrationController::class, 'show']);
     Route::put('/{integration}', [IntegrationController::class, 'update']);
     Route::delete('/{integration}', [IntegrationController::class, 'destroy']);
+    Route::get('/{integration}/stats', [IntegrationController::class, 'stats']);
+    Route::get('/{integration}/audit-logs', [IntegrationController::class, 'auditLogs']);
     Route::post('/{integration}/test', [IntegrationController::class, 'testConnection']);
     Route::post('/{integration}/health-check', [IntegrationController::class, 'healthCheck']);
     Route::post('/{integration}/sync', [IntegrationController::class, 'sync']);
@@ -135,6 +137,7 @@ Route::middleware('auth:sanctum')->prefix('v1/integrations')->group(function () 
     // Credentials (nested under integration)
     Route::get('/{integration}/credentials', [IntegrationCredentialController::class, 'index']);
     Route::post('/{integration}/credentials', [IntegrationCredentialController::class, 'store']);
+    Route::post('/{integration}/credentials/{credential}/rotate', [IntegrationCredentialController::class, 'rotate']);
     Route::delete('/{integration}/credentials/{credential}', [IntegrationCredentialController::class, 'destroy']);
 
     // Generic import (canonical preview + execute)

@@ -11,7 +11,7 @@ class AuditLogResource extends JsonResource
     {
         $actorName = null;
         $actorEmail = null;
-        
+
         if ($this->relationLoaded('actor') && $this->actor) {
             $actorName = $this->actor->name ?? null;
             $actorEmail = $this->actor->email ?? null;
@@ -20,7 +20,7 @@ class AuditLogResource extends JsonResource
         $targetName = null;
         if ($this->relationLoaded('target') && $this->target) {
             $target = $this->target;
-            $targetName = match(true) {
+            $targetName = match (true) {
                 method_exists($target, 'getNameAttribute') => $target->name ?? null,
                 property_exists($target, 'name') => $target->name ?? null,
                 property_exists($target, 'email') => $target->email ?? null,
@@ -38,6 +38,7 @@ class AuditLogResource extends JsonResource
                 'name' => $actorName ?? 'Deleted User',
                 'email' => $actorEmail,
             ],
+            'actor_name' => $actorName ?? 'system',
             'target' => [
                 'type' => $this->target_type,
                 'id' => $this->target_id,
@@ -54,22 +55,23 @@ class AuditLogResource extends JsonResource
 
     protected function sanitizeMetadata(?array $metadata): ?array
     {
-        if (!$metadata) {
+        if (! $metadata) {
             return null;
         }
 
         $sensitiveKeys = [
-            'password', 'password_confirmation', 'token', 'secret', 
+            'password', 'password_confirmation', 'token', 'secret',
             'api_key', 'credentials', 'access_token', 'refresh_token',
-            'private_key', 'session_id', 'cookie'
+            'private_key', 'session_id', 'cookie',
         ];
 
         return collect($metadata)
-            ->filter(fn($value, $key) => !in_array($key, $sensitiveKeys))
+            ->filter(fn ($value, $key) => ! in_array($key, $sensitiveKeys))
             ->map(function ($value, $key) {
                 if (is_string($value) && preg_match('/^(sk_|pk_|Bearer |eyJ)/', $value)) {
                     return '[REDACTED]';
                 }
+
                 return $value;
             })
             ->toArray();
