@@ -65,15 +65,15 @@ const UISPSiteTab: React.FC = () => {
     return (previewData.sites?.analysis || []).map((item: any) => ({
       record: {
         id: item.external_id || '',
-        name: item.record?.identification?.name || 'Unknown Site',
+        name: item.name || 'Unknown Site',
         external_id: item.external_id || '',
-        address: item.record?.identification?.address || '',
-        status: item.record?.identification?.status || 'unknown',
+        address: item.address || '',
+        status: item.action === 'create' ? 'new' : item.action === 'link' ? 'linked' : item.status || 'unknown',
       },
       analysis: {
         decision: item.action === 'link' ? 'LINK' : item.action === 'create' ? 'CREATE' : 'REVIEW',
         destination_id: item.site_id || null,
-        evidence: [],
+        evidence: item.evidence || [],
       },
     }));
   }, [previewData]);

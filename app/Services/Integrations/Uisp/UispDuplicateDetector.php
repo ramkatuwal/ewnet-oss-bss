@@ -7,7 +7,6 @@ use App\Models\AssetExternalReference;
 use App\Models\LibreNmsObject;
 use App\Models\Site;
 use App\Models\SiteExternalReference;
-use Illuminate\Support\Facades\Log;
 
 /**
  * UISP Device → EWNET Asset Reconciliation
@@ -21,7 +20,7 @@ class UispDuplicateDetector
     /**
      * Analyze a UISP device against existing EWNET Assets.
      *
-     * @param array $uispDevice ONE UISP device from API (SOURCE)
+     * @param  array  $uispDevice  ONE UISP device from API (SOURCE)
      * @return array Reconciliation result with destination asset(s)
      */
     public function analyzeDevice(array $uispDevice): array
@@ -29,20 +28,23 @@ class UispDuplicateDetector
         // === STEP 1: Extract SOURCE device data ===
         $identification = $uispDevice['identification'] ?? [];
         $externalId = $uispDevice['id'] ?? $identification['id'] ?? null;
-        
-        if (!$externalId) {
-            return ['action' => 'error', 'reason' => 'Missing external ID'];
-        }
 
         $serial = $this->normalizeSerial($identification['serialNumber'] ?? null);
         $mac = $this->normalizeMac($identification['mac'] ?? null);
         $name = $this->normalizeName($identification['name'] ?? null);
-        
+        $siteIdentification = $identification['site'] ?? [];
+        $siteExternalId = $siteIdentification['id'] ?? $identification['site_id'] ?? $uispDevice['site_id'] ?? null;
+        $siteName = $this->normalizeName($siteIdentification['name'] ?? $uispDevice['site_name'] ?? null);
+
+        if (! $externalId) {
+            return ['action' => 'error', 'reason' => 'Missing external ID', 'site_external_id' => $siteExternalId, 'site_name' => $siteName];
+        }
+
         // Robust IP extraction from multiple possible locations
-        $rawIp = $uispDevice['ipAddress'] 
-               ?? $uispDevice['overview']['ipAddress'] 
-               ?? $uispDevice['overview']['ip'] 
-               ?? $identification['ip'] 
+        $rawIp = $uispDevice['ipAddress']
+               ?? $uispDevice['overview']['ipAddress']
+               ?? $uispDevice['overview']['ip']
+               ?? $identification['ip']
                ?? null;
         $ip = $this->normalizeIp($rawIp);
 
@@ -96,9 +98,9 @@ class UispDuplicateDetector
 
         // 2d: Check IP Address (MODERATE) - Support both 'ip' and 'ip_address' keys
         if ($ip) {
-            $ipAsset = Asset::where(function($query) use ($ip) {
+            $ipAsset = Asset::where(function ($query) use ($ip) {
                 $query->whereJsonContains('specifications', ['ip_address' => $ip])
-                      ->orWhereJsonContains('specifications', ['ip' => $ip]);
+                    ->orWhereJsonContains('specifications', ['ip' => $ip]);
             })->first();
 
             if ($ipAsset) {
@@ -146,8 +148,8 @@ class UispDuplicateDetector
         $candidateCount = count($uniqueCandidateIds);
 
         // Helper: Extract match field names from evidence
-        $extractMatchFields = function($evidenceList) {
-            return array_map(function($ev) {
+        $extractMatchFields = function ($evidenceList) {
+            return array_map(function ($ev) {
                 return $ev['field'];
             }, $evidenceList);
         };
@@ -170,6 +172,8 @@ class UispDuplicateDetector
                 'model' => $model,
                 'vendor' => $vendor,
                 'external_id' => $externalId,
+                'site_external_id' => $siteExternalId,
+                'site_name' => $siteName,
             ];
         }
 
@@ -204,6 +208,8 @@ class UispDuplicateDetector
                 'model' => $model,
                 'vendor' => $vendor,
                 'external_id' => $externalId,
+                'site_external_id' => $siteExternalId,
+                'site_name' => $siteName,
             ];
         }
 
@@ -234,7 +240,7 @@ class UispDuplicateDetector
                 'evidence' => $assetEvidence,
                 'matches' => $matchFields,
                 'candidates' => $candidates,
-                'weak_matches' => array_filter($evidence, function($evs, $id) use ($strongMatchAssetId) {
+                'weak_matches' => array_filter($evidence, function ($evs, $id) use ($strongMatchAssetId) {
                     return $id !== $strongMatchAssetId;
                 }, ARRAY_FILTER_USE_BOTH),
                 'serial' => $serial,
@@ -244,6 +250,8 @@ class UispDuplicateDetector
                 'model' => $model,
                 'vendor' => $vendor,
                 'external_id' => $externalId,
+                'site_external_id' => $siteExternalId,
+                'site_name' => $siteName,
             ];
         }
 
@@ -265,16 +273,25 @@ class UispDuplicateDetector
             'model' => $model,
             'vendor' => $vendor,
             'external_id' => $externalId,
+            'site_external_id' => $siteExternalId,
+            'site_name' => $siteName,
         ];
     }
 
     protected function calculateConfidence(array $evidence): string
     {
         foreach ($evidence as $ev) {
-            if ($ev['strength'] === 'exact') return 'exact';
-            if ($ev['strength'] === 'strong') return 'strong';
-            if ($ev['strength'] === 'moderate') return 'moderate';
+            if ($ev['strength'] === 'exact') {
+                return 'exact';
+            }
+            if ($ev['strength'] === 'strong') {
+                return 'strong';
+            }
+            if ($ev['strength'] === 'moderate') {
+                return 'moderate';
+            }
         }
+
         return 'weak';
     }
 
@@ -282,19 +299,20 @@ class UispDuplicateDetector
     {
         $parts = [];
         foreach ($evidence as $ev) {
-            $parts[] = ucfirst($ev['field']) . ' match';
+            $parts[] = ucfirst($ev['field']).' match';
         }
         $reason = implode('; ', $parts);
         if ($ipChanged) {
             $reason .= '; IP changed (will update)';
         }
+
         return $reason ?: 'No evidence';
     }
 
     public function analyzeSite(array $uispSite): array
     {
         $externalId = $uispSite['id'] ?? null;
-        if (!$externalId) {
+        if (! $externalId) {
             return ['action' => 'error', 'reason' => 'Missing external ID'];
         }
 
@@ -362,39 +380,57 @@ class UispDuplicateDetector
 
     protected function normalizeSerial(?string $value): ?string
     {
-        if (!$value) return null;
+        if (! $value) {
+            return null;
+        }
         $value = trim($value);
         if (in_array(strtoupper($value), ['N/A', 'NA', 'UNKNOWN', 'NONE', '-', ''])) {
             return null;
         }
+
         return $value;
     }
 
     protected function normalizeMac(?string $value): ?string
     {
-        if (!$value) return null;
+        if (! $value) {
+            return null;
+        }
         $value = preg_replace('/[^a-fA-F0-9]/', '', $value);
-        if (strlen($value) !== 12) return null;
-        if ($value === '000000000000') return null;
+        if (strlen($value) !== 12) {
+            return null;
+        }
+        if ($value === '000000000000') {
+            return null;
+        }
+
         return strtolower(implode(':', str_split($value, 2)));
     }
 
     protected function normalizeName(?string $value): ?string
     {
-        if (!$value) return null;
+        if (! $value) {
+            return null;
+        }
         $value = trim(preg_replace('/\s+/', ' ', $value));
-        if (strlen($value) < 2) return null;
+        if (strlen($value) < 2) {
+            return null;
+        }
+
         return $value;
     }
 
     protected function normalizeIp(?string $value): ?string
     {
-        if (!$value) return null;
+        if (! $value) {
+            return null;
+        }
         $value = trim($value);
         $value = preg_replace('/\/\d+$/', '', $value);
         if (filter_var($value, FILTER_VALIDATE_IP)) {
             return $value;
         }
+
         return null;
     }
 }

@@ -174,8 +174,15 @@ class UispImportService
             }
 
             $siteId = $this->resolveSiteId($data);
+            if ($siteId === null) {
+                $results['devices']['skipped']++;
+                Log::warning('UISP device skipped: no resolvable parent site', [
+                    'external_id' => $externalId,
+                ]);
+
+                return;
+            }
             $assetTag = 'UISP-'.substr($externalId, 0, 8);
-            $baseTag = $assetTag;
             $counter = 1;
             while (Asset::where('asset_tag', $assetTag)->exists()) {
                 $assetTag = $baseTag.'-'.$counter++;
@@ -314,7 +321,7 @@ class UispImportService
         }
     }
 
-    protected function resolveSiteId(array $data): int
+    protected function resolveSiteId(array $data): ?int
     {
         if (! empty($data['site_id'])) {
             $site = Site::find($data['site_id']);
@@ -323,22 +330,54 @@ class UispImportService
             }
         }
 
-        if (! empty($data['site_external_id'])) {
+        $siteExternal = $data['site_external_id'] ?? $data['site_id_external'] ?? null;
+        if ($siteExternal !== null && $siteExternal !== '') {
             $ref = SiteExternalReference::where('provider', 'uisp')
-                ->where('external_id', (string) $data['site_external_id'])
+                ->where('external_id', (string) $siteExternal)
                 ->first();
             if ($ref) {
                 return $ref->site_id;
             }
+
+            // Missing parent site → reconcile rather than skip the device.
+            return $this->createSiteFromDevice($data, (string) $siteExternal);
         }
 
+        if (! empty($data['site_name'])) {
+            $site = Site::where('name', $data['site_name'])->first();
+            if ($site) {
+                return $site->id;
+            }
+
+            return $this->createSiteFromDevice($data, null);
+        }
+
+        return null;
+    }
+
+    protected function createSiteFromDevice(array $data, ?string $externalId): int
+    {
+        $siteExternal = $externalId ?: ($data['site_external_id'] ?? $data['site_id_external'] ?? null);
+        $name = $data['site_name'] ?? ($siteExternal ? 'UISP Site '.$siteExternal : 'UISP Device Site');
+
         $site = Site::create([
-            'site_code' => 'UISP-DEFAULT-'.time(),
-            'name' => 'UISP Default Site',
-            'type' => 'pop',
+            'site_code' => 'UISP-'.substr(md5((string) ($siteExternal ?: $name)), 0, 8),
+            'name' => $name,
+            'type' => ($data['site_type'] ?? 'pop') ?: 'pop',
             'status' => 'active',
             'company_id' => $this->integration->company_id,
+            'metadata' => ['source' => 'uisp', 'external_id' => $siteExternal],
         ]);
+
+        if ($siteExternal) {
+            SiteExternalReference::create([
+                'site_id' => $site->id,
+                'provider' => 'uisp',
+                'external_type' => 'site',
+                'external_id' => (string) $siteExternal,
+                'metadata' => ['imported_at' => now()],
+            ]);
+        }
 
         return $site->id;
     }
