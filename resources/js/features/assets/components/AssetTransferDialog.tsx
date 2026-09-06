@@ -32,12 +32,14 @@ export const AssetTransferDialog: React.FC<AssetTransferDialogProps> = ({
 }) => {
     const queryClient = useQueryClient();
     const [toSiteId, setToSiteId] = useState<number | ''>('');
+    const [toSiteOption, setToSiteOption] = useState<SiteOption | null>(null);
     const [notes, setNotes] = useState('');
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
         if (open) {
             setToSiteId('');
+            setToSiteOption(null);
             setNotes('');
             setErrors({});
         }
@@ -108,8 +110,9 @@ export const AssetTransferDialog: React.FC<AssetTransferDialogProps> = ({
 
                         <SearchableSelect<SiteOption>
                             label="Destination Site *"
-                            value={null}
+                            value={toSiteOption}
                             onChange={(option) => {
+                                setToSiteOption(option);
                                 setToSiteId(option ? option.value : '');
                                 setErrors({});
                             }}
