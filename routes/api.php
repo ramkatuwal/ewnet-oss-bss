@@ -118,6 +118,7 @@ Route::middleware('auth:sanctum')->prefix('v1/system')->group(function () {
     Route::get('/info', [SystemInfoController::class, 'index']);
     Route::get('/configuration', [SystemConfigController::class, 'index']);
     Route::put('/configuration', [SystemConfigController::class, 'update']);
+    Route::post('/branding', [SystemConfigController::class, 'uploadBranding']);
 });
 
 // Integrations
