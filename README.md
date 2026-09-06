@@ -1,61 +1,45 @@
 # EWNET OSS/BSS
+
 A comprehensive Operations Support System / Business Support System built with Laravel 13, React, and PostGIS.
 
-## 🏗️ Architecture
+## Architecture
 
-*   **Frontend:** React 19, TypeScript, Vite, Material UI, Zustand.
-*   **Backend:** Laravel 13, PHP 8.4, Sanctum (SPA Auth).
-*   **Database:** PostgreSQL 17 with PostGIS 3.5.
-*   **Cache/Queue:** Redis 7.4, Laravel Horizon.
-*   **Web Server:** Nginx 1.26 (Reverse Proxy).
-*   **Containerization:** Docker & Docker Compose.
+- **Frontend:** React 19, TypeScript, Vite, Material UI, Zustand.
+- **Backend:** Laravel 13, PHP 8.4, Sanctum (SPA Auth).
+- **Database:** PostgreSQL 17 with PostGIS 3.5.
+- **Cache/Queue:** Redis 7.4, Laravel Horizon.
+- **Web Server:** Nginx 1.26 (Reverse Proxy).
+- **Containerization:** Docker & Docker Compose.
 
-## 🚀 Quick Start (Automated)
+## Quick Start
 
-For a fresh Ubuntu 24.04 LTS server:
+For a fresh Ubuntu server with Docker installed:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ramkatuwal/ewnet-oss-bss/develop/install.sh | sudo bash
-
-🛠️ Manual Installation
-1. Prerequisites
-Ubuntu 24.04 LTS
-Docker Engine & Docker Compose Plugin
-Git
-2. Clone & Configure
-
 git clone https://github.com/ramkatuwal/ewnet-oss-bss.git /opt/misp
 cd /opt/misp
-cp .env.example .env
+chmod +x install.sh
+./install.sh
+```
 
-3. Environment Setup
-Update .env with your production values:
-APP_URL: Your public domain.
-DB_PASSWORD: Secure password for PostgreSQL.
-REDIS_PASSWORD: Secure password for Redis.
-SANCTUM_STATEFUL_DOMAINS: Your domain.
-4. Build & Run
+See **[INSTALLATION.md](INSTALLATION.md)** for the full step-by-step guide, `.env` variable reference, TLS options, and troubleshooting.
 
-docker compose build
-docker compose up -d
+## Default Credentials
 
-5. Initialize Application
+After seeding: `admin@ewnet.com.np` / `Admin@2026!`
 
-docker compose exec app php artisan key:generate
-docker compose exec app php artisan migrate --force
-docker compose exec app php artisan db:seed --force
-docker compose exec app php artisan storage:link
-docker compose build # Includes frontend asset compilation
+## Monitoring
 
-🔒 Security & TLS
-The application uses Let's Encrypt for TLS. Ensure your Nginx configuration points to the correct certificate paths in /etc/letsencrypt.
-📊 Monitoring
-Horizon Dashboard: /horizon (Requires Admin access)
-System Info: /audit/system-info
-Logs: docker compose logs -f app
-🧪 Testing
+- **Horizon Dashboard:** `/<horizon_path>` (requires admin access)
+- **Logs:** `docker compose logs -f app`
 
-docker compose exec app php artisan test
+## Testing
 
-📝 License
+```bash
+# Run the test suite (requires a running PostgreSQL instance on port 5432)
+DB_HOST=127.0.0.1 ./vendor/bin/phpunit
+```
+
+## License
+
 Proprietary - EWNET OSS/BSS
