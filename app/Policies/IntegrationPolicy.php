@@ -4,9 +4,12 @@ namespace App\Policies;
 
 use App\Models\Integration;
 use App\Models\User;
+use App\Policies\Concerns\ChecksManagementScope;
 
 class IntegrationPolicy
 {
+    use ChecksManagementScope;
+
     public function viewAny(User $user): bool
     {
         return $user->isSuperAdmin() || $user->hasPermissionTo('integrations.view');
@@ -14,7 +17,7 @@ class IntegrationPolicy
 
     public function view(User $user, Integration $integration): bool
     {
-        return $this->viewAny($user);
+        return $this->hasPermissionAndInScope($user, 'integrations.view', $integration);
     }
 
     public function create(User $user): bool
@@ -24,31 +27,44 @@ class IntegrationPolicy
 
     public function update(User $user, Integration $integration): bool
     {
-        return $user->isSuperAdmin() || $user->hasPermissionTo('integrations.update');
+        return $this->hasPermissionAndInScope($user, 'integrations.update', $integration);
     }
 
     public function delete(User $user, Integration $integration): bool
     {
-        return $user->isSuperAdmin() || $user->hasPermissionTo('integrations.delete');
+        return $this->hasPermissionAndInScope($user, 'integrations.delete', $integration);
     }
 
     public function test(User $user, Integration $integration): bool
     {
-        return $user->isSuperAdmin() || $user->hasPermissionTo('integrations.test');
+        return $this->hasPermissionAndInScope($user, 'integrations.test', $integration);
     }
 
     public function sync(User $user, Integration $integration): bool
     {
-        return $user->isSuperAdmin() || $user->hasPermissionTo('integrations.sync');
+        return $this->hasPermissionAndInScope($user, 'integrations.sync', $integration);
     }
 
     public function manageCredentials(User $user, Integration $integration): bool
     {
-        return $user->isSuperAdmin() || $user->hasPermissionTo('integrations.credentials.manage');
+        return $this->hasPermissionAndInScope($user, 'integrations.credentials.manage', $integration);
     }
 
     public function viewLogs(User $user, Integration $integration): bool
     {
-        return $user->isSuperAdmin() || $user->hasPermissionTo('integrations.logs.view');
+        return $this->hasPermissionAndInScope($user, 'logs.view', $integration);
+    }
+
+    /**
+     * Trigger or preview an import against the integration. Permission is
+     * provider-specific; tenant scope is enforced for non-global users.
+     */
+    public function import(User $user, Integration $integration): bool
+    {
+        $permission = $integration->provider === 'uisp'
+            ? 'integration.uisp.import'
+            : 'librenms.import';
+
+        return $this->hasPermissionAndInScope($user, $permission, $integration);
     }
 }

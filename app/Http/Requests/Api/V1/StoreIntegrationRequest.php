@@ -2,18 +2,20 @@
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Models\Integration;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreIntegrationRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->can('create', \App\Models\Integration::class);
+        return $this->user()->can('create', Integration::class);
     }
 
     public function rules(): array
     {
         $rules = [
+            'company_id' => ['nullable', 'integer', 'exists:companies,id'],
             'name' => ['required', 'string', 'max:255'],
             'provider' => ['required', 'string', 'in:librenms,uisp'],
             'type' => ['required', 'string', 'in:monitoring,aaa,network_device,access_network,dns,dhcp,logging,authentication,billing,other'],

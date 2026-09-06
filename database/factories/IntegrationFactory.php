@@ -12,7 +12,7 @@ class IntegrationFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => $this->faker->company . ' Integration',
+            'name' => $this->faker->company.' Integration',
             'provider' => 'librenms',
             'type' => 'monitoring',
             'description' => $this->faker->sentence,
@@ -24,6 +24,14 @@ class IntegrationFactory extends Factory
             ],
             'created_by' => null,
             'updated_by' => null,
+            'company_id' => null,
         ];
+    }
+
+    public function forCompany(int $companyId): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'company_id' => $companyId,
+        ]);
     }
 }

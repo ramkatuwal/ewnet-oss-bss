@@ -2,10 +2,14 @@
 
 namespace App\Services;
 
+use App\Models\Asset;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Department;
+use App\Models\Integration;
+use App\Models\IntegrationCredential;
 use App\Models\Region;
+use App\Models\Site;
 use App\Models\User;
 use App\Models\UserManagementScope;
 use Illuminate\Database\Eloquent\Builder;
@@ -19,12 +23,12 @@ class ManagementScopeService
             return [['scope_type' => 'global', 'scope_id' => 0]];
         }
 
-        $explicit = $user->managementScopes->map(fn(UserManagementScope $s) => [
+        $explicit = $user->managementScopes->map(fn (UserManagementScope $s) => [
             'scope_type' => $s->scope_type,
             'scope_id' => $s->scope_id,
         ])->toArray();
 
-        if (!empty($explicit)) {
+        if (! empty($explicit)) {
             return $explicit;
         }
 
@@ -43,6 +47,7 @@ class ManagementScopeService
         if ($user->company_id) {
             return [['scope_type' => 'company', 'scope_id' => $user->company_id]];
         }
+
         return [];
     }
 
@@ -53,7 +58,9 @@ class ManagementScopeService
 
     public static function isInScope(User $user, Model $resource): bool
     {
-        if (static::hasGlobalScope($user)) return true;
+        if (static::hasGlobalScope($user)) {
+            return true;
+        }
 
         $scopes = static::getEffectiveScopes($user);
         foreach ($scopes as $scope) {
@@ -61,6 +68,7 @@ class ManagementScopeService
                 return true;
             }
         }
+
         return false;
     }
 
@@ -78,7 +86,7 @@ class ManagementScopeService
         }
         if ($resource instanceof Department) {
             // For unsaved models (no ID), check by attributes directly
-            if (!$resource->exists) {
+            if (! $resource->exists) {
                 return match ($scopeType) {
                     'company' => $resource->company_id === $scopeId,
                     'branch' => $resource->branch_id === $scopeId,
@@ -87,19 +95,40 @@ class ManagementScopeService
                     default => false,
                 };
             }
+
             return in_array($resource->id, static::getDepartmentIdsForScope($scopeType, $scopeId));
         }
-        if ($resource instanceof \App\Models\Asset) {
+        if ($resource instanceof Asset) {
             // Assets are in scope if their parent Site is in scope
-            if (!$resource->site) return false;
+            if (! $resource->site) {
+                return false;
+            }
+
             return static::isSiteInScope($resource->site, $scopeType, $scopeId);
         }
-        if ($resource instanceof \App\Models\Site) {
+        if ($resource instanceof Site) {
             return static::isSiteInScope($resource, $scopeType, $scopeId);
+        }
+        if ($resource instanceof Integration) {
+            // Global (system-level) integrations are only reachable via the global scope
+            if ($resource->company_id === null) {
+                return false;
+            }
+
+            return $scopeType === 'company' && $resource->company_id === $scopeId;
+        }
+        if ($resource instanceof IntegrationCredential) {
+            $integration = $resource->integration;
+            if (! $integration) {
+                return false;
+            }
+
+            return static::resourceMatchesScope($integration, $scopeType, $scopeId);
         }
         if ($resource instanceof User) {
             return static::isUserInScope($resource, $scopeType, $scopeId);
         }
+
         return false;
     }
 
@@ -109,10 +138,14 @@ class ManagementScopeService
      */
     public static function applyScopeToQuery(Builder $query, User $user, string $modelClass): Builder
     {
-        if (static::hasGlobalScope($user)) return $query;
+        if (static::hasGlobalScope($user)) {
+            return $query;
+        }
 
         $scopes = static::getEffectiveScopes($user);
-        if (empty($scopes)) return $query->whereRaw('1 = 0');
+        if (empty($scopes)) {
+            return $query->whereRaw('1 = 0');
+        }
 
         $allowedIds = static::resolveAllowedIds($scopes, $modelClass);
 
@@ -120,7 +153,7 @@ class ManagementScopeService
             return $query->whereRaw('1 = 0');
         }
 
-        return $query->whereIn($query->getModel()->getTable() . '.id', $allowedIds);
+        return $query->whereIn($query->getModel()->getTable().'.id', $allowedIds);
     }
 
     /**
@@ -145,12 +178,16 @@ class ManagementScopeService
                 $ids = array_merge($ids, static::getBranchIdsForScope($type, $id));
             } elseif ($modelClass === Department::class) {
                 $ids = array_merge($ids, static::getDepartmentIdsForScope($type, $id));
-            } elseif ($modelClass === \App\Models\Site::class) {
+            } elseif ($modelClass === Site::class) {
                 $ids = array_merge($ids, static::getSiteIdsForScope($type, $id));
-            } elseif ($modelClass === \App\Models\Asset::class) {
+            } elseif ($modelClass === Integration::class) {
+                if ($type === 'company') {
+                    $ids = array_merge($ids, Integration::where('company_id', $id)->pluck('id')->toArray());
+                }
+            } elseif ($modelClass === Asset::class) {
                 $siteIds = static::getSiteIdsForScope($type, $id);
-                if (!empty($siteIds)) {
-                    $assetIds = \App\Models\Asset::whereIn('site_id', $siteIds)->pluck('id')->toArray();
+                if (! empty($siteIds)) {
+                    $assetIds = Asset::whereIn('site_id', $siteIds)->pluck('id')->toArray();
                     $ids = array_merge($ids, $assetIds);
                 }
             } elseif ($modelClass === User::class) {
@@ -159,6 +196,30 @@ class ManagementScopeService
         }
 
         return array_unique(array_filter($ids));
+    }
+
+    /**
+     * Resolve the integration IDs a user may operate on, based on their
+     * company-scoped management scopes. Global (system-level) integrations
+     * are intentionally excluded from non-global scopes.
+     */
+    public static function resolveAllowedIntegrationIds(User $user): array
+    {
+        $scopes = static::getEffectiveScopes($user);
+        $companyIds = [];
+        foreach ($scopes as $scope) {
+            if ($scope['scope_type'] === 'company') {
+                $companyIds[] = $scope['scope_id'];
+            }
+        }
+
+        if (empty($companyIds)) {
+            return [];
+        }
+
+        return Integration::whereIn('company_id', $companyIds)
+            ->pluck('id')
+            ->toArray();
     }
 
     // ── ID Resolution Helpers ─────────────────────────────────
@@ -178,7 +239,7 @@ class ManagementScopeService
     protected static function getBranchIdsForScope(string $type, int $id): array
     {
         return match ($type) {
-            'company' => Branch::whereHas('region', fn($q) => $q->where('company_id', $id))->pluck('id')->toArray(),
+            'company' => Branch::whereHas('region', fn ($q) => $q->where('company_id', $id))->pluck('id')->toArray(),
             'region' => Branch::where('region_id', $id)->pluck('id')->toArray(),
             'branch' => [$id],
             // Department scope does NOT grant branch access (no upward traversal)
@@ -191,7 +252,7 @@ class ManagementScopeService
     {
         return match ($type) {
             'company' => Department::where('company_id', $id)->pluck('id')->toArray(),
-            'region' => Department::whereHas('branch', fn($q) => $q->where('region_id', $id))->pluck('id')->toArray(),
+            'region' => Department::whereHas('branch', fn ($q) => $q->where('region_id', $id))->pluck('id')->toArray(),
             'branch' => Department::where('branch_id', $id)->pluck('id')->toArray(),
             'department' => [$id],
             default => [],
@@ -202,7 +263,7 @@ class ManagementScopeService
     {
         return match ($type) {
             'company' => User::where('company_id', $id)->pluck('id')->toArray(),
-            'region' => User::whereHas('branch', fn($q) => $q->where('region_id', $id))->pluck('id')->toArray(),
+            'region' => User::whereHas('branch', fn ($q) => $q->where('region_id', $id))->pluck('id')->toArray(),
             'branch' => User::where('branch_id', $id)->pluck('id')->toArray(),
             'department' => User::where('department_id', $id)->pluck('id')->toArray(),
             default => [],
@@ -234,22 +295,35 @@ class ManagementScopeService
                 return true;
             }
         }
+
         return false;
     }
 
     protected static function scopeContainsTarget(string $actorType, int $actorId, string $targetType, int $targetId): bool
     {
-        if ($actorType === $targetType && $actorId === $targetId) return true;
+        if ($actorType === $targetType && $actorId === $targetId) {
+            return true;
+        }
 
         if ($actorType === 'company') {
-            if ($targetType === 'region') return Region::where('id', $targetId)->where('company_id', $actorId)->exists();
-            if ($targetType === 'branch') return Branch::whereHas('region', fn($q) => $q->where('company_id', $actorId))->where('id', $targetId)->exists();
-            if ($targetType === 'department') return Department::where('company_id', $actorId)->where('id', $targetId)->exists();
+            if ($targetType === 'region') {
+                return Region::where('id', $targetId)->where('company_id', $actorId)->exists();
+            }
+            if ($targetType === 'branch') {
+                return Branch::whereHas('region', fn ($q) => $q->where('company_id', $actorId))->where('id', $targetId)->exists();
+            }
+            if ($targetType === 'department') {
+                return Department::where('company_id', $actorId)->where('id', $targetId)->exists();
+            }
         }
 
         if ($actorType === 'region') {
-            if ($targetType === 'branch') return Branch::where('id', $targetId)->where('region_id', $actorId)->exists();
-            if ($targetType === 'department') return Department::whereHas('branch', fn($q) => $q->where('region_id', $actorId))->where('id', $targetId)->exists();
+            if ($targetType === 'branch') {
+                return Branch::where('id', $targetId)->where('region_id', $actorId)->exists();
+            }
+            if ($targetType === 'department') {
+                return Department::whereHas('branch', fn ($q) => $q->where('region_id', $actorId))->where('id', $targetId)->exists();
+            }
         }
 
         if ($actorType === 'branch' && $targetType === 'department') {
@@ -271,6 +345,7 @@ class ManagementScopeService
         if ($scopeType === 'branch') {
             return $resource->branch_id === $scopeId;
         }
+
         // Department scope does not directly apply to Sites unless we add department_id to Sites later
         return false;
     }
@@ -278,9 +353,9 @@ class ManagementScopeService
     protected static function getSiteIdsForScope(string $type, int $id): array
     {
         return match ($type) {
-            'company' => \App\Models\Site::where('company_id', $id)->pluck('id')->toArray(),
-            'region' => \App\Models\Site::where('region_id', $id)->pluck('id')->toArray(),
-            'branch' => \App\Models\Site::where('branch_id', $id)->pluck('id')->toArray(),
+            'company' => Site::where('company_id', $id)->pluck('id')->toArray(),
+            'region' => Site::where('region_id', $id)->pluck('id')->toArray(),
+            'branch' => Site::where('branch_id', $id)->pluck('id')->toArray(),
             'department' => [], // Sites are not scoped to departments in this foundation
             default => [],
         };

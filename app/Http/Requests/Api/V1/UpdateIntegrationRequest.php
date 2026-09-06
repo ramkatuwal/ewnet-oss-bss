@@ -14,6 +14,7 @@ class UpdateIntegrationRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
+            'company_id' => ['sometimes', 'nullable', 'integer', 'exists:companies,id'],
             'name' => ['sometimes', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'enabled' => ['boolean'],

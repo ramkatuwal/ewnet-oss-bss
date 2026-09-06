@@ -11,6 +11,7 @@ class IntegrationResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'company_id' => $this->company_id,
             'name' => $this->name,
             'provider' => $this->provider,
             'type' => $this->type,
