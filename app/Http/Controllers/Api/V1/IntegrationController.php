@@ -76,7 +76,6 @@ class IntegrationController extends Controller
             $cred = new IntegrationCredential([
                 'integration_id' => $integration->id,
                 'provider' => $integration->provider,
-                'provider' => $integration->provider,
                 'credential_type' => $data['credential_type'],
                 'label' => $data['credential_label'] ?? 'Primary',
                 'is_active' => true,
@@ -115,7 +114,6 @@ class IntegrationController extends Controller
 
             $cred = new IntegrationCredential([
                 'integration_id' => $integration->id,
-                'provider' => $integration->provider,
                 'provider' => $integration->provider,
                 'credential_type' => $data['credential_type'],
                 'label' => $data['credential_label'] ?? 'Primary',
@@ -220,10 +218,9 @@ class IntegrationController extends Controller
             Log::error('Import preview failed', [
                 'integration_id' => $integration->id,
                 'provider' => $integration->provider,
-                'provider' => $integration->provider,
                 'resource_type' => $resourceType,
                 'exception_class' => get_class($e),
-                'exception_class' => get_class($e),
+                'error_message' => $e->getMessage(),
             ]);
 
             return response()->json([
