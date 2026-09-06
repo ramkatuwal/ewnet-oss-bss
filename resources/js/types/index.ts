@@ -169,6 +169,8 @@ export interface Asset {
     specifications: Record<string, any> | null;
     description: string | null;
     notes: string | null;
+    ip_address: string | null;
+    mac_address: string | null;
     created_by: number | null;
     updated_by: number | null;
     created_at: string;

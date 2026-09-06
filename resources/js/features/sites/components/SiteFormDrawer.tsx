@@ -17,6 +17,7 @@ import { useQuery } from '@tanstack/react-query';
 import { companiesApi } from '@/api/companies';
 import { regionsApi } from '@/api/regions';
 import { branchesApi } from '@/api/branches';
+import SearchableSelect, { SearchableSelectOption } from '@/components/forms/SearchableSelect';
 
 interface SiteFormDrawerProps {
     open: boolean;
@@ -29,6 +30,9 @@ export const SiteFormDrawer = ({ open, siteId, onClose, onSuccess }: SiteFormDra
     const [formData, setFormData] = useState<Partial<Site>>({});
     const [companyId, setCompanyId] = useState<number | ''>('');
     const [regionId, setRegionId] = useState<number | ''>('');
+    const [companyLabel, setCompanyLabel] = useState('');
+    const [regionLabel, setRegionLabel] = useState('');
+    const [branchLabel, setBranchLabel] = useState('');
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     const { data: siteData } = useQuery({
@@ -37,20 +41,15 @@ export const SiteFormDrawer = ({ open, siteId, onClose, onSuccess }: SiteFormDra
         enabled: !!siteId && open,
     });
 
-    const { data: companies } = useQuery({
-        queryKey: ['companies'],
-        queryFn: () => companiesApi.getAll({ per_page: 100 }),
-    });
-
     const { data: regions } = useQuery({
         queryKey: ['regions', companyId],
-        queryFn: () => regionsApi.getAll({ company_id: companyId, per_page: 100 }),
+        queryFn: () => regionsApi.getAll({ company_id: companyId, per_page: 500 }),
         enabled: !!companyId,
     });
 
     const { data: branches } = useQuery({
         queryKey: ['branches', regionId],
-        queryFn: () => branchesApi.getAll({ region_id: regionId, per_page: 100 }),
+        queryFn: () => branchesApi.getAll({ region_id: regionId, per_page: 500 }),
         enabled: !!regionId,
     });
 
@@ -59,6 +58,9 @@ export const SiteFormDrawer = ({ open, siteId, onClose, onSuccess }: SiteFormDra
             setFormData(siteData);
             setCompanyId(siteData.company_id || '');
             setRegionId(siteData.region_id || '');
+            setCompanyLabel(siteData.company?.name || '');
+            setRegionLabel(siteData.region?.name || '');
+            setBranchLabel(siteData.branch?.name || '');
         } else {
             setFormData({
                 type: 'pop',
@@ -66,9 +68,27 @@ export const SiteFormDrawer = ({ open, siteId, onClose, onSuccess }: SiteFormDra
             });
             setCompanyId('');
             setRegionId('');
+            setCompanyLabel('');
+            setRegionLabel('');
+            setBranchLabel('');
         }
         setErrors({});
     }, [siteData, open]);
+
+    // Type-ahead server-side lookup for companies (efficient with many records)
+    const loadCompanyOptions = async (query: string): Promise<SearchableSelectOption<number>[]> => {
+        const res = await companiesApi.getAll({ search: query || undefined, per_page: 50 });
+        return (res.data || []).map((c) => ({ value: c.id, label: c.name }));
+    };
+
+    const regionOptions: SearchableSelectOption<number>[] = (regions?.data || []).map((r) => ({
+        value: r.id,
+        label: r.name,
+    }));
+    const branchOptions: SearchableSelectOption<number>[] = (branches?.data || []).map((b) => ({
+        value: b.id,
+        label: b.name,
+    }));
 
     const handleSubmit = async () => {
         try {
@@ -145,59 +165,71 @@ export const SiteFormDrawer = ({ open, siteId, onClose, onSuccess }: SiteFormDra
                     </FormControl>
                     
                     {/* Organization Selection */}
-                    <FormControl fullWidth error={!!errors.company_id}>
-                        <InputLabel>Company</InputLabel>
-                        <Select
-                            value={companyId}
-                            label="Company"
-                            onChange={(e) => {
-                                const val = e.target.value as number | '';
-                                setCompanyId(val);
-                                setFormData({ ...formData, company_id: val || undefined, region_id: undefined, branch_id: undefined });
+                    <SearchableSelect<SearchableSelectOption<number>>
+                        label="Company"
+                        value={companyId !== '' ? { value: companyId, label: companyLabel || `Company #${companyId}` } : null}
+                        onChange={(option) => {
+                            if (option) {
+                                setCompanyId(option.value);
+                                setCompanyLabel(option.label);
+                                setFormData({ ...formData, company_id: option.value, region_id: undefined, branch_id: undefined });
                                 setRegionId('');
-                            }}
-                        >
-                            <MenuItem value=""><em>None</em></MenuItem>
-                            {companies?.data.map((c: any) => (
-                                <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
-                            ))}
-                        </Select>
-                        {errors.company_id && <FormHelperText>{errors.company_id[0]}</FormHelperText>}
-                    </FormControl>
+                                setRegionLabel('');
+                                setBranchLabel('');
+                            } else {
+                                setCompanyId('');
+                                setCompanyLabel('');
+                                setFormData({ ...formData, company_id: undefined, region_id: undefined, branch_id: undefined });
+                                setRegionId('');
+                                setRegionLabel('');
+                                setBranchLabel('');
+                            }
+                        }}
+                        loadOptions={loadCompanyOptions}
+                        getOptionLabel={(o) => o.label}
+                        placeholder="Search by company name..."
+                        error={!!errors.company_id}
+                        helperText={errors.company_id?.[0]}
+                    />
 
-                    <FormControl fullWidth disabled={!companyId} error={!!errors.region_id}>
-                        <InputLabel>Region</InputLabel>
-                        <Select
-                            value={regionId}
-                            label="Region"
-                            onChange={(e) => {
-                                const val = e.target.value as number | '';
-                                setRegionId(val);
-                                setFormData({ ...formData, region_id: val || undefined, branch_id: undefined });
-                            }}
-                        >
-                            <MenuItem value=""><em>None</em></MenuItem>
-                            {regions?.data.map((r: any) => (
-                                <MenuItem key={r.id} value={r.id}>{r.name}</MenuItem>
-                            ))}
-                        </Select>
-                        {errors.region_id && <FormHelperText>{errors.region_id[0]}</FormHelperText>}
-                    </FormControl>
+                    <SearchableSelect<SearchableSelectOption<number>>
+                        label="Region"
+                        value={regionId !== '' ? { value: regionId, label: regionLabel || `Region #${regionId}` } : null}
+                        onChange={(option) => {
+                            if (option) {
+                                setRegionId(option.value);
+                                setRegionLabel(option.label);
+                                setFormData({ ...formData, region_id: option.value, branch_id: undefined });
+                                setBranchLabel('');
+                            } else {
+                                setRegionId('');
+                                setRegionLabel('');
+                                setFormData({ ...formData, region_id: undefined, branch_id: undefined });
+                                setBranchLabel('');
+                            }
+                        }}
+                        options={regionOptions}
+                        getOptionLabel={(o) => o.label}
+                        placeholder="Type to search region..."
+                        disabled={!companyId}
+                        error={!!errors.region_id}
+                        helperText={errors.region_id?.[0]}
+                    />
 
-                    <FormControl fullWidth disabled={!regionId} error={!!errors.branch_id}>
-                        <InputLabel>Branch</InputLabel>
-                        <Select
-                            value={formData.branch_id || ''}
-                            label="Branch"
-                            onChange={(e) => setFormData({ ...formData, branch_id: e.target.value as number || undefined })}
-                        >
-                            <MenuItem value=""><em>None</em></MenuItem>
-                            {branches?.data.map((b: any) => (
-                                <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
-                            ))}
-                        </Select>
-                        {errors.branch_id && <FormHelperText>{errors.branch_id[0]}</FormHelperText>}
-                    </FormControl>
+                    <SearchableSelect<SearchableSelectOption<number>>
+                        label="Branch"
+                        value={formData.branch_id ? { value: formData.branch_id, label: branchLabel || `Branch #${formData.branch_id}` } : null}
+                        onChange={(option) => {
+                            setFormData({ ...formData, branch_id: option ? option.value : undefined });
+                            setBranchLabel(option ? option.label : '');
+                        }}
+                        options={branchOptions}
+                        getOptionLabel={(o) => o.label}
+                        placeholder="Type to search branch..."
+                        disabled={!regionId}
+                        error={!!errors.branch_id}
+                        helperText={errors.branch_id?.[0]}
+                    />
 
                     {/* Location */}
                     <TextField

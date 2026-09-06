@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Dialog, DialogTitle, DialogContent, DialogActions,
-    Button, TextField, FormControl, InputLabel, Select,
-    MenuItem, Typography, Box, Stack, CircularProgress, FormHelperText
+    Button, TextField, Typography, Box, Stack
 } from '@mui/material';
 import { sitesApi } from '@/api/sites';
+import SearchableSelect, { SearchableSelectOption } from '@/components/forms/SearchableSelect';
 import { transferAsset } from '../api/assets';
 import toast from 'react-hot-toast';
 
@@ -16,6 +16,10 @@ interface AssetTransferDialogProps {
     currentSiteName: string;
     currentSiteId: number;
     onSuccess: () => void;
+}
+
+interface SiteOption extends SearchableSelectOption<number> {
+    siteCode: string;
 }
 
 export const AssetTransferDialog: React.FC<AssetTransferDialogProps> = ({
@@ -39,13 +43,20 @@ export const AssetTransferDialog: React.FC<AssetTransferDialogProps> = ({
         }
     }, [open]);
 
-    const { data: sites, isLoading: sitesLoading } = useQuery({
-        queryKey: ['sites', 'list'],
-        queryFn: () => sitesApi.list({ per_page: 1000 }),
-        enabled: open,
-    });
+    // Type-ahead server-side lookup for destination sites (excludes the current site)
+    const loadSiteOptions = async (query: string): Promise<SiteOption[]> => {
+        const res = await sitesApi.list({ search: query || undefined, per_page: 50 });
+        return (res.data || [])
+            .filter((s) => s.id !== currentSiteId)
+            .map((s) => ({
+                value: s.id,
+                label: `${s.site_code} — ${s.name}`,
+                secondary: s.address || undefined,
+                siteCode: s.site_code,
+            }));
+    };
 
-    const transferMutation = useMutation({
+    const mutation = useMutation({
         mutationFn: (data: { to_site_id: number; notes?: string }) =>
             transferAsset(assetId, data),
         onSuccess: () => {
@@ -74,13 +85,11 @@ export const AssetTransferDialog: React.FC<AssetTransferDialogProps> = ({
             toast.error('Asset is already at this site');
             return;
         }
-        transferMutation.mutate({
+        mutation.mutate({
             to_site_id: toSiteId as number,
             notes: notes || undefined,
         });
     };
-
-    const availableSites = sites?.data?.filter((s: any) => s.id !== currentSiteId) || [];
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -97,39 +106,21 @@ export const AssetTransferDialog: React.FC<AssetTransferDialogProps> = ({
                             </Typography>
                         </Box>
 
-                        <FormControl fullWidth error={!!errors.to_site_id}>
-                            <InputLabel>Destination Site *</InputLabel>
-                            <Select
-                                value={toSiteId}
-                                label="Destination Site *"
-                                onChange={(e) => {
-                                    setToSiteId(e.target.value as number);
-                                    setErrors({});
-                                }}
-                                disabled={sitesLoading}
-                            >
-                                <MenuItem value="">
-                                    <em>Select a site</em>
-                                </MenuItem>
-                                {availableSites.map((site: any) => (
-                                    <MenuItem key={site.id} value={site.id}>
-                                        {site.site_code} - {site.name}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                            {errors.to_site_id && (
-                                <FormHelperText>{errors.to_site_id[0]}</FormHelperText>
-                            )}
-                            {sitesLoading && (
-                                <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <CircularProgress size={16} />
-                                    <Typography variant="caption">Loading sites...</Typography>
-                                </Box>
-                            )}
-                            {availableSites.length === 0 && !sitesLoading && (
-                                <FormHelperText>No other sites available</FormHelperText>
-                            )}
-                        </FormControl>
+                        <SearchableSelect<SiteOption>
+                            label="Destination Site *"
+                            value={null}
+                            onChange={(option) => {
+                                setToSiteId(option ? option.value : '');
+                                setErrors({});
+                            }}
+                            loadOptions={loadSiteOptions}
+                            getOptionLabel={(o) => o.label}
+                            getOptionSecondary={(o) => o.secondary}
+                            placeholder="Search by site code or name..."
+                            required
+                            error={!!errors.to_site_id}
+                            helperText={errors.to_site_id?.[0]}
+                        />
 
                         <TextField
                             label="Notes (Optional)"
@@ -148,9 +139,9 @@ export const AssetTransferDialog: React.FC<AssetTransferDialogProps> = ({
                 <Button
                     variant="contained"
                     onClick={handleTransfer}
-                    disabled={transferMutation.isPending || !toSiteId || toSiteId === currentSiteId}
+                    disabled={mutation.isPending || !toSiteId || toSiteId === currentSiteId}
                 >
-                    {transferMutation.isPending ? 'Transferring...' : 'Transfer'}
+                    {mutation.isPending ? 'Transferring...' : 'Transfer'}
                 </Button>
             </DialogActions>
         </Dialog>

@@ -32,6 +32,8 @@ const DEFAULT_COLUMN_VISIBILITY: Record<string, boolean> = {
     site: true,
     manufacturer: true,
     model: true,
+    ip_address: false,
+    mac_address: false,
     serial_number: true,
     condition: false,
     quantity: true,
@@ -85,6 +87,16 @@ const AssetsPage: React.FC = () => {
     useEffect(() => {
         localStorage.setItem(COLUMN_VISIBILITY_KEY, JSON.stringify(columnVisibilityModel));
     }, [columnVisibilityModel]);
+
+    // Specialized "Network view": auto-surface network telemetry columns whenever
+    // the category filter is set to NETWORK. Manual toggling is still possible in
+    // other views (plain text column), just not overridden here.
+    const effectiveColumnVisibility = useMemo(() => {
+        if (categoryFilter === 'NETWORK') {
+            return { ...columnVisibilityModel, ip_address: true, mac_address: true };
+        }
+        return columnVisibilityModel;
+    }, [categoryFilter, columnVisibilityModel]);
 
     // Reset page when filters change
     useEffect(() => {
@@ -224,6 +236,38 @@ const AssetsPage: React.FC = () => {
             headerName: 'Model',
             flex: 0.8,
             minWidth: 100,
+        },
+        {
+            field: 'ip_address',
+            headerName: 'IP Address',
+            flex: 0.9,
+            minWidth: 130,
+            sortable: false,
+            renderCell: (params: GridRenderCellParams) => (
+                <Typography
+                    variant="body2"
+                    title={params.row.category === 'NETWORK' ? (params.value || undefined) : undefined}
+                    sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
+                >
+                    {params.row.category === 'NETWORK' && params.value ? params.value : '—'}
+                </Typography>
+            ),
+        },
+        {
+            field: 'mac_address',
+            headerName: 'MAC / Identifier',
+            flex: 0.9,
+            minWidth: 150,
+            sortable: false,
+            renderCell: (params: GridRenderCellParams) => (
+                <Typography
+                    variant="body2"
+                    title={params.row.category === 'NETWORK' ? (params.value || undefined) : undefined}
+                    sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
+                >
+                    {params.row.category === 'NETWORK' && params.value ? params.value : '—'}
+                </Typography>
+            ),
         },
         {
             field: 'serial_number',
@@ -451,7 +495,7 @@ const AssetsPage: React.FC = () => {
                     onRowClick={(params: GridRowParams) => navigate(`/network/assets/${params.id}`)}
                     pageSizeOptions={[10, 25, 50, 100]}
                     disableRowSelectionOnClick
-                    columnVisibilityModel={columnVisibilityModel}
+                    columnVisibilityModel={effectiveColumnVisibility}
                     onColumnVisibilityModelChange={(m) => setColumnVisibilityModel(m)}
                     slots={{
                         toolbar: () => (

@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Drawer, Box, Typography, TextField, Button,
-    MenuItem, Grid, FormControl, InputLabel, Select,
+    Grid, FormControl, InputLabel, Select, MenuItem,
     FormHelperText, Stack, Chip
 } from '@mui/material';
 import { createAsset, updateAsset, getAsset } from '../api/assets';
-import { useQuery } from '@tanstack/react-query';
 import { sitesApi } from '@/api/sites';
+import SearchableSelect, { SearchableSelectOption } from '@/components/forms/SearchableSelect';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -25,6 +25,17 @@ interface SiteWithRelations {
     region?: { id: number; name: string };
     branch?: { id: number; name: string };
 }
+
+interface SiteOption extends SearchableSelectOption<number> {
+    site: SiteWithRelations;
+}
+
+const toSiteOption = (site: SiteWithRelations): SiteOption => ({
+    value: site.id,
+    label: `${site.site_code} — ${site.name}`,
+    secondary: [site.company?.name, site.region?.name, site.branch?.name].filter(Boolean).join(' • '),
+    site,
+});
 
 const AssetFormDrawer: React.FC<Props> = ({ open, onClose, assetId, siteId }) => {
     const queryClient = useQueryClient();
@@ -78,26 +89,11 @@ const AssetFormDrawer: React.FC<Props> = ({ open, onClose, assetId, siteId }) =>
         setErrors({});
     }, [assetId, open, siteId]);
 
-    // Queries for site list (scope-filtered by backend)
-    const { data: sites } = useQuery({
-        queryKey: ['sites', 'list'],
-        queryFn: () => sitesApi.list({ per_page: 1000 }),
-        enabled: open,
-    });
-
-    // Load site details when site_id changes
-    const { data: siteDetails } = useQuery({
-        queryKey: ['site', formData.site_id],
-        queryFn: () => sitesApi.get(formData.site_id as number),
-        enabled: !!formData.site_id && open,
-    });
-
-    // Update selectedSite when siteDetails changes
-    useEffect(() => {
-        if (siteDetails) {
-            setSelectedSite(siteDetails);
-        }
-    }, [siteDetails]);
+    // Type-ahead server-side lookup for site options (efficient with thousands of sites)
+    const loadSiteOptions = async (query: string): Promise<SiteOption[]> => {
+        const res = await sitesApi.list({ search: query || undefined, per_page: 50 });
+        return (res.data || []).map((s: SiteWithRelations) => toSiteOption(s));
+    };
 
     const mutation = useMutation({
         mutationFn: assetId ? (data: any) => updateAsset(assetId, data) : createAsset,
@@ -140,26 +136,26 @@ const AssetFormDrawer: React.FC<Props> = ({ open, onClose, assetId, siteId }) =>
                             </Typography>
                         </Grid>
                         <Grid item xs={12}>
-                            <FormControl fullWidth error={!!errors.site_id} required>
-                                <InputLabel>Site *</InputLabel>
-                                <Select
-                                    value={formData.site_id || ''}
-                                    label="Site *"
-                                    onChange={(e) => {
-                                        const val = e.target.value as number | '';
-                                        setFormData({ ...formData, site_id: val || undefined });
+                            <SearchableSelect<SiteOption>
+                                label="Site *"
+                                value={selectedSite ? toSiteOption(selectedSite) : null}
+                                onChange={(option) => {
+                                    if (option) {
+                                        setSelectedSite(option.site);
+                                        setFormData({ ...formData, site_id: option.site.id });
+                                    } else {
                                         setSelectedSite(null);
-                                    }}
-                                >
-                                    <MenuItem value=""><em>Select a site</em></MenuItem>
-                                    {sites?.data?.map((s: any) => (
-                                        <MenuItem key={s.id} value={s.id}>
-                                            {s.site_code} - {s.name}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                                {errors.site_id && <FormHelperText>{errors.site_id[0]}</FormHelperText>}
-                            </FormControl>
+                                        setFormData({ ...formData, site_id: undefined });
+                                    }
+                                }}
+                                loadOptions={loadSiteOptions}
+                                getOptionLabel={(o) => o.label}
+                                getOptionSecondary={(o) => o.secondary}
+                                placeholder="Search by site code or name..."
+                                required
+                                error={!!errors.site_id}
+                                helperText={errors.site_id?.[0]}
+                            />
                         </Grid>
 
                         {/* Read-only hierarchy display */}
