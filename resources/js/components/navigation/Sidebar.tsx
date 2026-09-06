@@ -9,6 +9,7 @@ import {
     ListItemIcon,
     ListItemText,
     Collapse,
+    Typography,
 } from '@mui/material';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
@@ -16,6 +17,7 @@ import { Can } from '@/components/auth/Can';
 import { navigationItems } from './navConfig';
 import type { NavItem } from '@/types';
 import { EWNET_BRAND } from '@/theme/theme';
+import { useConfigStore } from '@/stores/configStore';
 
 const DRAWER_WIDTH = 280;
 
@@ -129,9 +131,34 @@ const NavItemInner: React.FC<{
 };
 
 export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onMobileClose }) => {
+    const { logo_path, app_name } = useConfigStore((state) => state.config.branding);
 
     const drawerContent = (
         <Box sx={{ bgcolor: EWNET_BRAND.sidebarBg, color: EWNET_BRAND.sidebarText, height: '100%' }}>
+            <Box
+                sx={{
+                    px: 3,
+                    py: 2.5,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.5,
+                    minHeight: 64,
+                    borderBottom: '1px solid',
+                    borderColor: 'rgba(255,255,255,0.12)',
+                }}
+            >
+                {logo_path ? (
+                    <img
+                        src={logo_path}
+                        alt={app_name}
+                        style={{ maxHeight: 40, maxWidth: 200, objectFit: 'contain' }}
+                    />
+                ) : (
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: EWNET_BRAND.sidebarText }}>
+                        {app_name}
+                    </Typography>
+                )}
+            </Box>
             <List sx={{ pt: 2 }}>
                 {navigationItems.map((item) => (
                     <NavItemComponent key={item.label} item={item} />

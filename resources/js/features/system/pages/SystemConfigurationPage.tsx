@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Grid2 as Grid,
@@ -6,7 +6,11 @@ import {
   CircularProgress,
   Alert,
   Snackbar,
+  Typography,
+  Stack,
+  Divider,
 } from '@mui/material';
+import { UploadFile as UploadFileIcon, Image as ImageIcon } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { systemApi } from '@/api/system';
 import { useConfigStore } from '@/stores/configStore';
@@ -55,6 +59,8 @@ export const SystemConfigurationPage: React.FC = () => {
     message: '',
     severity: 'success',
   });
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const faviconInputRef = useRef<HTMLInputElement>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['systemConfig'],
@@ -135,6 +141,48 @@ export const SystemConfigurationPage: React.FC = () => {
       },
     }));
     setHasChanges(true);
+  };
+
+  const uploadMutation = useMutation({
+    mutationFn: ({ type, file }: { type: 'logo' | 'favicon'; file: File }) =>
+      systemApi.uploadBranding(type, file),
+    onSuccess: (result, variables) => {
+      const key = variables.type === 'favicon' ? 'favicon_path' : 'logo_path';
+
+      setConfig((prev) => ({
+        ...prev,
+        branding: {
+          ...prev.branding,
+          [key]: result.url,
+        },
+      }));
+      if (variables.type === 'favicon') {
+        setGlobalConfig({ branding: { favicon_path: result.url } });
+      } else {
+        setGlobalConfig({ branding: { logo_path: result.url } });
+      }
+      void queryClient.invalidateQueries({ queryKey: ['systemConfig'] });
+
+      setSnackbar({ open: true, message: result.message, severity: 'success' });
+    },
+    onError: (err: unknown) => {
+      const error = err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } };
+      const errorData = error?.response?.data;
+      let message = errorData?.message || 'Failed to upload file.';
+      if (errorData?.errors) {
+        const errorMessages = Object.values(errorData.errors).flat().join('. ');
+        message = `${message}: ${errorMessages}`;
+      }
+      setSnackbar({ open: true, message, severity: 'error' });
+    },
+  });
+
+  const handleBrandingFile = (type: 'logo' | 'favicon') => (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (file) {
+      uploadMutation.mutate({ type, file });
+    }
   };
 
   const handleSave = () => {
@@ -269,6 +317,111 @@ export const SystemConfigurationPage: React.FC = () => {
               value={config.branding.login_branding}
               onChange={(v) => handleChange('branding', 'login_branding', v)}
             />
+            <Divider />
+            <Typography variant="subtitle2" sx={{ mt: 1 }}>
+              Branding Assets
+            </Typography>
+
+            <Stack spacing={2}>
+              {/* Logo upload */}
+              <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+                <Box
+                  sx={{
+                    width: 96,
+                    height: 48,
+                    border: '1px dashed',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden',
+                    bgcolor: 'background.paper',
+                  }}
+                >
+                  {config.branding.logo_path ? (
+                    <img
+                      src={config.branding.logo_path}
+                      alt="Current logo"
+                      style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                    />
+                  ) : (
+                    <ImageIcon color="disabled" />
+                  )}
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 200 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    component="label"
+                    startIcon={uploadMutation.isPending ? <CircularProgress size={16} /> : <UploadFileIcon />}
+                    disabled={uploadMutation.isPending}
+                  >
+                    Upload Logo (PNG, JPG, SVG, WEBP — max 1 MB)
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      hidden
+                      accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                      onChange={handleBrandingFile('logo')}
+                    />
+                  </Button>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                    Shown in the sidebar and login page.
+                  </Typography>
+                </Box>
+              </Stack>
+
+              {/* Favicon upload */}
+              <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+                <Box
+                  sx={{
+                    width: 48,
+                    height: 48,
+                    border: '1px dashed',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden',
+                    bgcolor: 'background.paper',
+                  }}
+                >
+                  {config.branding.favicon_path ? (
+                    <img
+                      src={config.branding.favicon_path}
+                      alt="Current favicon"
+                      style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                    />
+                  ) : (
+                    <ImageIcon color="disabled" fontSize="small" />
+                  )}
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 200 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    component="label"
+                    startIcon={uploadMutation.isPending ? <CircularProgress size={16} /> : <UploadFileIcon />}
+                    disabled={uploadMutation.isPending}
+                  >
+                    Upload Favicon (ICO, PNG, SVG, WEBP — max 512 KB)
+                    <input
+                      ref={faviconInputRef}
+                      type="file"
+                      hidden
+                      accept=".ico,image/png,image/jpeg,image/svg+xml,image/webp"
+                      onChange={handleBrandingFile('favicon')}
+                    />
+                  </Button>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                    Browser tab icon. Applies immediately to all pages.
+                  </Typography>
+                </Box>
+              </Stack>
+            </Stack>
+            <Divider />
             <ConfigTextField
               label="Logo Path"
               value={config.branding.logo_path || ''}

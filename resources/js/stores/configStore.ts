@@ -44,12 +44,16 @@ const applyBrandingToDocument = (config: SystemConfig) => {
   }
 };
 
+type DeepPartial<T> = {
+  [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K];
+};
+
 interface ConfigState {
   config: SystemConfig;
   loading: boolean;
   error: string | null;
   fetchConfig: () => Promise<void>;
-  setConfig: (config: Partial<SystemConfig>) => void;
+  setConfig: (config: DeepPartial<SystemConfig>) => void;
 }
 
 export const useConfigStore = create<ConfigState>()(
@@ -132,22 +136,23 @@ export const useConfigStore = create<ConfigState>()(
 
       setConfig: (partialConfig) => {
         set((state) => {
+          const p = partialConfig as Partial<SystemConfig>;
           const config: SystemConfig = {
             branding: {
               ...state.config.branding,
-              ...(partialConfig.branding || {}),
+              ...(p.branding || {}),
             },
             navigation: {
               ...state.config.navigation,
-              ...(partialConfig.navigation || {}),
+              ...(p.navigation || {}),
             },
             header: {
               ...state.config.header,
-              ...(partialConfig.header || {}),
+              ...(p.header || {}),
             },
             theme: {
               ...state.config.theme,
-              ...(partialConfig.theme || {}),
+              ...(p.theme || {}),
             },
           };
 

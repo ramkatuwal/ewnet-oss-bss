@@ -52,3 +52,29 @@ export interface SystemConfig {
     primary_color: string;
   };
 }
+
+export interface SystemLogEntry {
+  time?: string;
+  level?: string | null;
+  message?: string | null;
+  ip?: string | null;
+  method?: string | null;
+  path?: string | null;
+  status?: number | null;
+  classification?: string;
+}
+
+export interface SystemLogsMeta {
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+  from: number;
+  to: number;
+  window: number;
+}
+
+export interface SystemLogsResponse {
+  data: SystemLogEntry[];
+  meta: SystemLogsMeta;
+}
