@@ -1,0 +1,114 @@
+# =====================================================================
+# EWNET OSS/BSS — Nginx virtual-host template
+#
+# This file is mounted into the `web` container at
+# /etc/nginx/templates/default.conf.template. On container start the
+# official nginx image entrypoint renders it to /etc/nginx/conf.d/
+# using `envsubst` restricted to environment variables that are DEFINED
+# (APP_DOMAIN, NGINX_SSL_CERT_PATH, NGINX_SSL_KEY_PATH — injected from
+# .env via docker-compose.yml). Nginx's own variables such as $uri,
+# $request_uri and $host are NOT environment variables, so they pass
+# through untouched.
+#
+# To change the domain or TLS certificates: edit .env ONLY and recreate
+# the web container (`docker compose up -d web`). No other file changes.
+# =====================================================================
+
+# HTTP -> HTTPS redirect
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${APP_DOMAIN} localhost;
+
+    # Security hardening
+    server_tokens off;
+
+    # Logging
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+
+    # Let's Encrypt wildcard/webroot challenge endpoint
+    location /.well-known/acme-challenge/ {
+        root /var/www/html/public;
+        try_files $uri =404;
+    }
+
+    return 301 https://$host$request_uri;
+}
+
+# HTTPS server
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name ${APP_DOMAIN} localhost;
+    root /var/www/html/public;
+
+    # Security hardening
+    server_tokens off;
+
+    ssl_certificate ${NGINX_SSL_CERT_PATH};
+    ssl_certificate_key ${NGINX_SSL_KEY_PATH};
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    # Allow file uploads up to 10 MB
+    client_max_body_size 10m;
+
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    index index.php index.html;
+    charset utf-8;
+
+    # Logging
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+
+    # ---- Laravel application routes ---------------------------------
+
+    location /api/ {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location /build/ {
+        alias /var/www/html/public/build/;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        add_header Content-Type "application/javascript";
+        try_files $uri =404;
+    }
+
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass app:9000;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+        fastcgi_buffers 16 16k;
+        fastcgi_buffer_size 32k;
+    }
+
+    # Let's Encrypt webroot challenge endpoint
+    location /.well-known/acme-challenge/ {
+        root /var/www/html/public;
+        try_files $uri =404;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+}
