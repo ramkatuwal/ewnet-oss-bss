@@ -54,4 +54,35 @@ class CanonicalPreviewTest extends TestCase
         $response->assertStatus(422);
         $response->assertJsonValidationErrors(['resource_type']);
     }
+
+    public function test_error_response_sanitizes_exception_details()
+    {
+        $user = User::factory()->create();
+        $integration = Integration::factory()->create([
+            'provider' => 'uisp',
+            'enabled' => true,
+        ]);
+        $user->givePermissionTo('integrations.view');
+
+        $this->app->bind(\App\Services\Integrations\Uisp\UispImportService::class, function ($app) use ($integration) {
+            $mock = $this->createMock(\App\Services\Integrations\Uisp\UispImportService::class);
+            $mock->expects($this->once())
+                ->method('previewDevices')
+                ->willThrowException(new \RuntimeException('synthetic-secret-for-test'));
+            return $mock;
+        });
+
+        $response = $this->actingAs($user)
+            ->postJson("/api/v1/integrations/{$integration->id}/import/preview", [
+                'resource_type' => 'device'
+            ]);
+
+        $response->assertStatus(500);
+        $response->assertJson([
+            'success' => false,
+            'error' => 'Preview could not be completed. Please try again later.'
+        ]);
+        $response->assertJsonMissing(['error' => 'synthetic-secret-for-test']);
+        $response->assertJsonMissing(['error' => 'RuntimeException']);
+    }
 }
