@@ -106,7 +106,7 @@ export const IntegrationDetailPage = () => {
               <Table size="small">
                 <TableHead><TableRow><TableCell>Type</TableCell><TableCell>Label</TableCell><TableCell>Masked Value</TableCell><TableCell>Active</TableCell><TableCell>Actions</TableCell></TableRow></TableHead>
                 <TableBody>
-                  {(credsData as any)?.data?.map((c: IntegrationCredential) => (
+                  {credsData?.map((c: IntegrationCredential) => (
                     <TableRow key={c.id}>
                       <TableCell>{c.credential_type}</TableCell>
                       <TableCell>{c.label || '—'}</TableCell>
@@ -115,7 +115,7 @@ export const IntegrationDetailPage = () => {
                       <TableCell><IconButton size="small" color="error" onClick={() => { if (confirm('Delete credential?')) credDeleteMut.mutate(c.id); }}><DeleteIcon fontSize="small" /></IconButton></TableCell>
                     </TableRow>
                   ))}
-                  {(!credsData || (credsData as any)?.data?.length === 0) && <TableRow><TableCell colSpan={5} align="center">No credentials configured</TableCell></TableRow>}
+                  {(!credsData || credsData.length === 0) && <TableRow><TableCell colSpan={5} align="center">No credentials configured</TableCell></TableRow>}
                 </TableBody>
               </Table>
             </Box>
@@ -125,7 +125,7 @@ export const IntegrationDetailPage = () => {
             <Table size="small">
               <TableHead><TableRow><TableCell>Operation</TableCell><TableCell>Status</TableCell><TableCell>Started</TableCell><TableCell>Finished</TableCell><TableCell>Processed</TableCell><TableCell>Created</TableCell><TableCell>Updated</TableCell><TableCell>Failed</TableCell><TableCell>Error</TableCell></TableRow></TableHead>
               <TableBody>
-                {(syncsData as any)?.data?.map((s: IntegrationSync) => (
+                {syncsData?.map((s: IntegrationSync) => (
                   <TableRow key={s.id}>
                     <TableCell>{s.operation}</TableCell>
                     <TableCell><Chip label={s.status} size="small" color={s.status === 'completed' ? 'success' : s.status === 'failed' ? 'error' : 'default'} /></TableCell>
@@ -138,7 +138,7 @@ export const IntegrationDetailPage = () => {
                     <TableCell sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.error_summary || '—'}</TableCell>
                   </TableRow>
                 ))}
-                {(!syncsData || (syncsData as any)?.data?.length === 0) && <TableRow><TableCell colSpan={9} align="center">No sync history</TableCell></TableRow>}
+                {(!syncsData || syncsData.length === 0) && <TableRow><TableCell colSpan={9} align="center">No sync history</TableCell></TableRow>}
               </TableBody>
             </Table>
           )}

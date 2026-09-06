@@ -4,6 +4,7 @@ const api = axios.create({ baseURL: '/api/v1' });
 
 export interface Integration {
   id: number;
+  company_id?: number | null;
   name: string;
   provider: string;
   type: string;
@@ -53,7 +54,7 @@ export const integrationApi = {
   update: (id: number, data: any) => api.put(`/integrations/${id}`, data).then(r => r.data.data),
   delete: (id: number) => api.delete(`/integrations/${id}`),
   testConnection: (id: number) => api.post(`/integrations/${id}/test`).then(r => r.data),
-  healthCheck: (id: number) => api.get(`/integrations/${id}/health`).then(r => r.data),
+  healthCheck: (id: number) => api.post(`/integrations/${id}/health-check`).then(r => r.data),
   sync: (id: number) => api.post(`/integrations/${id}/sync`).then(r => r.data),
   getSyncs: (id: number) => api.get<{ data: IntegrationSync[] }>(`/integrations/${id}/syncs`).then(r => r.data.data),
   getCredentials: (id: number) => api.get<{ data: IntegrationCredential[] }>(`/integrations/${id}/credentials`).then(r => r.data.data),
