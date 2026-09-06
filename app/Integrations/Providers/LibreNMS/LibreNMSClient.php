@@ -3,23 +3,33 @@
 namespace App\Integrations\Providers\LibreNMS;
 
 use App\Models\Integration;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class LibreNMSClient
 {
     private string $baseUrl;
+
     private string $apiToken;
+
     private int $timeout;
+
     private bool $tlsVerify;
 
     public function __construct(Integration $integration)
     {
         $config = $integration->configuration ?? [];
-        
+
         // Support both 'endpoint' (legacy) and 'api_url' (current/frontend)
-        $this->baseUrl = rtrim($config['api_url'] ?? $config['endpoint'] ?? '', '/');
-        
+        $baseUrl = rtrim($config['api_url'] ?? $config['endpoint'] ?? '', '/');
+
+        // Strip trailing /api/v0 if user included it in the URL to prevent double /api/v0/api/v0/
+        if (str_ends_with($baseUrl, '/api/v0')) {
+            $baseUrl = substr($baseUrl, 0, -7);
+        }
+        $this->baseUrl = rtrim($baseUrl, '/');
+
         $this->timeout = $config['timeout'] ?? 30;
         $this->tlsVerify = $config['tls_verify'] ?? true;
 
@@ -42,18 +52,18 @@ class LibreNMSClient
             throw new \RuntimeException('LibreNMS Base URL is not configured.');
         }
 
-        $url = $this->baseUrl . '/api/v0/' . ltrim($endpoint, '/');
+        $url = $this->baseUrl.'/api/v0/'.ltrim($endpoint, '/');
 
         try {
             $response = Http::withHeaders([
                 'X-Auth-Token' => $this->apiToken,
             ])
                 ->timeout($this->timeout)
-                ->when(!$this->tlsVerify, fn ($r) => $r->withoutVerifying())
+                ->when(! $this->tlsVerify, fn ($r) => $r->withoutVerifying())
                 ->get($url, $query);
 
             if ($response->status() === 401 || $response->status() === 403) {
-                throw new \RuntimeException('LibreNMS authentication failed (HTTP ' . $response->status() . ')');
+                throw new \RuntimeException('LibreNMS authentication failed (HTTP '.$response->status().')');
             }
 
             if ($response->status() === 429) {
@@ -65,17 +75,17 @@ class LibreNMSClient
             }
 
             if ($response->serverError()) {
-                throw new \RuntimeException('LibreNMS server error (HTTP ' . $response->status() . ')');
+                throw new \RuntimeException('LibreNMS server error (HTTP '.$response->status().')');
             }
 
             if ($response->failed()) {
-                throw new \RuntimeException('LibreNMS request failed (HTTP ' . $response->status() . ')');
+                throw new \RuntimeException('LibreNMS request failed (HTTP '.$response->status().')');
             }
 
             return ['data' => $response->json() ?? [], 'status' => 200];
-        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+        } catch (ConnectionException $e) {
             Log::error("LibreNMS connection error: {$e->getMessage()}", ['endpoint' => $endpoint]);
-            throw new \RuntimeException('LibreNMS connection failed: ' . $e->getMessage());
+            throw new \RuntimeException('LibreNMS connection failed: '.$e->getMessage());
         }
     }
 
@@ -89,6 +99,7 @@ class LibreNMSClient
         if ($result['status'] === 404) {
             throw new \RuntimeException('LibreNMS resource not found (HTTP 404)');
         }
+
         return $result['data'];
     }
 
@@ -112,14 +123,15 @@ class LibreNMSClient
     public function listDevices(array $filters = []): array
     {
         $query = [];
-        if (!empty($filters['type'])) {
+        if (! empty($filters['type'])) {
             $query['type'] = $filters['type'];
         }
-        if (!empty($filters['order'])) {
+        if (! empty($filters['order'])) {
             $query['order'] = $filters['order'];
         }
 
         $result = $this->getOrThrow('devices', $query);
+
         return $result['devices'] ?? [];
     }
 
@@ -146,17 +158,19 @@ class LibreNMSClient
         if (isset($filters['state'])) {
             $query['state'] = $filters['state'];
         }
-        if (!empty($filters['severity'])) {
+        if (! empty($filters['severity'])) {
             $query['severity'] = $filters['severity'];
         }
 
         $result = $this->getOrThrow('alerts', $query);
+
         return $result['alerts'] ?? [];
     }
 
     public function getPollers(): array
     {
         $result = $this->getOrThrow('pollers');
+
         return $result['pollers'] ?? [];
     }
 }
