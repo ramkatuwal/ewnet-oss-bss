@@ -358,4 +358,94 @@ class ImportPipelineTest extends TestCase
         $this->assertNotNull($asset);
         $this->assertSame($site->id, $asset->site_id);
     }
+
+    public function test_uisp_device_creates_missing_parent_site_from_flattened_site_info(): void
+    {
+        Http::fake();
+
+        $integration = $this->uispIntegration();
+
+        $response = $this->actingAs($this->admin['uisp'])
+            ->postJson("/api/v1/integrations/{$integration->id}/uisp/import/execute", [
+                'devices' => [
+                    [
+                        'external_id' => 'device-88',
+                        'name' => 'CPE-88',
+                        'site_external_id' => 'site-88',
+                        'site_name' => 'Satellite POP',
+                        'interfaces' => [],
+                    ],
+                ],
+            ]);
+
+        $response->assertStatus(200);
+        $this->assertDatabaseHas('sites', [
+            'name' => 'Satellite POP',
+            'company_id' => $this->company['A']->id,
+        ]);
+        $this->assertDatabaseHas('site_external_references', [
+            'provider' => 'uisp',
+            'external_type' => 'site',
+            'external_id' => 'site-88',
+        ]);
+
+        $site = Site::where('name', 'Satellite POP')->first();
+        $asset = Asset::where('asset_tag', 'UISP-device-8')->first();
+        $this->assertNotNull($asset);
+        $this->assertSame($site->id, $asset->site_id);
+    }
+
+    public function test_uisp_device_without_any_site_identifier_is_skipped_and_logged(): void
+    {
+        Http::fake();
+
+        $integration = $this->uispIntegration();
+
+        $response = $this->actingAs($this->admin['uisp'])
+            ->postJson("/api/v1/integrations/{$integration->id}/uisp/import/execute", [
+                'devices' => [
+                    ['external_id' => 'device-99', 'name' => 'Unanchored-99', 'interfaces' => []],
+                ],
+            ]);
+
+        $response->assertStatus(200);
+        $this->assertDatabaseCount('assets', 0);
+        $this->assertDatabaseMissing('sites', ['name' => 'UISP Default Site']);
+
+        $history = ImportHistory::where('integration_id', $integration->id)->latest('id')->first();
+        $this->assertNotNull($history);
+        $this->assertSame('completed', $history->status);
+        $this->assertSame(1, (int) $history->skipped_records);
+    }
+
+    public function test_uisp_device_preview_analysis_exposes_flattened_site_name_and_id(): void
+    {
+        Http::fake([
+            'https://uisp.test/api/sites' => Http::response([
+                ['id' => 'site-7', 'name' => 'Site Seven'],
+            ]),
+            'https://uisp.test/api/devices' => Http::response([
+                [
+                    'id' => 'device-7',
+                    'identification' => [
+                        'name' => 'CPE-7',
+                        'site' => ['id' => 'site-7', 'name' => 'Site Seven'],
+                    ],
+                ],
+            ]),
+        ]);
+
+        $integration = $this->uispIntegration();
+
+        $response = $this->actingAs($this->viewUser)
+            ->postJson("/api/v1/integrations/{$integration->id}/import/preview", [
+                'resource_type' => 'device',
+            ]);
+
+        $response->assertStatus(200);
+        $response->assertJson(['success' => true]);
+        $response->assertJsonPath('data.devices.analysis.0.site_name', 'Site Seven');
+        $response->assertJsonPath('data.devices.analysis.0.site_external_id', 'site-7');
+        $response->assertJsonPath('data.devices.analysis.0.name', 'CPE-7');
+    }
 }
