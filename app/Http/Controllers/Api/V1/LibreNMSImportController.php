@@ -8,6 +8,7 @@ use App\Models\Integration;
 use App\Services\LibreNMSImportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class LibreNMSImportController extends Controller
 {
@@ -19,9 +20,23 @@ class LibreNMSImportController extends Controller
         $this->middleware('auth:sanctum');
     }
 
+    public function devices(Request $request, Integration $integration)
+    {
+        $this->authorize('view', $integration);
+
+        $result = $this->importService->fetchDevices($integration);
+
+        if (isset($result['error'])) {
+            return response()->json(['error' => $result['error']], 500);
+        }
+
+        return response()->json($result);
+    }
+
     public function preview(Request $request, Integration $integration)
     {
-        $this->authorize('librenms.import');
+        $this->authorize('import', $integration);
+
         $result = $this->importService->preview($integration, $request->user());
 
         if (isset($result['error'])) {
@@ -33,7 +48,7 @@ class LibreNMSImportController extends Controller
 
     public function import(Request $request, Integration $integration)
     {
-        $this->authorize('librenms.import');
+        $this->authorize('import', $integration);
 
         $validated = $request->validate([
             'devices' => 'required|array',
@@ -51,9 +66,9 @@ class LibreNMSImportController extends Controller
         try {
             $history->markAsRunning();
             $results = $this->importService->execute(
-                $integration, 
-                $request->user(), 
-                $validated['devices'], 
+                $integration,
+                $request->user(),
+                $validated['devices'],
                 $history
             );
 
@@ -70,7 +85,15 @@ class LibreNMSImportController extends Controller
             ]);
         } catch (\Exception $e) {
             $history->markAsFailed($e->getMessage());
-            return response()->json(['error' => $e->getMessage()], 500);
+            Log::error('LibreNMS import execution failed', [
+                'integration_id' => $integration->id,
+                'exception_class' => get_class($e),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Import could not be completed. Please try again later.',
+            ], 500);
         }
     }
 }

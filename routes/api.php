@@ -1,19 +1,32 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\V1\AuthController;
-use App\Http\Controllers\Api\V1\ProfileController;
-use App\Http\Controllers\Api\V1\DashboardController;
+use App\Http\Controllers\Api\V1\AssetController;
+use App\Http\Controllers\Api\V1\AssetLifecycleController;
 use App\Http\Controllers\Api\V1\AuditLogController;
-use App\Http\Controllers\Api\V1\CompanyController;
-use App\Http\Controllers\Api\V1\RegionController;
+use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BranchController;
-use App\Http\Controllers\Api\V1\DepartmentController;
-use App\Http\Controllers\Api\V1\UserController;
-use App\Http\Controllers\Api\V1\RoleController;
-use App\Http\Controllers\Api\V1\PermissionController;
-use App\Http\Controllers\Api\V1\SiteController;
+use App\Http\Controllers\Api\V1\CompanyController;
+use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DebugController;
+use App\Http\Controllers\Api\V1\DepartmentController;
+use App\Http\Controllers\Api\V1\ImportHistoryController;
+use App\Http\Controllers\Api\V1\IntegrationController;
+use App\Http\Controllers\Api\V1\IntegrationCredentialController;
+use App\Http\Controllers\Api\V1\LibreNMSImportController;
+use App\Http\Controllers\Api\V1\LibreNMSSiteController;
+use App\Http\Controllers\Api\V1\ManagementScopeController;
+use App\Http\Controllers\Api\V1\PermissionController;
+use App\Http\Controllers\Api\V1\PhotoController;
+use App\Http\Controllers\Api\V1\ProfileController;
+use App\Http\Controllers\Api\V1\PublicBrandingController;
+use App\Http\Controllers\Api\V1\RegionController;
+use App\Http\Controllers\Api\V1\RoleController;
+use App\Http\Controllers\Api\V1\SiteController;
+use App\Http\Controllers\Api\V1\SystemConfigController;
+use App\Http\Controllers\Api\V1\SystemInfoController;
+use App\Http\Controllers\Api\V1\UispImportController;
+use App\Http\Controllers\Api\V1\UserController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -27,7 +40,7 @@ Route::post('/v1/auth/login', [AuthController::class, 'login']);
 // Authenticated routes
 
 // PUBLIC ROUTES (No Authentication Required)
-Route::get('/v1/branding', [\App\Http\Controllers\Api\V1\PublicBrandingController::class, 'index']);
+Route::get('/v1/branding', [PublicBrandingController::class, 'index']);
 
 Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     // Auth
@@ -52,31 +65,31 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::post('/sites/import', [SiteController::class, 'import']);
 
     // Site Photos
-    Route::get('/sites/{site}/photos', [\App\Http\Controllers\Api\V1\PhotoController::class, 'sitePhotos']);
-    Route::post('/sites/{site}/photos', [\App\Http\Controllers\Api\V1\PhotoController::class, 'storeSitePhoto']);
-    Route::delete('/sites/{site}/photos/{photo}', [\App\Http\Controllers\Api\V1\PhotoController::class, 'deleteSitePhoto']);
+    Route::get('/sites/{site}/photos', [PhotoController::class, 'sitePhotos']);
+    Route::post('/sites/{site}/photos', [PhotoController::class, 'storeSitePhoto']);
+    Route::delete('/sites/{site}/photos/{photo}', [PhotoController::class, 'deleteSitePhoto']);
     Route::get('/sites/export', [SiteController::class, 'export']);
     Route::get('/sites/summary', [SiteController::class, 'summary']);
     Route::get('/sites/dashboard', [SiteController::class, 'dashboard']);
     Route::apiResource('/sites', SiteController::class);
-    Route::get('/sites/{site}/assets', [\App\Http\Controllers\Api\V1\AssetController::class, 'bySite']);
-    
+    Route::get('/sites/{site}/assets', [AssetController::class, 'bySite']);
+
     // Assets
-    Route::get('/assets/dashboard', [\App\Http\Controllers\Api\V1\AssetController::class, 'dashboard']);
-    Route::post('/assets/import', [\App\Http\Controllers\Api\V1\AssetController::class, 'import']);
-    Route::get('/assets/export', [\App\Http\Controllers\Api\V1\AssetController::class, 'export']);
-    Route::apiResource('/assets', \App\Http\Controllers\Api\V1\AssetController::class);
+    Route::get('/assets/dashboard', [AssetController::class, 'dashboard']);
+    Route::post('/assets/import', [AssetController::class, 'import']);
+    Route::get('/assets/export', [AssetController::class, 'export']);
+    Route::apiResource('/assets', AssetController::class);
 
     // Asset Photos
-    Route::get('/assets/{asset}/photos', [\App\Http\Controllers\Api\V1\PhotoController::class, 'assetPhotos']);
-    Route::post('/assets/{asset}/photos', [\App\Http\Controllers\Api\V1\PhotoController::class, 'storeAssetPhoto']);
-    Route::delete('/assets/{asset}/photos/{photo}', [\App\Http\Controllers\Api\V1\PhotoController::class, 'deleteAssetPhoto']);
+    Route::get('/assets/{asset}/photos', [PhotoController::class, 'assetPhotos']);
+    Route::post('/assets/{asset}/photos', [PhotoController::class, 'storeAssetPhoto']);
+    Route::delete('/assets/{asset}/photos/{photo}', [PhotoController::class, 'deleteAssetPhoto']);
     // Asset Lifecycle
-    Route::get('/assets/{asset}/lifecycle', [\App\Http\Controllers\Api\V1\AssetLifecycleController::class, 'index']);
-    Route::post('/assets/{asset}/lifecycle', [\App\Http\Controllers\Api\V1\AssetLifecycleController::class, 'store']);
-    Route::post('/assets/{asset}/transfer', [\App\Http\Controllers\Api\V1\AssetLifecycleController::class, 'transfer']);
-    Route::post('/assets/{asset}/retire', [\App\Http\Controllers\Api\V1\AssetLifecycleController::class, 'retire']);
-    Route::post('/assets/{asset}/dispose', [\App\Http\Controllers\Api\V1\AssetLifecycleController::class, 'dispose']);
+    Route::get('/assets/{asset}/lifecycle', [AssetLifecycleController::class, 'index']);
+    Route::post('/assets/{asset}/lifecycle', [AssetLifecycleController::class, 'store']);
+    Route::post('/assets/{asset}/transfer', [AssetLifecycleController::class, 'transfer']);
+    Route::post('/assets/{asset}/retire', [AssetLifecycleController::class, 'retire']);
+    Route::post('/assets/{asset}/dispose', [AssetLifecycleController::class, 'dispose']);
 
     // Security
     Route::apiResource('/security/roles', RoleController::class);
@@ -95,74 +108,55 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
 
 // Management Scopes
 Route::prefix('v1/organization/users/{user}/management-scopes')->group(function () {
-    Route::get('/', [App\Http\Controllers\Api\V1\ManagementScopeController::class, 'index']);
-    Route::post('/', [App\Http\Controllers\Api\V1\ManagementScopeController::class, 'store']);
-    Route::delete('/{scope}', [App\Http\Controllers\Api\V1\ManagementScopeController::class, 'destroy']);
+    Route::get('/', [ManagementScopeController::class, 'index']);
+    Route::post('/', [ManagementScopeController::class, 'store']);
+    Route::delete('/{scope}', [ManagementScopeController::class, 'destroy']);
 });
 
 // System Info & Configuration
 Route::middleware('auth:sanctum')->prefix('v1/system')->group(function () {
-    Route::get('/info', [App\Http\Controllers\Api\V1\SystemInfoController::class, 'index']);
-    Route::get('/configuration', [App\Http\Controllers\Api\V1\SystemConfigController::class, 'index']);
-    Route::put('/configuration', [App\Http\Controllers\Api\V1\SystemConfigController::class, 'update']);
+    Route::get('/info', [SystemInfoController::class, 'index']);
+    Route::get('/configuration', [SystemConfigController::class, 'index']);
+    Route::put('/configuration', [SystemConfigController::class, 'update']);
 });
 
 // Integrations
 Route::middleware('auth:sanctum')->prefix('v1/integrations')->group(function () {
-    Route::get('/', [App\Http\Controllers\Api\V1\IntegrationController::class, 'index']);
-    Route::post('/', [App\Http\Controllers\Api\V1\IntegrationController::class, 'store']);
-    Route::get('/{integration}', [App\Http\Controllers\Api\V1\IntegrationController::class, 'show']);
-    Route::put('/{integration}', [App\Http\Controllers\Api\V1\IntegrationController::class, 'update']);
-    Route::delete('/{integration}', [App\Http\Controllers\Api\V1\IntegrationController::class, 'destroy']);
-    Route::post('/{integration}/test', [App\Http\Controllers\Api\V1\IntegrationController::class, 'testConnection']);
-    Route::post('/{integration}/health-check', [App\Http\Controllers\Api\V1\IntegrationController::class, 'healthCheck']);
-    Route::post('/{integration}/sync', [App\Http\Controllers\Api\V1\IntegrationController::class, 'sync']);
-    Route::get('/{integration}/syncs', [App\Http\Controllers\Api\V1\IntegrationController::class, 'syncs']);
+    Route::get('/', [IntegrationController::class, 'index']);
+    Route::post('/', [IntegrationController::class, 'store']);
+    Route::get('/{integration}', [IntegrationController::class, 'show']);
+    Route::put('/{integration}', [IntegrationController::class, 'update']);
+    Route::delete('/{integration}', [IntegrationController::class, 'destroy']);
+    Route::post('/{integration}/test', [IntegrationController::class, 'testConnection']);
+    Route::post('/{integration}/health-check', [IntegrationController::class, 'healthCheck']);
+    Route::post('/{integration}/sync', [IntegrationController::class, 'sync']);
+    Route::get('/{integration}/syncs', [IntegrationController::class, 'syncs']);
 
     // Credentials (nested under integration)
-    Route::get('/{integration}/credentials', [App\Http\Controllers\Api\V1\IntegrationCredentialController::class, 'index']);
-    Route::post('/{integration}/credentials', [App\Http\Controllers\Api\V1\IntegrationCredentialController::class, 'store']);
-    Route::delete('/{integration}/credentials/{credential}', [App\Http\Controllers\Api\V1\IntegrationCredentialController::class, 'destroy']);
+    Route::get('/{integration}/credentials', [IntegrationCredentialController::class, 'index']);
+    Route::post('/{integration}/credentials', [IntegrationCredentialController::class, 'store']);
+    Route::delete('/{integration}/credentials/{credential}', [IntegrationCredentialController::class, 'destroy']);
+
+    // Generic import (canonical preview + execute)
+    Route::post('/{integration}/import/preview', [IntegrationController::class, 'importPreview']);
+    Route::post('/{integration}/import', [IntegrationController::class, 'import']);
+
+    // UISP provider-specific import routes
+    Route::post('/{integration}/uisp/import/preview', [UispImportController::class, 'preview']);
+    Route::post('/{integration}/uisp/import/analyze', [UispImportController::class, 'analyzeSingle']);
+    Route::post('/{integration}/uisp/import/execute', [UispImportController::class, 'execute']);
+
+    // LibreNMS legacy import routes (kept for backward compatibility)
+    Route::get('/librenms/{integration}/devices', [LibreNMSImportController::class, 'devices']);
+    Route::get('/librenms/{integration}/preview', [LibreNMSImportController::class, 'preview']);
+    Route::post('/librenms/{integration}/import', [LibreNMSImportController::class, 'import']);
+    Route::get('/librenms/{integration}/locations', [LibreNMSSiteController::class, 'locations']);
+    Route::get('/librenms/{integration}/sites/preview', [LibreNMSSiteController::class, 'preview']);
+    Route::post('/librenms/{integration}/sites/map', [LibreNMSSiteController::class, 'map']);
+    Route::post('/librenms/{integration}/sites/import', [LibreNMSSiteController::class, 'import']);
 });
 
-
-    // Assets (Specific routes MUST come before apiResource to avoid implicit binding conflicts)
-
-    // Site Assets (must be inside auth:sanctum group)
-    Route::get('/sites/{site}/assets', [\App\Http\Controllers\Api\V1\AssetController::class, 'bySite']);
-
-    // LibreNMS Import
-    Route::middleware('auth:sanctum')->prefix('v1/integrations/librenms')->group(function () {
-        Route::get('/{integration}/devices', [\App\Http\Controllers\Api\V1\LibreNMSImportController::class, 'devices']);
-        Route::get('/{integration}/preview', [\App\Http\Controllers\Api\V1\LibreNMSImportController::class, 'preview']);
-        Route::post('/{integration}/import', [\App\Http\Controllers\Api\V1\LibreNMSImportController::class, 'import']);
-    });
-
-    // LibreNMS Site Import
-    Route::middleware('auth:sanctum')->prefix('v1/integrations/librenms')->group(function () {
-        Route::get('/{integration}/locations', [\App\Http\Controllers\Api\V1\LibreNMSSiteController::class, 'locations']);
-        Route::get('/{integration}/sites/preview', [\App\Http\Controllers\Api\V1\LibreNMSSiteController::class, 'preview']);
-        Route::post('/{integration}/sites/map', [\App\Http\Controllers\Api\V1\LibreNMSSiteController::class, 'map']);
-        Route::post('/{integration}/sites/import', [\App\Http\Controllers\Api\V1\LibreNMSSiteController::class, 'import']);
-    });
-
-// UISP Import
-Route::prefix('v1/integrations/uisp')->middleware('auth:sanctum')->group(function () {
-    Route::post('/import/preview', [App\Http\Controllers\Api\V1\UispImportController::class, 'preview']);
-    Route::post('/import/analyze', [App\Http\Controllers\Api\V1\UispImportController::class, 'analyzeSingle']);
-});
-
-// Generic Import System
-
-// Generic Import System
-
-// Generic Import System
-
-// Generic Import System
-
-// Generic Import System
-
-// Canonical preview endpoint (EWNET-TASK-014C)
-Route::middleware('auth:sanctum')->prefix('v1/integrations')->group(function () {
-    Route::post('/{integration}/import/preview', [App\Http\Controllers\Api\V1\IntegrationController::class, 'importPreview']);
+// Import history
+Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
+    Route::get('/import/history', [ImportHistoryController::class, 'index']);
 });

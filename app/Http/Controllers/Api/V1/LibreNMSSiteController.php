@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\ImportHistory;
 use App\Models\Integration;
 use App\Services\LibreNMSSiteService;
+use App\Services\SiteMappingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class LibreNMSSiteController extends Controller
 {
@@ -19,9 +21,44 @@ class LibreNMSSiteController extends Controller
         $this->middleware('auth:sanctum');
     }
 
+    public function locations(Request $request, Integration $integration)
+    {
+        $this->authorize('view', $integration);
+
+        $result = $this->siteService->fetchDevicesWithLocations($integration);
+
+        if (isset($result['error'])) {
+            return response()->json(['error' => $result['error']], 500);
+        }
+
+        return response()->json($result);
+    }
+
+    public function map(Request $request, Integration $integration)
+    {
+        $this->authorize('import', $integration);
+
+        $validated = $request->validate([
+            'devices' => 'required|array',
+        ]);
+
+        $siteMapping = app(SiteMappingService::class);
+        $results = [];
+
+        foreach ($validated['devices'] as $device) {
+            $results[] = array_merge(
+                $siteMapping->mapDevice($device, $integration),
+                ['device_id' => $device['device_id'] ?? null]
+            );
+        }
+
+        return response()->json(['data' => $results]);
+    }
+
     public function preview(Request $request, Integration $integration)
     {
-        $this->authorize('librenms.import');
+        $this->authorize('import', $integration);
+
         $result = $this->siteService->previewSites($integration, $request->user());
 
         if (isset($result['error'])) {
@@ -33,7 +70,7 @@ class LibreNMSSiteController extends Controller
 
     public function import(Request $request, Integration $integration)
     {
-        $this->authorize('librenms.import');
+        $this->authorize('import', $integration);
 
         $validated = $request->validate([
             'sites' => 'required|array',
@@ -51,9 +88,9 @@ class LibreNMSSiteController extends Controller
         try {
             $history->markAsRunning();
             $results = $this->siteService->execute(
-                $integration, 
-                $request->user(), 
-                $validated['sites'], 
+                $integration,
+                $request->user(),
+                $validated['sites'],
                 $history
             );
 
@@ -70,7 +107,15 @@ class LibreNMSSiteController extends Controller
             ]);
         } catch (\Exception $e) {
             $history->markAsFailed($e->getMessage());
-            return response()->json(['error' => $e->getMessage()], 500);
+            Log::error('LibreNMS site import failed', [
+                'integration_id' => $integration->id,
+                'exception_class' => get_class($e),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Import could not be completed. Please try again later.',
+            ], 500);
         }
     }
 }

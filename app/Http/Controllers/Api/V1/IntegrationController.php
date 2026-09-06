@@ -7,10 +7,15 @@ use App\Http\Requests\Api\V1\StoreIntegrationRequest;
 use App\Http\Requests\Api\V1\UpdateIntegrationRequest;
 use App\Http\Resources\V1\IntegrationResource;
 use App\Http\Resources\V1\IntegrationSyncResource;
+use App\Models\ImportHistory;
 use App\Models\Integration;
 use App\Models\IntegrationCredential;
 use App\Services\AuditService;
 use App\Services\Integrations\IntegrationManager;
+use App\Services\Integrations\Uisp\UispImportService;
+use App\Services\LibreNMSImportService;
+use App\Services\LibreNMSSiteService;
+use App\Services\ManagementScopeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -22,11 +27,16 @@ class IntegrationController extends Controller
 
         $query = Integration::query()->with(['creator']);
 
+        if (! ManagementScopeService::hasGlobalScope($request->user())) {
+            $allowedIds = ManagementScopeService::resolveAllowedIntegrationIds($request->user());
+            $query->whereIn('integrations.id', $allowedIds);
+        }
+
         if ($request->filled('search')) {
             $search = $request->get('search');
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'ilike', "%{$search}%")
-                  ->orWhere('provider', 'ilike', "%{$search}%");
+                    ->orWhere('provider', 'ilike', "%{$search}%");
             });
         }
 
@@ -47,22 +57,21 @@ class IntegrationController extends Controller
     {
         $this->authorize('create', Integration::class);
 
-        // DEBUG: Log incoming payload
-        Log::info('Integration Store Request', [
-            'payload' => $request->all(),
-            'user_id' => auth()->id()
-        ]);
-
         $data = $request->validated();
+
+        unset($data['credential_type'], $data['credential_value'], $data['credential_label']);
+
         $data['created_by'] = auth()->id();
         $data['updated_by'] = auth()->id();
         $data['status'] = 'pending';
+
+        $data['company_id'] = $this->resolveCompanyAssignment($request->user(), $data['company_id'] ?? null);
 
         // Validate configuration via provider if available
         try {
             $provider = IntegrationManager::resolve($data['provider']);
             $validationErrors = $provider->validateConfiguration($data['configuration'] ?? []);
-            if (!empty($validationErrors)) {
+            if (! empty($validationErrors)) {
                 return response()->json(['errors' => ['configuration' => $validationErrors]], 422);
             }
         } catch (\InvalidArgumentException) {
@@ -72,15 +81,17 @@ class IntegrationController extends Controller
         $integration = Integration::create($data);
 
         // Handle Credential Creation if provided
-        if (!empty($data['credential_type']) && !empty($data['credential_value'])) {
+        $credentialType = $request->validated('credential_type');
+        $credentialValue = $request->validated('credential_value');
+        if (! empty($credentialType) && ! empty($credentialValue)) {
             $cred = new IntegrationCredential([
                 'integration_id' => $integration->id,
                 'provider' => $integration->provider,
-                'credential_type' => $data['credential_type'],
-                'label' => $data['credential_label'] ?? 'Primary',
+                'credential_type' => $credentialType,
+                'label' => $request->validated('credential_label') ?? 'Primary',
                 'is_active' => true,
             ]);
-            $cred->setSecretValue($data['credential_value']);
+            $cred->setSecretValue($credentialValue);
             $cred->save();
 
             AuditService::log('integration.credential.created', 'success', $integration);
@@ -103,23 +114,45 @@ class IntegrationController extends Controller
         $this->authorize('update', $integration);
 
         $data = $request->validated();
+
+        if (array_key_exists('company_id', $data)) {
+            $recordIsGlobal = $integration->company_id === null;
+            $targetIsGlobal = $data['company_id'] === null;
+
+            if ($targetIsGlobal && ! ManagementScopeService::hasGlobalScope($request->user())) {
+                abort(403, 'Only users with a global scope can make an integration system-wide.');
+            }
+            if (! $targetIsGlobal && ! ManagementScopeService::canGrantScope($request->user(), 'company', $data['company_id'])) {
+                abort(403, 'You do not have permission to assign this integration to the given company.');
+            }
+            if ($recordIsGlobal && ! ManagementScopeService::hasGlobalScope($request->user())) {
+                abort(403);
+            }
+        } else {
+            unset($data['company_id']);
+        }
+
         $data['updated_by'] = auth()->id();
+
+        unset($data['credential_type'], $data['credential_value'], $data['credential_label']);
 
         $integration->update($data);
 
         // Handle Credential Replacement if provided
-        if (!empty($data['credential_type']) && !empty($data['credential_value'])) {
+        $credentialType = $request->validated('credential_type');
+        $credentialValue = $request->validated('credential_value');
+        if (! empty($credentialType) && ! empty($credentialValue)) {
             // Deactivate old credentials of the same type
-            $integration->credentials()->where('credential_type', $data['credential_type'])->update(['is_active' => false]);
+            $integration->credentials()->where('credential_type', $credentialType)->update(['is_active' => false]);
 
             $cred = new IntegrationCredential([
                 'integration_id' => $integration->id,
                 'provider' => $integration->provider,
-                'credential_type' => $data['credential_type'],
-                'label' => $data['credential_label'] ?? 'Primary',
+                'credential_type' => $credentialType,
+                'label' => $request->validated('credential_label') ?? 'Primary',
                 'is_active' => true,
             ]);
-            $cred->setSecretValue($data['credential_value']);
+            $cred->setSecretValue($credentialValue);
             $cred->save();
 
             AuditService::log('integration.credential.updated', 'success', $integration);
@@ -165,7 +198,7 @@ class IntegrationController extends Controller
 
         $operation = $request->input('operation', 'full');
 
-        if (!in_array($operation, ['full', 'incremental'])) {
+        if (! in_array($operation, ['full', 'incremental'])) {
             return response()->json(['error' => 'Invalid operation'], 422);
         }
 
@@ -201,11 +234,19 @@ class IntegrationController extends Controller
 
         try {
             if ($integration->provider === 'uisp') {
-                $service = new \App\Services\Integrations\Uisp\UispImportService($integration);
-                $result = $resourceType === 'device' ? $service->previewDevices() : $service->previewSites();
-            } elseif ($integration->provider === 'librenms') {
-                $service = new \App\Services\LibreNMSImportService($integration);
+                $service = app()->makeWith(
+                    UispImportService::class,
+                    ['integration' => $integration]
+                );
                 $result = $service->preview();
+            } elseif ($integration->provider === 'librenms') {
+                if ($resourceType === 'site') {
+                    $service = app(LibreNMSSiteService::class);
+                    $result = $service->previewSites($integration, $request->user());
+                } else {
+                    $service = app(LibreNMSImportService::class);
+                    $result = $service->preview($integration, $request->user());
+                }
             } else {
                 return response()->json(['error' => 'Unsupported provider'], 422);
             }
@@ -220,7 +261,6 @@ class IntegrationController extends Controller
                 'provider' => $integration->provider,
                 'resource_type' => $resourceType,
                 'exception_class' => get_class($e),
-                'error_message' => $e->getMessage(),
             ]);
 
             return response()->json([
@@ -228,5 +268,109 @@ class IntegrationController extends Controller
                 'error' => 'Preview could not be completed. Please try again later.',
             ], 500);
         }
+    }
+
+    /**
+     * Unified import execution endpoint for all integration providers.
+     * POST /api/v1/integrations/{integration}/import
+     */
+    public function import(Request $request, Integration $integration)
+    {
+        $this->authorize('import', $integration);
+
+        $validated = $request->validate([
+            'sites' => 'array',
+            'devices' => 'array',
+        ]);
+
+        $sites = $validated['sites'] ?? [];
+        $devices = $validated['devices'] ?? [];
+
+        if (empty($sites) && empty($devices)) {
+            return response()->json(['error' => 'Provide at least one of sites or devices'], 422);
+        }
+
+        $history = ImportHistory::create([
+            'source' => $integration->provider,
+            'type' => ($devices && $sites) ? 'mixed' : ($devices ? 'device' : 'site'),
+            'integration_id' => $integration->id,
+            'status' => ImportHistory::STATUS_PENDING,
+            'started_by' => auth()->id(),
+            'total_records' => count($sites) + count($devices),
+        ]);
+
+        try {
+            $history->markAsRunning();
+
+            if ($integration->provider === 'uisp') {
+                $service = app()->makeWith(
+                    UispImportService::class,
+                    ['integration' => $integration, 'history' => $history]
+                );
+                $results = $service->execute(['sites' => $sites, 'devices' => $devices]);
+            } elseif ($integration->provider === 'librenms') {
+                $results = [];
+                if (! empty($sites)) {
+                    $siteResults = app(LibreNMSSiteService::class)
+                        ->execute($integration, $request->user(), $sites, $history);
+                    $results = array_merge($results, $siteResults);
+                }
+                if (! empty($devices)) {
+                    $deviceResults = app(LibreNMSImportService::class)
+                        ->execute($integration, $request->user(), $devices, $history);
+                    $results = array_merge($results, $deviceResults);
+                }
+            } else {
+                return response()->json(['error' => 'Unsupported provider'], 422);
+            }
+
+            $history->markAsCompleted([
+                'created_records' => $results['created'] ?? 0,
+                'updated_records' => $results['updated'] ?? 0,
+                'skipped_records' => $results['skipped'] ?? 0,
+                'error_records' => $results['failed'] ?? 0,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => array_merge($results, ['history_id' => $history->id]),
+            ]);
+        } catch (\Exception $e) {
+            $history->markAsFailed($e->getMessage());
+            Log::error('Integration import failed', [
+                'integration_id' => $integration->id,
+                'provider' => $integration->provider,
+                'exception_class' => get_class($e),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Import could not be completed. Please try again later.',
+            ], 500);
+        }
+    }
+
+    /**
+     * Resolve the owning company for a newly created integration.
+     * Super admins may create system-wide (global) integrations; all other
+     * users must bind the integration to a company they can manage.
+     */
+    protected function resolveCompanyAssignment($user, ?int $companyId): ?int
+    {
+        $companyId ??= $user->company_id;
+
+        if ($companyId === null) {
+            if (ManagementScopeService::hasGlobalScope($user)) {
+                return null;
+            }
+            abort(403, 'A company scope is required to create this integration.');
+        }
+
+        if (! ManagementScopeService::hasGlobalScope($user)
+            && ! ManagementScopeService::canGrantScope($user, 'company', $companyId)) {
+            abort(403, 'You do not have permission to assign this integration to the given company.');
+        }
+
+        return $companyId;
     }
 }

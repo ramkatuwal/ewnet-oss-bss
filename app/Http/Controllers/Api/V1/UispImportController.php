@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\ImportHistory;
 use App\Models\Integration;
+use App\Services\Integrations\Uisp\UispDuplicateDetector;
 use App\Services\Integrations\Uisp\UispImportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,10 +22,10 @@ class UispImportController extends Controller
 
     public function preview(Request $request, Integration $integration): JsonResponse
     {
-        $this->authorize('integration.uisp.import', $integration);
+        $this->authorize('import', $integration);
 
         try {
-            $service = new UispImportService($integration);
+            $service = app()->makeWith(UispImportService::class, ['integration' => $integration]);
             $result = $service->preview();
 
             return response()->json([
@@ -34,44 +35,54 @@ class UispImportController extends Controller
         } catch (\Exception $e) {
             Log::error('UISP import preview failed', [
                 'integration_id' => $integration->id,
-                'error' => $e->getMessage(),
+                'exception_class' => get_class($e),
             ]);
 
             return response()->json([
                 'success' => false,
-                'error' => 'Preview failed: ' . $e->getMessage(),
+                'error' => 'Preview could not be completed. Please try again later.',
             ], 500);
         }
     }
 
     public function execute(Request $request, Integration $integration): JsonResponse
     {
-        $this->authorize('integration.uisp.import', $integration);
+        $this->authorize('import', $integration);
 
         $validated = $request->validate([
             'sites' => 'array',
             'devices' => 'array',
         ]);
 
+        $sites = $validated['sites'] ?? [];
+        $devices = $validated['devices'] ?? [];
+
+        if (empty($sites) && empty($devices)) {
+            return response()->json(['error' => 'Provide at least one of sites or devices'], 422);
+        }
+
         $history = ImportHistory::create([
             'source' => ImportHistory::SOURCE_UISP,
-            'type' => 'mixed', // Or determine based on content
+            'type' => ! empty($sites) && ! empty($devices) ? 'mixed' : (! empty($devices) ? ImportHistory::TYPE_DEVICE : ImportHistory::TYPE_SITE),
             'integration_id' => $integration->id,
             'status' => ImportHistory::STATUS_PENDING,
             'started_by' => Auth::id(),
-            'total_records' => count($validated['sites'] ?? []) + count($validated['devices'] ?? []),
+            'total_records' => count($sites) + count($devices),
         ]);
 
         try {
             $history->markAsRunning();
-            $service = new UispImportService($integration);
-            $result = $service->execute($validated['sites'] ?? [], $validated['devices'] ?? [], $history);
+            $service = app()->makeWith(UispImportService::class, [
+                'integration' => $integration,
+                'history' => $history,
+            ]);
+            $result = $service->execute(['sites' => $sites, 'devices' => $devices]);
 
             $history->markAsCompleted([
-                'created_records' => $result['created'] ?? 0,
-                'updated_records' => $result['updated'] ?? 0,
-                'skipped_records' => $result['skipped'] ?? 0,
-                'error_records' => $result['failed'] ?? 0,
+                'created_records' => ($result['sites']['created'] ?? 0) + ($result['devices']['created'] ?? 0),
+                'updated_records' => ($result['sites']['updated'] ?? 0) + ($result['devices']['updated'] ?? 0),
+                'skipped_records' => ($result['sites']['skipped'] ?? 0) + ($result['devices']['skipped'] ?? 0),
+                'error_records' => ($result['sites']['failed'] ?? 0) + ($result['devices']['failed'] ?? 0),
             ]);
 
             return response()->json([
@@ -82,29 +93,29 @@ class UispImportController extends Controller
             $history->markAsFailed($e->getMessage());
             Log::error('UISP import execution failed', [
                 'integration_id' => $integration->id,
-                'error' => $e->getMessage(),
+                'exception_class' => get_class($e),
             ]);
 
             return response()->json([
                 'success' => false,
-                'error' => 'Import failed: ' . $e->getMessage(),
+                'error' => 'Import could not be completed. Please try again later.',
             ], 500);
         }
     }
 
     public function analyzeSingle(Request $request, Integration $integration): JsonResponse
     {
-        $this->authorize('integration.uisp.import', $integration);
+        $this->authorize('import', $integration);
 
         $type = $request->input('type');
         $data = $request->input('data');
 
-        if (!$data) {
+        if (! $data) {
             return response()->json(['error' => 'No data provided'], 400);
         }
 
         try {
-            $detector = new \App\Services\Integrations\Uisp\UispDuplicateDetector();
+            $detector = new UispDuplicateDetector;
 
             if ($type === 'site') {
                 $result = $detector->analyzeSite($data);
@@ -119,9 +130,14 @@ class UispImportController extends Controller
                 'data' => $result,
             ]);
         } catch (\Exception $e) {
+            Log::error('UISP import analysis failed', [
+                'integration_id' => $integration->id,
+                'exception_class' => get_class($e),
+            ]);
+
             return response()->json([
                 'success' => false,
-                'error' => 'Analysis failed: ' . $e->getMessage(),
+                'error' => 'Analysis could not be completed. Please try again later.',
             ], 500);
         }
     }
