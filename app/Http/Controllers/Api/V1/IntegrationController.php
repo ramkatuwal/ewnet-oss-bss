@@ -392,10 +392,18 @@ class IntegrationController extends Controller
             }
 
             $history->markAsCompleted([
-                'created_records' => $results['created'] ?? 0,
-                'updated_records' => $results['updated'] ?? 0,
-                'skipped_records' => $results['skipped'] ?? 0,
-                'error_records' => $results['failed'] ?? 0,
+                'created_records' => $results['created'] ?? (
+                    ($results['sites']['created'] ?? 0) + ($results['devices']['created'] ?? 0)
+                ),
+                'updated_records' => $results['updated'] ?? (
+                    ($results['sites']['updated'] ?? 0) + ($results['devices']['updated'] ?? 0)
+                ),
+                'skipped_records' => $results['skipped'] ?? (
+                    ($results['sites']['skipped'] ?? 0) + ($results['devices']['skipped'] ?? 0)
+                ),
+                'error_records' => $results['failed'] ?? (
+                    ($results['sites']['failed'] ?? 0) + ($results['devices']['failed'] ?? 0)
+                ),
             ]);
 
             return response()->json([

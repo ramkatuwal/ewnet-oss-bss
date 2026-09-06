@@ -114,6 +114,9 @@ class UispImportService
 
                     return;
                 }
+
+                // Orphan reference (target site deleted) — drop it so re-import can recreate.
+                $existingRef->delete();
             }
 
             $site = Site::create([
@@ -171,6 +174,9 @@ class UispImportService
 
                     return;
                 }
+
+                // Orphan reference (target asset deleted) — drop it so re-import can recreate.
+                $existingRef->delete();
             }
 
             $siteId = $this->resolveSiteId($data);
@@ -183,6 +189,7 @@ class UispImportService
                 return;
             }
             $assetTag = 'UISP-'.substr($externalId, 0, 8);
+            $baseTag = $assetTag;
             $counter = 1;
             while (Asset::where('asset_tag', $assetTag)->exists()) {
                 $assetTag = $baseTag.'-'.$counter++;
@@ -344,7 +351,12 @@ class UispImportService
         }
 
         if (! empty($data['site_name'])) {
-            $site = Site::where('name', $data['site_name'])->first();
+            $site = Site::where('name', $data['site_name'])
+                ->where(function ($q) {
+                    $q->whereNull('company_id')
+                        ->orWhere('company_id', $this->integration->company_id);
+                })
+                ->first();
             if ($site) {
                 return $site->id;
             }

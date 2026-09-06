@@ -75,6 +75,8 @@ const UISPDeviceTab: React.FC = () => {
         vendor: item.vendor || '',
         model: item.model || '',
         site_name: item.site_name || '',
+        site_external_id: item.site_external_id || '',
+        site_id: item.site_id || '',
         action: item.action || 'REVIEW',
       },
       analysis: {

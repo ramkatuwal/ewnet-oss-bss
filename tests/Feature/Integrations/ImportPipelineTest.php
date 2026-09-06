@@ -448,4 +448,86 @@ class ImportPipelineTest extends TestCase
         $response->assertJsonPath('data.devices.analysis.0.site_external_id', 'site-7');
         $response->assertJsonPath('data.devices.analysis.0.name', 'CPE-7');
     }
+
+    public function test_uisp_device_with_only_site_external_id_resolves_parent_site(): void
+    {
+        Http::fake();
+
+        $integration = $this->uispIntegration();
+
+        $response = $this->actingAs($this->admin['uisp'])
+            ->postJson("/api/v1/integrations/{$integration->id}/uisp/import/execute", [
+                'devices' => [
+                    [
+                        'external_id' => 'device-101',
+                        'name' => 'CPE-101',
+                        'site_external_id' => 'site-101',
+                    ],
+                ],
+            ]);
+
+        $response->assertStatus(200);
+        $this->assertDatabaseHas('site_external_references', [
+            'provider' => 'uisp',
+            'external_type' => 'site',
+            'external_id' => 'site-101',
+        ]);
+
+        $site = Site::whereHas('externalReferences', fn ($q) => $q->where('external_id', 'site-101'))->first();
+        $this->assertNotNull($site);
+        $this->assertSame($this->company['A']->id, $site->company_id);
+
+        $asset = Asset::where('asset_tag', 'UISP-device-1')->first();
+        $this->assertNotNull($asset);
+        $this->assertSame($site->id, $asset->site_id);
+    }
+
+    public function test_uisp_asset_tag_collision_gets_unique_suffix(): void
+    {
+        Http::fake();
+
+        $integration = $this->uispIntegration();
+        $site = Site::create([
+            'site_code' => 'COLL-POP',
+            'name' => 'Collision POP',
+            'type' => 'pop',
+            'status' => 'active',
+            'company_id' => $this->company['A']->id,
+        ]);
+
+        $this->actingAs($this->admin['uisp'])
+            ->postJson("/api/v1/integrations/{$integration->id}/uisp/import/execute", [
+                'devices' => [
+                    ['external_id' => 'sharedtag-A', 'name' => 'CPE-A', 'site_id' => $site->id],
+                    ['external_id' => 'sharedtag-B', 'name' => 'CPE-B', 'site_id' => $site->id],
+                ],
+            ])->assertStatus(200);
+
+        $this->assertDatabaseHas('assets', ['asset_tag' => 'UISP-sharedta']);
+        $this->assertDatabaseHas('assets', ['asset_tag' => 'UISP-sharedta-1']);
+        $this->assertSame(2, Asset::where('site_id', $site->id)->count());
+    }
+
+    public function test_canonical_import_records_counts_for_uisp(): void
+    {
+        Http::fake();
+
+        $integration = $this->uispIntegration();
+
+        $response = $this->actingAs($this->admin['uisp'])
+            ->postJson("/api/v1/integrations/{$integration->id}/import", [
+                'sites' => [
+                    ['external_id' => 'site-canon', 'name' => 'Canonical POP'],
+                ],
+            ]);
+
+        $response->assertStatus(200);
+        $response->assertJson(['success' => true]);
+        $this->assertDatabaseHas('sites', ['name' => 'Canonical POP']);
+
+        $history = ImportHistory::where('integration_id', $integration->id)->latest('id')->first();
+        $this->assertNotNull($history);
+        $this->assertSame('completed', $history->status);
+        $this->assertSame(1, (int) $history->created_records);
+    }
 }
