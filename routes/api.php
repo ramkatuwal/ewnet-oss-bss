@@ -161,3 +161,8 @@ Route::prefix('v1/integrations/uisp')->middleware('auth:sanctum')->group(functio
 // Generic Import System
 
 // Generic Import System
+
+// Canonical preview endpoint (EWNET-TASK-014C)
+Route::middleware('auth:sanctum')->prefix('v1/integrations')->group(function () {
+    Route::post('/{integration}/import/preview', [App\Http\Controllers\Api\V1\IntegrationController::class, 'importPreview']);
+});
