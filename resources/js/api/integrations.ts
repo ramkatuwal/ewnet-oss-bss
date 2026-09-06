@@ -6,11 +6,17 @@ export interface Integration {
   id: number;
   name: string;
   provider: string;
-  status: string;
+  type: string;
+  description: string | null;
   enabled: boolean;
+  status: string;
   configuration?: any;
-  type?: string;
-  last_sync_at?: string | null;
+  last_health_check_at: string | null;
+  last_sync_at: string | null;
+  created_by?: string | null;
+  updated_by?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface IntegrationSync {

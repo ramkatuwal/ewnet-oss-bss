@@ -11,7 +11,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import { integrationApi, type IntegrationSync, type IntegrationCredential } from '@/api/integrations';
+import { integrationApi, type Integration, type IntegrationSync, type IntegrationCredential } from '@/api/integrations';
 import { PageHeader } from '@/components/layout/PageHeader';
 
 const CRED_TYPES = ['api_token', 'username_password', 'ssh_key', 'shared_secret', 'certificate', 'oauth', 'none'];
@@ -25,7 +25,12 @@ export const IntegrationDetailPage = () => {
   const [credForm, setCredForm] = useState({ credential_type: 'api_token', label: '', value: '' });
 
   const integId = Number(id);
-  const { data: integData, isLoading } = useQuery({ queryKey: ['integration', integId], queryFn: () => integrationApi.get(integId) });
+  
+  const { data: integ, isLoading, isError, error } = useQuery<Integration>({ 
+    queryKey: ['integration', integId], 
+    queryFn: () => integrationApi.get(integId) 
+  });
+
   const { data: syncsData } = useQuery({ queryKey: ['integration-syncs', integId], queryFn: () => integrationApi.getSyncs(integId) });
   const { data: credsData } = useQuery({ queryKey: ['integration-creds', integId], queryFn: () => integrationApi.getCredentials(integId) });
 
@@ -36,8 +41,21 @@ export const IntegrationDetailPage = () => {
   const credDeleteMut = useMutation({ mutationFn: (cid: number) => integrationApi.deleteCredential(integId, cid), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['integration-creds', integId] }) });
 
   if (isLoading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>;
-  const integ = (integData as any)?.data;
-  if (!integ) return <Alert severity="error">Integration not found</Alert>;
+  
+  if (isError) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error">
+          Failed to load integration: {(error as Error).message || 'Integration not found'}
+        </Alert>
+        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/system/integrations')} sx={{ mt: 2 }}>
+          Back to Integrations
+        </Button>
+      </Box>
+    );
+  }
+
+  if (!integ) return <Alert severity="warning">No integration data available.</Alert>;
 
   return (
     <Box>
