@@ -3,18 +3,25 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Box, Paper, Table, TableHead, TableRow, TableCell, TableBody,
   Button, Chip, IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, MenuItem, Switch, FormControlLabel, CircularProgress, Stack, Alert, InputAdornment, Typography
+  TextField, MenuItem, Switch, FormControlLabel, CircularProgress, Stack, Alert, InputAdornment, Typography, Tooltip
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import SyncIcon from '@mui/icons-material/Sync';
+import HistoryIcon from '@mui/icons-material/History';
+import WifiTetheringIcon from '@mui/icons-material/WifiTethering';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { integrationApi, type Integration } from '@/api/integrations';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Can } from '@/components/auth/Can';
+
+const STATUS_LABELS: Record<string, string> = {
+  connected: 'Active', degraded: 'Degraded', failed: 'Failed', disabled: 'Disabled', pending: 'Pending', unknown: 'Unknown',
+};
 
 const STATUS_COLORS: Record<string, 'success' | 'warning' | 'error' | 'default' | 'info'> = {
   connected: 'success', degraded: 'warning', failed: 'error', disabled: 'default', pending: 'info', unknown: 'default',
@@ -65,6 +72,15 @@ export const IntegrationsPage = () => {
   const syncMut = useMutation({
     mutationFn: (id: number) => integrationApi.sync(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['integrations'] })
+  });
+
+  const testMut = useMutation({
+    mutationFn: (id: number) => integrationApi.testConnection(id),
+    onSuccess: (data) => {
+      toast.success(data.success ? 'Connection test OK' : 'Connection test failed');
+      queryClient.invalidateQueries({ queryKey: ['integrations'] });
+    },
+    onError: () => toast.error('Connection test failed'),
   });
 
   const resetForm = () => {
@@ -122,37 +138,62 @@ export const IntegrationsPage = () => {
         ) : (
           <Table>
             <TableHead><TableRow>
-              <TableCell>Name</TableCell><TableCell>Provider</TableCell><TableCell>Type</TableCell>
-              <TableCell>Status</TableCell><TableCell>Enabled</TableCell><TableCell>Last Sync</TableCell><TableCell>Actions</TableCell>
+              <TableCell>Name</TableCell><TableCell>Provider</TableCell><TableCell>Scope</TableCell>
+              <TableCell>Health</TableCell><TableCell>Objects</TableCell><TableCell>Enabled</TableCell><TableCell>Last Sync</TableCell><TableCell>Actions</TableCell>
             </TableRow></TableHead>
             <TableBody>
-              {data.map((i: Integration) => (
-                <TableRow key={i.id}>
-                  <TableCell>{i.name}</TableCell>
-                  <TableCell>{i.provider}</TableCell>
-                  <TableCell>{i.type}</TableCell>
-                  <TableCell><Chip label={i.status} color={STATUS_COLORS[i.status] || 'default'} size="small" /></TableCell>
-                  <TableCell><Switch checked={i.enabled} disabled /></TableCell>
-                  <TableCell>{i.last_sync_at ? new Date(i.last_sync_at).toLocaleString() : 'Never'}</TableCell>
-                  <TableCell>
-                    <Stack direction="row" spacing={1}>
-                      <Can permission="integrations.sync">
-                        <IconButton size="small" onClick={() => syncMut.mutate(i.id)} disabled={syncMut.isPending}>
-                          <SyncIcon />
+              {data.map((i: Integration) => {
+                const providerLabel = PROVIDERS.find(p => p.value === i.provider)?.label || i.provider;
+                const health = i.health_status || i.status;
+                return (
+                  <TableRow key={i.id} hover>
+                    <TableCell>{i.name}</TableCell>
+                    <TableCell>
+                      <Chip label={providerLabel} color={i.provider === 'uisp' ? 'info' : 'secondary'} size="small" variant="outlined" />
+                    </TableCell>
+                    <TableCell>
+                      {i.company_scope === 'company' && i.company
+                        ? <Chip label={i.company.name} color="info" size="small" />
+                        : <Chip label="Global" color="default" size="small" />}
+                    </TableCell>
+                    <TableCell><Chip label={STATUS_LABELS[health] || health} color={STATUS_COLORS[health] || 'default'} size="small" /></TableCell>
+                    <TableCell>{i.active_objects_count ?? '—'}</TableCell>
+                    <TableCell><Switch checked={i.enabled} disabled /></TableCell>
+                    <TableCell>{i.last_sync_at ? new Date(i.last_sync_at).toLocaleString() : 'Never'}</TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={0.5}>
+                        <Can permission="integrations.test">
+                          <Tooltip title="Test Connection">
+                            <IconButton size="small" onClick={() => testMut.mutate(i.id)} disabled={testMut.isPending}>
+                              <WifiTetheringIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Can>
+                        <Can permission="integrations.sync">
+                          <Tooltip title="Run Sync">
+                            <IconButton size="small" onClick={() => syncMut.mutate(i.id)} disabled={syncMut.isPending}>
+                              <SyncIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Can>
+                        <Tooltip title="Sync History">
+                          <IconButton size="small" onClick={() => navigate(`/system/integrations/${i.id}?tab=2`)}>
+                            <HistoryIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <IconButton size="small" onClick={() => navigate(`/system/integrations/${i.id}`)}>
+                          <EditIcon fontSize="small" />
                         </IconButton>
-                      </Can>
-                      <IconButton size="small" onClick={() => navigate(`/system/integrations/${i.id}`)}>
-                        <EditIcon />
-                      </IconButton>
-                      <Can permission="integrations.delete">
-                        <IconButton size="small" color="error" onClick={() => deleteMut.mutate(i.id)}>
-                          <DeleteIcon />
-                        </IconButton>
-                      </Can>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
+                        <Can permission="integrations.delete">
+                          <IconButton size="small" color="error" onClick={() => deleteMut.mutate(i.id)}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Can>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}
