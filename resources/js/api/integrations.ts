@@ -53,23 +53,22 @@ export const integrationApi = {
   getCredentials: (id: number) => api.get<{ data: IntegrationCredential[] }>(`/integrations/${id}/credentials`).then(r => r.data.data),
   createCredential: (id: number, data: any) => api.post(`/integrations/${id}/credentials`, data).then(r => r.data.data),
   deleteCredential: (id: number, credentialId: number) => api.delete(`/integrations/${id}/credentials/${credentialId}`),
+  // Canonical preview endpoint
+  preview: (id: number, resourceType: 'device' | 'site') =>
+    api.post<{ data: any }>(`/integrations/${id}/import/preview`, { resource_type: resourceType }).then(r => r.data),
 };
 
+// Legacy aliases for backward compatibility during transition
 export const uispImportApi = {
-  preview: (integrationId: number) =>
-    api.post(`/integrations/${integrationId}/uisp/import/preview`).then(r => r.data),
-
+  preview: (integrationId: number) => integrationApi.preview(integrationId, 'device'), // Default to device for legacy calls
   execute: (integrationId: number, selected: { sites?: any[]; devices?: any[] }) =>
     api.post(`/integrations/${integrationId}/uisp/import/execute`, selected).then(r => r.data),
-
   analyzeSingle: (integrationId: number, type: 'site' | 'device', data: any) =>
     api.post(`/integrations/${integrationId}/uisp/import/analyze`, { type, data }).then(r => r.data),
 };
 
 export const integrationImportApi = {
-  preview: (integrationId: number) =>
-    api.post<{ data: any }>(`/integrations/${integrationId}/import/preview`).then(r => r.data),
-
+  preview: (integrationId: number) => integrationApi.preview(integrationId, 'device'), // Default to device for legacy calls
   execute: (integrationId: number, data: { devices?: any[]; sites?: any[] }) =>
     api.post<{ data: any }>(`/integrations/${integrationId}/import`, data).then(r => r.data),
 };

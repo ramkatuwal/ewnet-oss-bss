@@ -12,7 +12,7 @@ import ImportHistoryPanel from '@/components/import/ImportHistoryPanel';
 import { useIntegrationSelection } from '@/hooks/useIntegrationSelection';
 
 // API
-import { uispImportApi } from '@/api/integrations';
+import { integrationApi, uispImportApi } from '@/api/integrations';
 
 const UISPSiteTab: React.FC = () => {
   const queryClient = useQueryClient();
@@ -33,7 +33,7 @@ const UISPSiteTab: React.FC = () => {
     queryKey: ['uisp-site-preview', selectedIntegration],
     queryFn: async () => {
       if (!selectedIntegration) throw new Error('No integration selected');
-      const response = await uispImportApi.preview(selectedIntegration);
+      const response = await integrationApi.preview(selectedIntegration, 'site');
       return response.data;
     },
     enabled: !!selectedIntegration,

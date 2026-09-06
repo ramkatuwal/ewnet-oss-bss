@@ -182,4 +182,47 @@ class IntegrationController extends Controller
 
         return IntegrationSyncResource::collection($syncs);
     }
+
+    /**
+     * Unified preview endpoint for all integration providers.
+     * POST /api/v1/integrations/{integration}/import/preview
+     */
+    public function importPreview(Request $request, Integration $integration)
+    {
+        $this->authorize('view', $integration);
+
+        $validated = $request->validate([
+            'resource_type' => 'required|in:device,site',
+        ]);
+
+        $resourceType = $validated['resource_type'];
+
+        try {
+            if ($integration->provider === 'uisp') {
+                $service = new \App\Services\Integrations\Uisp\UispImportService($integration);
+                $result = $resourceType === 'device' ? $service->previewDevices() : $service->previewSites();
+            } elseif ($integration->provider === 'librenms') {
+                $service = new \App\Services\LibreNMSImportService($integration);
+                $result = $service->preview();
+            } else {
+                return response()->json(['error' => 'Unsupported provider'], 422);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $result,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Import preview failed', [
+                'integration_id' => $integration->id,
+                'resource_type' => $resourceType,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Preview failed: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }

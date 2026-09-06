@@ -11,7 +11,7 @@ import ImportResultDialog from '@/components/import/ImportResultDialog';
 import ImportHistoryPanel from '@/components/import/ImportHistoryPanel';
 
 // API
-import { integrationImportApi } from '@/api/integrations';
+import { integrationApi, integrationImportApi } from '@/api/integrations';
 import { importApi, ImportProvider } from '@/api/import';
 
 interface Integration {
@@ -51,7 +51,7 @@ const NMSDeviceTab: React.FC = () => {
     queryKey: ['nms-device-preview', selectedIntegration],
     queryFn: async () => {
       if (!selectedIntegration) throw new Error('No integration selected');
-      const response = await integrationImportApi.preview(selectedIntegration);
+      const response = await integrationApi.preview(selectedIntegration, 'device');
       return response.data;
     },
     enabled: !!selectedIntegration,
