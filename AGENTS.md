@@ -8,14 +8,22 @@ EWNET OSS/BSS — a telecom operations support system (OSS/BSS). Laravel 13 + PH
 
 ### PHP (backend)
 ```bash
-# Run tests (clears config first — this is required)
-composer test                          # or: php artisan config:clear --ansi && php artisan test
+# Run tests (clears config first — this is required).
+# SAFETY: phpunit.xml pins DB_DATABASE=ewnet_test and CACHE_STORE=array, so it can
+# never hit the production `ewnet` DB. On the host (not in Docker) the `.env.testing`
+# DB_HOST=postgres doesn't resolve, so pass DB_HOST=127.0.0.1.
+composer test                            # or: ./vendor/bin/phpunit
+DB_HOST=127.0.0.1 ./vendor/bin/phpunit   # from the host
 
 # Run a single test class
-php artisan test --filter=AssetManagementTest
+./vendor/bin/phpunit tests/Feature/Integrations/ImportPipelineTest.php
 
 # Run a single test method
-php artisan test --filter=AssetManagementTest::test_example
+./vendor/bin/phpunit tests/Feature/Integrations/ImportPipelineTest.php --filter test_uisp_preview_returns_sites_and_devices
+
+# WARNING: prefer `./vendor/bin/phpunit` over `php artisan test`. `php artisan test`
+# spawns PHPUnit with the parent process env (loaded from `.env`), so without the
+# phpunit.xml DB_DATABASE pin it can run RefreshDatabase tests against production.
 
 # Lint (Laravel Pint, defaults — no pint.json)
 ./vendor/bin/pint
@@ -87,7 +95,7 @@ routes/
 ## Gotchas
 
 - `composer test` runs `config:clear` before tests — this is intentional; don't skip it or test config may be stale.
-- Tests require a running Postgres instance (connection to `postgres:5432`). The `phpunit.xml` sets `APP_ENV=testing` but `.env.testing` controls the actual DB connection (`ewnet_test`).
+- Tests require a running Postgres instance (connection to `127.0.0.1:5432`). The `phpunit.xml` sets `APP_ENV=testing`, pins `DB_DATABASE=ewnet_test`, and `CACHE_STORE=array`, so tests are isolated from the production `ewnet` DB and non-Redis.
 - Frontend `node_modules` and `vendor` are volume-mounted in Docker (not copied), so host installs are available inside containers.
 - Stray `.bak` files exist in `app/Services/` and `app/Integrations/` — ignore them.
 - Duplicate migrations exist (two `create_permission_tables`, two `add_foreign_key_manager_id`). These are legacy artifacts.

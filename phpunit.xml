@@ -15,7 +15,17 @@
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
-        <env name="CACHE_DRIVER" value="array"/>
+        <!-- Safety: pin the test database and non-Redis stores here so tests can
+             never run against the production `ewnet` database. Laravel's env
+             loader is immutable for variables already present in the real
+             environment, so the values below win over both `.env` and
+             `.env.testing` regardless of how PHPUnit is launched (phpunit
+             binary or `php artisan test`). -->
+        <env name="DB_CONNECTION" value="pgsql"/>
+        <env name="DB_DATABASE" value="ewnet_test"/>
+        <env name="DB_USERNAME" value="ewnet"/>
+        <env name="DB_PASSWORD" value="ewnet123"/>
+        <env name="CACHE_STORE" value="array"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
