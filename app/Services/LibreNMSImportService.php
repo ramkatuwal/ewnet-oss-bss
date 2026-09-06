@@ -63,12 +63,15 @@ class LibreNMSImportService
         $deviceId = (string) ($device['device_id'] ?? '');
         $hostname = $device['hostname'] ?? '';
         $sysName = $device['sysName'] ?? $hostname;
+        $display = $device['display'] ?? '';
         $ip = $device['ip'] ?? '';
         $os = $device['os'] ?? '';
         $type = $device['type'] ?? '';
         $hardware = $device['hardware'] ?? '';
+        $serial = $device['serial'] ?? '';
+        $mac = $device['mac'] ?? '';
 
-        // Check for existing asset via external reference or hostname/IP
+        // Check for existing asset via external reference or hostname/IP/serial/MAC
         $existingRef = AssetExternalReference::where('provider', 'librenms')
             ->where('external_id', $deviceId)
             ->first();
@@ -76,6 +79,18 @@ class LibreNMSImportService
         $existingAsset = $existingRef ? Asset::find($existingRef->asset_id) : null;
         if (! $existingAsset && $hostname) {
             $existingAsset = Asset::where('description', $hostname)->orWhere('asset_tag', $hostname)->first();
+        }
+        // Check by serial number
+        if (! $existingAsset && $serial) {
+            $existingAsset = Asset::where('serial_number', $serial)->first();
+        }
+        // Check by MAC in specifications
+        if (! $existingAsset && $mac) {
+            $existingAsset = Asset::whereJsonContains('specifications->mac_address', $mac)->first();
+        }
+        // Check by IP in specifications
+        if (! $existingAsset && $ip) {
+            $existingAsset = Asset::whereJsonContains('specifications->ip_address', $ip)->first();
         }
 
         $siteMapping = $this->siteMapping->mapDevice($device, $integration);
@@ -88,10 +103,13 @@ class LibreNMSImportService
             $action = 'skip_unmapped';
         }
 
+        // Determine display name: prefer display, then hostname, then sysName
+        $displayName = $display ?: ($hostname ?: $sysName);
+
         return [
             'id' => $deviceId,
             'external_id' => $deviceId,
-            'name' => $sysName,
+            'name' => $displayName,
             'hostname' => $hostname,
             'ip' => $ip,
             'vendor' => $os,
@@ -127,6 +145,12 @@ class LibreNMSImportService
                     $siteMapping = $this->siteMapping->mapDevice($fullDevice, $integration);
                     if ($siteMapping['status'] !== 'mapped') {
                         $results['skipped']++;
+                        $skipReason = $siteMapping['message'] ?? 'No matching Site found';
+                        Log::warning('LibreNMS device import skipped', [
+                            'device_id' => $deviceId,
+                            'reason' => $skipReason,
+                            'site_mapping' => $siteMapping,
+                        ]);
 
                         continue;
                     }
@@ -137,9 +161,35 @@ class LibreNMSImportService
 
                     $asset = $existingRef ? Asset::find($existingRef->asset_id) : null;
 
+                    // Conflict check against Assets table: hostname/description, serial, MAC, IP
+                    if (! $asset) {
+                        $hostname = $fullDevice['hostname'] ?? '';
+                        $serial = $fullDevice['serial'] ?? '';
+                        $mac = $fullDevice['mac'] ?? '';
+                        $ip = $fullDevice['ip'] ?? '';
+
+                        if ($hostname) {
+                            $asset = Asset::where('description', $hostname)->orWhere('asset_tag', $hostname)->first();
+                        }
+                        if (! $asset && $serial) {
+                            $asset = Asset::where('serial_number', $serial)->first();
+                        }
+                        if (! $asset && $mac) {
+                            $asset = Asset::whereJsonContains('specifications->mac_address', $mac)->first();
+                        }
+                        if (! $asset && $ip) {
+                            $asset = Asset::whereJsonContains('specifications->ip_address', $ip)->first();
+                        }
+                    }
+
+                    // Display name: prefer display, then hostname, then sysName
+                    $displayName = ($fullDevice['display'] ?? null)
+                        ?: ($fullDevice['hostname'] ?? null)
+                        ?: ($fullDevice['sysName'] ?? null);
+
                     if ($asset) {
                         $asset->update([
-                            'description' => $fullDevice['sysName'] ?? $fullDevice['hostname'],
+                            'description' => $displayName,
                             'manufacturer' => $fullDevice['os'] ?? null,
                             'model' => $fullDevice['hardware'] ?? null,
                             'site_id' => $siteMapping['site_id'],
@@ -157,7 +207,7 @@ class LibreNMSImportService
                         $newAsset = Asset::create([
                             'site_id' => $siteMapping['site_id'],
                             'asset_tag' => $assetTag,
-                            'description' => $fullDevice['sysName'] ?? $fullDevice['hostname'],
+                            'description' => $displayName,
                             'manufacturer' => $fullDevice['os'] ?? null,
                             'model' => $fullDevice['hardware'] ?? null,
                             'category' => 'NETWORK',
@@ -166,7 +216,13 @@ class LibreNMSImportService
                             'condition' => 'GOOD',
                             'quantity' => 1,
                             'unit' => 'pcs',
-                            'specifications' => ['source' => 'librenms', 'external_id' => $deviceId],
+                            'specifications' => [
+                                'source' => 'librenms',
+                                'external_id' => $deviceId,
+                                'serial_number' => $fullDevice['serial'] ?? null,
+                                'mac_address' => $fullDevice['mac'] ?? null,
+                                'ip_address' => $fullDevice['ip'] ?? null,
+                            ],
                         ]);
 
                         AssetExternalReference::create([

@@ -13,7 +13,9 @@ use Illuminate\Support\Facades\Log;
 class UispDeviceSyncService
 {
     protected Integration $integration;
+
     protected UispClient $client;
+
     protected array $counts = [
         'created' => 0,
         'updated' => 0,
@@ -51,14 +53,15 @@ class UispDeviceSyncService
                 }
             }
 
-            $this->counts['processed'] = 
-                $this->counts['created'] + 
-                $this->counts['updated'] + 
-                $this->counts['unchanged'] + 
-                $this->counts['skipped'] + 
+            $this->counts['processed'] =
+                $this->counts['created'] +
+                $this->counts['updated'] +
+                $this->counts['unchanged'] +
+                $this->counts['skipped'] +
                 $this->counts['failed'];
 
             Log::info('UISP Device Synchronization Completed', $this->counts);
+
             return $this->counts;
         } catch (\Throwable $e) {
             Log::error('UISP Device Synchronization Failed', [
@@ -73,10 +76,11 @@ class UispDeviceSyncService
     {
         $identification = $uispDevice['identification'] ?? [];
         $externalId = $uispDevice['id'] ?? $identification['id'] ?? null;
-        
-        if (!$externalId) {
+
+        if (! $externalId) {
             $this->counts['failed']++;
             Log::warning('UISP device missing ID', ['device' => $uispDevice]);
+
             return;
         }
 
@@ -84,6 +88,7 @@ class UispDeviceSyncService
         if (empty($identification['name'] ?? null) && empty($identification['model'] ?? null)) {
             $this->counts['skipped']++;
             Log::warning('UISP device skipped: missing required data', ['external_id' => $externalId]);
+
             return;
         }
 
@@ -97,25 +102,50 @@ class UispDeviceSyncService
         // Resolve Site ID
         $uispSiteId = $identification['site']['id'] ?? null;
         $siteId = $this->resolveSiteId($uispSiteId);
-        
-        if (!$siteId) {
+
+        if (! $siteId) {
             $this->counts['site_mapping_failed']++;
             $this->counts['skipped']++;
             Log::warning('UISP device skipped: site not mapped', [
                 'external_id' => $externalId,
                 'uisp_site_id' => $uispSiteId,
             ]);
+
             return;
         }
         $assetData['site_id'] = $siteId;
 
-        DB::transaction(function () use ($reference, $assetData, $externalId) {
-            if ($reference) {
-                $asset = $reference->asset;
-                if (!$asset) {
-                    // Orphan reference — recreate
+        // Conflict check against Assets table: description/hostname, serial, MAC, IP
+        $asset = null;
+        if ($reference) {
+            $asset = $reference->asset;
+        } else {
+            $description = $assetData['description'] ?? null;
+            $serial = $assetData['serial_number'] ?? null;
+            $mac = $assetData['specifications']['mac_address'] ?? null;
+            $ip = $assetData['specifications']['ip_address'] ?? null;
+
+            if ($description) {
+                $asset = Asset::where('description', $description)->orWhere('asset_tag', $description)->first();
+            }
+            if (! $asset && $serial) {
+                $asset = Asset::where('serial_number', $serial)->first();
+            }
+            if (! $asset && $mac) {
+                $asset = Asset::whereJsonContains('specifications->mac_address', $mac)->first();
+            }
+            if (! $asset && $ip) {
+                $asset = Asset::whereJsonContains('specifications->ip_address', $ip)->first();
+            }
+        }
+
+        DB::transaction(function () use ($reference, $asset, $assetData, $externalId) {
+            if ($asset) {
+                // If found via external reference but it's an orphan, treat as conflict
+                if ($reference && ! $asset) {
                     $this->counts['skipped']++;
                     Log::warning('Orphan asset external reference', ['external_id' => $externalId]);
+
                     return;
                 }
                 if ($this->hasChanges($asset, $assetData)) {
@@ -127,11 +157,11 @@ class UispDeviceSyncService
                 }
             } else {
                 // Generate a unique asset_tag
-                $assetTag = 'UISP-' . substr($externalId, 0, 8);
+                $assetTag = 'UISP-'.substr($externalId, 0, 8);
                 $baseTag = $assetTag;
                 $counter = 1;
                 while (Asset::where('asset_tag', $assetTag)->exists()) {
-                    $assetTag = $baseTag . '-' . $counter++;
+                    $assetTag = $baseTag.'-'.$counter++;
                 }
                 $assetData['asset_tag'] = $assetTag;
 
@@ -203,7 +233,9 @@ class UispDeviceSyncService
 
     protected function resolveSiteId(?string $uispSiteId): ?int
     {
-        if (!$uispSiteId) return null;
+        if (! $uispSiteId) {
+            return null;
+        }
 
         $siteRef = SiteExternalReference::where('provider', 'uisp')
             ->where('external_type', 'site')
