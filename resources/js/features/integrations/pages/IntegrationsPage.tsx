@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Box, Paper, Table, TableHead, TableRow, TableCell, TableBody,
   Button, Chip, IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, MenuItem, Switch, FormControlLabel, CircularProgress, Stack, Alert, InputAdornment,
+  TextField, MenuItem, Switch, FormControlLabel, CircularProgress, Stack, Alert, InputAdornment, Typography
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -30,7 +30,7 @@ export const IntegrationsPage = () => {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [showToken, setShowToken] = useState(false);
-  
+
   const [form, setForm] = useState({
     name: '',
     provider: '',
@@ -43,7 +43,10 @@ export const IntegrationsPage = () => {
     credential_label: 'Primary Token',
   });
 
-  const { data, isLoading } = useQuery({ queryKey: ['integrations'], queryFn: () => integrationApi.list() });
+  const { data, isLoading, isError, error } = useQuery({ 
+    queryKey: ['integrations'], 
+    queryFn: integrationApi.list 
+  });
 
   const createMut = useMutation({
     mutationFn: integrationApi.create,
@@ -94,6 +97,14 @@ export const IntegrationsPage = () => {
   };
 
   if (isLoading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>;
+  
+  if (isError) return (
+    <Box sx={{ p: 3 }}>
+      <Alert severity="error">Failed to load integrations: {(error as Error).message}</Alert>
+    </Box>
+  );
+
+  const isEmpty = !data || data.length === 0;
 
   return (
     <Box sx={{ p: 3 }}>
@@ -103,41 +114,48 @@ export const IntegrationsPage = () => {
         actions={<Button variant="contained" startIcon={<AddIcon />} onClick={() => { resetForm(); setDialogOpen(true); }}>Add Integration</Button>}
       />
       <Paper sx={{ mt: 2 }}>
-        <Table>
-          <TableHead><TableRow>
-            <TableCell>Name</TableCell><TableCell>Provider</TableCell><TableCell>Type</TableCell>
-            <TableCell>Status</TableCell><TableCell>Enabled</TableCell><TableCell>Last Sync</TableCell><TableCell>Actions</TableCell>
-          </TableRow></TableHead>
-          <TableBody>
-            {(data as any)?.data?.map((i: Integration) => (
-              <TableRow key={i.id}>
-                <TableCell>{i.name}</TableCell>
-                <TableCell>{i.provider}</TableCell>
-                <TableCell>{i.type}</TableCell>
-                <TableCell><Chip label={i.status} color={STATUS_COLORS[i.status] || 'default'} size="small" /></TableCell>
-                <TableCell><Switch checked={i.enabled} disabled /></TableCell>
-                <TableCell>{i.last_sync_at ? new Date(i.last_sync_at).toLocaleString() : 'Never'}</TableCell>
-                <TableCell>
-                  <Stack direction="row" spacing={1}>
-                    <Can permission="integrations.sync">
-                      <IconButton size="small" onClick={() => syncMut.mutate(i.id)} disabled={syncMut.isPending}>
-                        <SyncIcon />
+        {isEmpty ? (
+          <Box sx={{ p: 4, textAlign: 'center' }}>
+            <Typography variant="h6" color="text.secondary">No integrations found.</Typography>
+            <Typography variant="body2" color="text.secondary">Click "Add Integration" to get started.</Typography>
+          </Box>
+        ) : (
+          <Table>
+            <TableHead><TableRow>
+              <TableCell>Name</TableCell><TableCell>Provider</TableCell><TableCell>Type</TableCell>
+              <TableCell>Status</TableCell><TableCell>Enabled</TableCell><TableCell>Last Sync</TableCell><TableCell>Actions</TableCell>
+            </TableRow></TableHead>
+            <TableBody>
+              {data.map((i: Integration) => (
+                <TableRow key={i.id}>
+                  <TableCell>{i.name}</TableCell>
+                  <TableCell>{i.provider}</TableCell>
+                  <TableCell>{i.type}</TableCell>
+                  <TableCell><Chip label={i.status} color={STATUS_COLORS[i.status] || 'default'} size="small" /></TableCell>
+                  <TableCell><Switch checked={i.enabled} disabled /></TableCell>
+                  <TableCell>{i.last_sync_at ? new Date(i.last_sync_at).toLocaleString() : 'Never'}</TableCell>
+                  <TableCell>
+                    <Stack direction="row" spacing={1}>
+                      <Can permission="integrations.sync">
+                        <IconButton size="small" onClick={() => syncMut.mutate(i.id)} disabled={syncMut.isPending}>
+                          <SyncIcon />
+                        </IconButton>
+                      </Can>
+                      <IconButton size="small" onClick={() => navigate(`/system/integrations/${i.id}`)}>
+                        <EditIcon />
                       </IconButton>
-                    </Can>
-                    <IconButton size="small" onClick={() => navigate(`/system/integrations/${i.id}`)}>
-                      <EditIcon />
-                    </IconButton>
-                    <Can permission="integrations.delete">
-                      <IconButton size="small" color="error" onClick={() => deleteMut.mutate(i.id)}>
-                        <DeleteIcon />
-                      </IconButton>
-                    </Can>
-                  </Stack>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                      <Can permission="integrations.delete">
+                        <IconButton size="small" color="error" onClick={() => deleteMut.mutate(i.id)}>
+                          <DeleteIcon />
+                        </IconButton>
+                      </Can>
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </Paper>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
@@ -146,19 +164,19 @@ export const IntegrationsPage = () => {
           <Stack spacing={2} sx={{ mt: 1 }}>
             {/* Section A: Integration Details */}
             <TextField label="Name" fullWidth required value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
-            
+
             <TextField select label="Provider" fullWidth required value={form.provider} onChange={e => handleProviderChange(e.target.value)}>
               {PROVIDERS.map(p => <MenuItem key={p.value} value={p.value}>{p.label}</MenuItem>)}
             </TextField>
 
             {/* Section B: Connection Configuration */}
             {form.provider && (
-              <TextField 
-                label="API URL" 
-                fullWidth 
-                required 
-                value={form.api_url} 
-                onChange={e => setForm({...form, api_url: e.target.value})} 
+              <TextField
+                label="API URL"
+                fullWidth
+                required
+                value={form.api_url}
+                onChange={e => setForm({...form, api_url: e.target.value})}
                 placeholder="https://unms.example.com/nms/api/v2.1"
                 helperText="The base URL for the provider's API including the version path."
               />
@@ -167,12 +185,12 @@ export const IntegrationsPage = () => {
             {/* Section C: Authentication */}
             {form.provider && (
               <>
-                <TextField 
-                  label="API Token" 
-                  type={showToken ? "text" : "password"} 
-                  fullWidth 
-                  required 
-                  value={form.credential_value} 
+                <TextField
+                  label="API Token"
+                  type={showToken ? "text" : "password"}
+                  fullWidth
+                  required
+                  value={form.credential_value}
                   onChange={e => setForm({...form, credential_value: e.target.value})}
                   InputProps={{
                     endAdornment: (

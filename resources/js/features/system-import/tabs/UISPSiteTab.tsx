@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Box, Button, CircularProgress } from '@mui/material';
+import React, { useState, useMemo } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Box, Button, CircularProgress, Typography } from '@mui/material';
 import toast from 'react-hot-toast';
 
 // Shared components
@@ -9,52 +9,31 @@ import ImportDataTable, { Column } from '@/components/import/ImportDataTable';
 import ImportConfirmationDialog from '@/components/import/ImportConfirmationDialog';
 import ImportResultDialog from '@/components/import/ImportResultDialog';
 import ImportHistoryPanel from '@/components/import/ImportHistoryPanel';
+import { useIntegrationSelection } from '@/hooks/useIntegrationSelection';
 
 // API
 import { uispImportApi } from '@/api/integrations';
-import { importApi, ImportProvider } from '@/api/import';
-
-interface Integration {
-  id: number;
-  name: string;
-  provider: string;
-  status: string;
-  enabled: boolean;
-}
 
 const UISPSiteTab: React.FC = () => {
   const queryClient = useQueryClient();
-  const [selectedIntegration, setSelectedIntegration] = useState<number | null>(null);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showResultDialog, setShowResultDialog] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
   const [showHistory, setShowHistory] = useState(false);
 
-  const { data: providers } = useQuery({
-    queryKey: ['import-providers'],
-    queryFn: importApi.getProviders,
-  });
-
-  const uispProvider = useMemo(() => {
-    if (!providers) return null;
-    return providers.find((p: ImportProvider) => p.provider === 'uisp') || null;
-  }, [providers]);
-
-  const integrationForCard = useMemo((): Integration | null => {
-    if (!uispProvider) return null;
-    return { id: uispProvider.id, name: uispProvider.name, provider: uispProvider.provider, status: 'connected', enabled: true };
-  }, [uispProvider]);
-
-  useEffect(() => {
-    if (uispProvider && !selectedIntegration) setSelectedIntegration(uispProvider.id);
-  }, [uispProvider, selectedIntegration]);
+  const { 
+    filteredIntegrations, 
+    selectedIntegration, 
+    setSelectedIntegration, 
+    isLoading: isProvidersLoading 
+  } = useIntegrationSelection({ provider: 'uisp' });
 
   const { data: previewData, isLoading: isPreviewing, refetch: runPreview } = useQuery({
     queryKey: ['uisp-site-preview', selectedIntegration],
     queryFn: async () => {
       if (!selectedIntegration) throw new Error('No integration selected');
-      const response = await uispImportApi.preview();
+      const response = await uispImportApi.preview(selectedIntegration);
       return response.data;
     },
     enabled: !!selectedIntegration,
@@ -64,7 +43,7 @@ const UISPSiteTab: React.FC = () => {
   const importMutation = useMutation({
     mutationFn: async (items: any[]) => {
       if (!selectedIntegration) throw new Error('No integration selected');
-      const response = await uispImportApi.execute({
+      const response = await uispImportApi.execute(selectedIntegration, {
         sites: items.map(i => i.record),
         devices: [],
       });
@@ -105,17 +84,28 @@ const UISPSiteTab: React.FC = () => {
     { id: 'status', label: 'Status', sortable: true },
   ];
 
+  if (isProvidersLoading) return <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box>;
+  
+  if (filteredIntegrations.length === 0) {
+    return (
+      <Box sx={{ p: 4, textAlign: 'center' }}>
+        <Typography variant="h6" color="text.secondary">No enabled UISP integrations found.</Typography>
+        <Typography variant="body2" color="text.secondary">Please configure a UISP integration in System Settings.</Typography>
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ p: 2 }}>
       <ImportSourceCard
         title="UISP Site Import"
         source="uisp"
-        integration={integrationForCard}
-        integrations={[]}
+        integration={filteredIntegrations.find(p => p.id === selectedIntegration) || null}
+        integrations={filteredIntegrations}
         onIntegrationSelect={setSelectedIntegration}
         onRefresh={() => runPreview()}
         isLoading={isPreviewing}
-        connectionStatus={uispProvider ? 'connected' : 'disconnected'}
+        connectionStatus={selectedIntegration ? 'connected' : 'disconnected'}
         recordsCount={sites.length}
         recordsLabel="sites"
       />

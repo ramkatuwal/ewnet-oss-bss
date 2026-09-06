@@ -19,26 +19,24 @@ class UispImportController extends Controller
         $this->middleware('can:integration.uisp.import');
     }
 
-    public function preview(Request $request): JsonResponse
+    public function preview(Request $request, Integration $integration): JsonResponse
     {
-        $integration = $this->getIntegration($request);
-        if (!$integration) {
-            return response()->json(['error' => 'UISP integration not found'], 404);
-        }
+        $this->authorize('integration.uisp.import', $integration);
 
         try {
             $service = new UispImportService($integration);
-            $preview = $service->preview();
+            $result = $service->preview();
 
             return response()->json([
                 'success' => true,
-                'data' => $preview,
+                'data' => $result,
             ]);
         } catch (\Exception $e) {
             Log::error('UISP import preview failed', [
-                'error' => $e->getMessage(),
                 'integration_id' => $integration->id,
+                'error' => $e->getMessage(),
             ]);
+
             return response()->json([
                 'success' => false,
                 'error' => 'Preview failed: ' . $e->getMessage(),
@@ -46,58 +44,47 @@ class UispImportController extends Controller
         }
     }
 
-    public function execute(Request $request): JsonResponse
+    public function execute(Request $request, Integration $integration): JsonResponse
     {
-        $integration = $this->getIntegration($request);
-        if (!$integration) {
-            return response()->json(['error' => 'UISP integration not found'], 404);
-        }
+        $this->authorize('integration.uisp.import', $integration);
 
         $validated = $request->validate([
             'sites' => 'array',
             'devices' => 'array',
-            'type' => 'required|in:device,site',
         ]);
 
         $history = ImportHistory::create([
             'source' => ImportHistory::SOURCE_UISP,
-            'type' => $validated['type'],
+            'type' => 'mixed', // Or determine based on content
             'integration_id' => $integration->id,
             'status' => ImportHistory::STATUS_PENDING,
             'started_by' => Auth::id(),
             'total_records' => count($validated['sites'] ?? []) + count($validated['devices'] ?? []),
-            'metadata' => ['selected_ids' => array_merge(
-                array_column($validated['sites'] ?? [], 'external_id'),
-                array_column($validated['devices'] ?? [], 'external_id')
-            )],
         ]);
 
         try {
             $history->markAsRunning();
             $service = new UispImportService($integration);
-            $results = $service->execute($validated, $history);
+            $result = $service->execute($validated['sites'] ?? [], $validated['devices'] ?? [], $history);
 
-            $stats = [
-                'created_records' => ($results['sites']['created'] ?? 0) + ($results['devices']['created'] ?? 0),
-                'updated_records' => ($results['sites']['updated'] ?? 0) + ($results['devices']['updated'] ?? 0),
-                'skipped_records' => ($results['sites']['skipped'] ?? 0) + ($results['devices']['skipped'] ?? 0),
-                'conflict_records' => ($results['sites']['conflicts'] ?? 0) + ($results['devices']['conflicts'] ?? 0),
-                'error_records' => ($results['sites']['failed'] ?? 0) + ($results['devices']['failed'] ?? 0),
-            ];
-            
-            $history->markAsCompleted($stats);
+            $history->markAsCompleted([
+                'created_records' => $result['created'] ?? 0,
+                'updated_records' => $result['updated'] ?? 0,
+                'skipped_records' => $result['skipped'] ?? 0,
+                'error_records' => $result['failed'] ?? 0,
+            ]);
 
             return response()->json([
                 'success' => true,
-                'data' => array_merge($results, ['history_id' => $history->id]),
+                'data' => array_merge($result, ['history_id' => $history->id]),
             ]);
         } catch (\Exception $e) {
-            Log::error('UISP import execution failed', [
-                'error' => $e->getMessage(),
-                'integration_id' => $integration->id,
-                'history_id' => $history->id,
-            ]);
             $history->markAsFailed($e->getMessage());
+            Log::error('UISP import execution failed', [
+                'integration_id' => $integration->id,
+                'error' => $e->getMessage(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'error' => 'Import failed: ' . $e->getMessage(),
@@ -105,12 +92,9 @@ class UispImportController extends Controller
         }
     }
 
-    public function analyzeSingle(Request $request): JsonResponse
+    public function analyzeSingle(Request $request, Integration $integration): JsonResponse
     {
-        $integration = $this->getIntegration($request);
-        if (!$integration) {
-            return response()->json(['error' => 'UISP integration not found'], 404);
-        }
+        $this->authorize('integration.uisp.import', $integration);
 
         $type = $request->input('type');
         $data = $request->input('data');
@@ -127,7 +111,7 @@ class UispImportController extends Controller
             } elseif ($type === 'device') {
                 $result = $detector->analyzeDevice($data);
             } else {
-                return response()->json(['error' => 'Invalid type. Must be "site" or "device"'], 400);
+                return response()->json(['error' => 'Invalid type'], 400);
             }
 
             return response()->json([
@@ -135,24 +119,10 @@ class UispImportController extends Controller
                 'data' => $result,
             ]);
         } catch (\Exception $e) {
-            Log::error('UISP single analysis failed', [
-                'error' => $e->getMessage(),
-                'type' => $type,
-            ]);
             return response()->json([
                 'success' => false,
                 'error' => 'Analysis failed: ' . $e->getMessage(),
             ], 500);
         }
-    }
-
-    protected function getIntegration(Request $request): ?Integration
-    {
-        $id = $request->input('integration_id');
-        if ($id) {
-            return Integration::where('id', $id)->where('provider', 'uisp')->first();
-        }
-
-        return Integration::where('provider', 'uisp')->first();
     }
 }
