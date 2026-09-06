@@ -184,7 +184,7 @@ export const IntegrationDetailPage = () => {
             <Box>
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
                 <Typography variant="h6">Credentials</Typography>
-                <Can permission="integrations.manage">
+                <Can permission="integrations.credentials.manage">
                   <Button startIcon={<AddIcon />} onClick={() => setCredDialogOpen(true)}>Add Credential</Button>
                 </Can>
               </Stack>
@@ -200,12 +200,12 @@ export const IntegrationDetailPage = () => {
                       <TableCell>{c.is_active ? 'Yes' : 'No'}</TableCell>
                       <TableCell>
                         <Stack direction="row" spacing={0.5}>
-                          <Can permission="integrations.manage">
+                          <Can permission="integrations.credentials.manage">
                             <IconButton size="small" title="Rotate credential" onClick={() => { setRotateCred(c); setRotateValue(''); }}>
                               <AutorenewIcon fontSize="small" />
                             </IconButton>
                           </Can>
-                          <Can permission="integrations.manage">
+                          <Can permission="integrations.credentials.manage">
                             <IconButton size="small" color="error" onClick={() => { if (confirm('Delete credential?')) credDeleteMut.mutate(c.id); }}>
                               <DeleteIcon fontSize="small" />
                             </IconButton>
