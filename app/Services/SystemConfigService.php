@@ -39,33 +39,29 @@ class SystemConfigService
         foreach (self::$allowedKeys as $key => $config) {
             $value = $settings[$key] ?? $config['default'];
             $group = $config['group'];
-            if (!isset($result[$group])) {
+            if (! isset($result[$group])) {
                 $result[$group] = [];
             }
             if (in_array($key, ['show_logo', 'show_title', 'show_user_menu', 'show_notifications', 'dark_mode'])) {
                 $value = filter_var($value, FILTER_VALIDATE_BOOLEAN);
             }
-            
-            // FIX: Robustly clean storage paths to prevent double /storage/ prefixes
+
+            // FIX: Normalize storage paths to a single /storage/ prefix (idempotent)
             if (in_array($key, ['logo_path', 'favicon_path']) && $value) {
-                $cleanValue = $value;
-                // Remove common filesystem prefixes if they exist in the DB
-                $cleanValue = str_replace('storage/app/public/', '', $cleanValue);
-                $cleanValue = str_replace('public/', '', $cleanValue);
-                $cleanValue = str_replace('storage/', '', $cleanValue);
-                $cleanValue = ltrim($cleanValue, '/');
-                
-                $result[$group][$key] = url('storage/' . $cleanValue);
+                $relative = self::normalizeStoragePath($value);
+
+                $result[$group][$key] = $relative ? url('storage/'.$relative) : null;
             } else {
                 $result[$group][$key] = $value;
             }
         }
+
         return $result;
     }
 
     public static function get(string $key)
     {
-        if (!isset(self::$allowedKeys[$key])) {
+        if (! isset(self::$allowedKeys[$key])) {
             return null;
         }
         $settings = self::getSettingsFromCache();
@@ -73,6 +69,7 @@ class SystemConfigService
         if (in_array($key, ['show_logo', 'show_title', 'show_user_menu', 'show_notifications', 'dark_mode'])) {
             return filter_var($value, FILTER_VALIDATE_BOOLEAN);
         }
+
         return $value;
     }
 
@@ -81,12 +78,12 @@ class SystemConfigService
         $updated = [];
         $changedKeys = [];
         foreach ($data as $group => $values) {
-            if (!is_array($values)) {
+            if (! is_array($values)) {
                 continue;
             }
             foreach ($values as $key => $value) {
                 $fullKey = $key;
-                if (!isset(self::$allowedKeys[$fullKey])) {
+                if (! isset(self::$allowedKeys[$fullKey])) {
                     continue;
                 }
                 if (self::isProtectedKey($fullKey)) {
@@ -114,6 +111,7 @@ class SystemConfigService
                 self::clearCache();
             }
         }
+
         return [
             'updated' => $updated,
             'changed_keys' => $changedKeys,
@@ -128,6 +126,7 @@ class SystemConfigService
             foreach ($settings as $setting) {
                 $result[$setting->key] = $setting->value;
             }
+
             return $result;
         });
     }
@@ -150,7 +149,36 @@ class SystemConfigService
                 return true;
             }
         }
+
         return false;
+    }
+
+    /**
+     * Collapse any absolute, filesystem-prefixed or legacy compounded value down to a
+     * storage-relative segment (e.g. "logos/abc.png") so the DB never accumulates
+     * repeated /storage/ prefixes across save/read cycles.
+     */
+    protected static function normalizeStoragePath($value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        do {
+            $before = $value;
+            $value = ltrim($value, '/');
+            $value = preg_replace('#^https?://[^/]+/#i', '', $value);
+            $value = str_replace(['storage/app/public/', 'public/', 'storage/'], '', $value);
+        } while ($value !== $before && strlen($value) < strlen($before));
+
+        $value = trim($value, '/');
+
+        return $value === '' ? null : substr($value, 0, 255);
     }
 
     protected static function validateValue(string $key, $value)
@@ -162,7 +190,7 @@ class SystemConfigService
                 return is_string($value) ? substr($value, 0, 255) : null;
             case 'logo_path':
             case 'favicon_path':
-                return is_string($value) ? substr($value, 0, 255) : null;
+                return self::normalizeStoragePath($value);
             case 'menu_visibility':
             case 'menu_ordering':
                 return is_array($value) ? json_encode($value) : '{}';

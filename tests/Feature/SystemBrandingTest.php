@@ -158,4 +158,81 @@ class SystemBrandingTest extends TestCase
         $this->assertNotNull($logo);
         $this->assertNotNull($favicon);
     }
+
+    public function test_saving_absolute_uploaded_url_stores_relative_path(): void
+    {
+        SystemSetting::updateOrCreate(['key' => 'logo_path'], [
+            'value' => 'logos/abc.png',
+            'group' => 'branding',
+        ]);
+
+        // The configuration form echoes back the absolute URL from the upload response
+        $response = $this->actingAs($this->user)->putJson('/api/v1/system/configuration', [
+            'branding' => [
+                'logo_path' => 'https://oss.ewnet.com.np/storage/logos/abc.png',
+            ],
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertSame(
+            'logos/abc.png',
+            SystemSetting::where('key', 'logo_path')->value('value')
+        );
+    }
+
+    public function test_legacy_compounded_logo_path_is_cleaned_on_read(): void
+    {
+        SystemSetting::updateOrCreate(['key' => 'logo_path'], [
+            'value' => 'https://oss.ewnet.com.np/https://oss.ewnet.com.np/https://oss.ewnet.com.np/logos/xyz.png',
+            'group' => 'branding',
+        ]);
+
+        $response = $this->actingAs($this->user)->getJson('/api/v1/system/configuration');
+
+        $response->assertStatus(200);
+        $logoPath = $response->json('data.branding.logo_path');
+        $this->assertStringEndsWith('/storage/logos/xyz.png', $logoPath);
+        $this->assertSame(1, substr_count($logoPath, '/storage/'));
+        $this->assertStringNotContainsString('https://', $logoPath);
+    }
+
+    public function test_reading_relative_path_returns_single_storage_prefix(): void
+    {
+        SystemSetting::updateOrCreate(['key' => 'logo_path'], [
+            'value' => 'logos/single.png',
+            'group' => 'branding',
+        ]);
+
+        $response = $this->actingAs($this->user)->getJson('/api/v1/system/configuration');
+
+        $response->assertStatus(200);
+        $this->assertStringEndsWith('/storage/logos/single.png', $response->json('data.branding.logo_path'));
+    }
+
+    public function test_repeated_save_cycles_never_compound_the_path(): void
+    {
+        // Simulate three full upload + save cycles with the field echoing absolute URLs
+        foreach (['cycle-a', 'cycle-b', 'cycle-c'] as $filename) {
+            $this->actingAs($this->user)->uploadBranding([
+                'type' => 'logo',
+                'file' => UploadedFile::fake()->image($filename.'.png', 200, 120),
+            ]);
+
+            $stored = SystemSetting::where('key', 'logo_path')->value('value');
+            $absolute = url('storage/'.$stored);
+
+            $this->actingAs($this->user)->putJson('/api/v1/system/configuration', [
+                'branding' => ['logo_path' => $absolute],
+            ]);
+        }
+
+        $stored = SystemSetting::where('key', 'logo_path')->value('value');
+        $this->assertStringStartsWith('logos/', $stored);
+        $this->assertStringNotContainsString('storage/', $stored);
+        $this->assertStringNotContainsString('http', $stored);
+
+        $response = $this->actingAs($this->user)->getJson('/api/v1/system/configuration');
+        $this->assertStringEndsWith('/storage/'.$stored, $response->json('data.branding.logo_path'));
+        $this->assertSame(1, substr_count($response->json('data.branding.logo_path'), '/storage/'));
+    }
 }
