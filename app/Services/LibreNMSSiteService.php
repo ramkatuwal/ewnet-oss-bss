@@ -2,18 +2,19 @@
 
 namespace App\Services;
 
+use App\Integrations\Providers\LibreNMS\LibreNMSClient;
 use App\Models\ImportHistory;
 use App\Models\Integration;
 use App\Models\Site;
 use App\Models\SiteExternalReference;
 use App\Models\User;
-use App\Integrations\Providers\LibreNMS\LibreNMSClient;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class LibreNMSSiteService
 {
     protected SiteMappingService $siteMapping;
+
     protected AuditService $audit;
 
     public function __construct(SiteMappingService $siteMapping, AuditService $audit)
@@ -35,9 +36,9 @@ class LibreNMSSiteService
         $locations = [];
 
         foreach ($devices as $device) {
-            if (!empty($device['location'])) {
+            if (! empty($device['location'])) {
                 $name = $device['location'];
-                if (!isset($locations[$name])) {
+                if (! isset($locations[$name])) {
                     $locations[$name] = ['name' => $name, 'device_count' => 0, 'devices' => []];
                 }
                 $locations[$name]['device_count']++;
@@ -51,16 +52,18 @@ class LibreNMSSiteService
     public function previewSites(Integration $integration, User $user): array
     {
         $result = $this->fetchDevicesWithLocations($integration);
-        if (isset($result['error'])) return ['error' => $result['error']];
+        if (isset($result['error'])) {
+            return ['error' => $result['error']];
+        }
 
         $preview = [];
         foreach ($result['locations'] as $location) {
             $existingRef = SiteExternalReference::where('provider', 'librenms')
                 ->where('external_id', $location['name'])
                 ->first();
-            
+
             $existingSite = $existingRef ? Site::find($existingRef->site_id) : null;
-            
+
             $preview[] = [
                 'id' => $location['name'],
                 'external_id' => $location['name'],
@@ -76,8 +79,8 @@ class LibreNMSSiteService
             'total' => count($preview),
             'analysis' => $preview,
             'summary' => [
-                'create' => count(array_filter($preview, fn($p) => $p['action'] === 'create')),
-                'update' => count(array_filter($preview, fn($p) => $p['action'] === 'update')),
+                'create' => count(array_filter($preview, fn ($p) => $p['action'] === 'create')),
+                'update' => count(array_filter($preview, fn ($p) => $p['action'] === 'update')),
             ],
         ];
     }
@@ -86,11 +89,11 @@ class LibreNMSSiteService
     {
         $results = ['created' => 0, 'updated' => 0, 'skipped' => 0, 'failed' => 0];
 
-        DB::transaction(function () use ($integration, $user, $selectedLocations, &$results, $history) {
+        DB::transaction(function () use ($integration, $selectedLocations, &$results) {
             foreach ($selectedLocations as $locationData) {
                 try {
                     $locationName = $locationData['external_id'];
-                    
+
                     $existingRef = SiteExternalReference::where('provider', 'librenms')
                         ->where('external_id', $locationName)
                         ->first();
@@ -106,10 +109,11 @@ class LibreNMSSiteService
                         // Create a new site. In a real scenario, we might need to map it to a region/branch.
                         // For now, we create a basic site record.
                         $newSite = Site::create([
-                            'site_code' => 'LNM-' . substr(md5($locationName), 0, 8),
+                            'site_code' => 'LNM-'.substr(md5($locationName), 0, 8),
                             'name' => $locationName,
                             'type' => 'pop',
                             'status' => 'active',
+                            'company_id' => $integration->company_id,
                             'metadata' => ['source' => 'librenms', 'external_id' => $locationName],
                         ]);
 

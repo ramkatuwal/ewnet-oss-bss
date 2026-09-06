@@ -2,28 +2,33 @@
 
 namespace App\Services\Integrations\Uisp;
 
+use App\Integrations\Providers\Uisp\UispClient;
 use App\Models\Asset;
 use App\Models\AssetExternalReference;
+use App\Models\AssetInterface;
 use App\Models\ImportHistory;
 use App\Models\Integration;
+use App\Models\IpAddress;
 use App\Models\Site;
 use App\Models\SiteExternalReference;
-use App\Integrations\Providers\Uisp\UispClient;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class UispImportService
 {
     protected Integration $integration;
+
     protected UispClient $client;
+
     protected UispDuplicateDetector $detector;
+
     protected ?ImportHistory $history;
 
     public function __construct(Integration $integration, ?ImportHistory $history = null)
     {
         $this->integration = $integration;
         $this->client = new UispClient($integration);
-        $this->detector = new UispDuplicateDetector();
+        $this->detector = new UispDuplicateDetector;
         $this->history = $history;
     }
 
@@ -66,13 +71,13 @@ class UispImportService
         ];
 
         DB::transaction(function () use ($selectedRecords, &$results) {
-            if (!empty($selectedRecords['sites'])) {
+            if (! empty($selectedRecords['sites'])) {
                 foreach ($selectedRecords['sites'] as $siteData) {
                     $this->processSite($siteData, $results['sites']);
                 }
             }
 
-            if (!empty($selectedRecords['devices'])) {
+            if (! empty($selectedRecords['devices'])) {
                 foreach ($selectedRecords['devices'] as $deviceData) {
                     $this->processDevice($deviceData, $results);
                 }
@@ -85,8 +90,9 @@ class UispImportService
     protected function processSite(array $data, array &$results): void
     {
         $externalId = $data['external_id'] ?? null;
-        if (!$externalId) {
+        if (! $externalId) {
             $results['failed']++;
+
             return;
         }
 
@@ -105,15 +111,17 @@ class UispImportService
                         'metadata' => array_merge($site->metadata ?? [], ['last_synced' => now()]),
                     ]);
                     $results['updated']++;
+
                     return;
                 }
             }
 
             $site = Site::create([
-                'site_code' => 'UISP-' . substr(md5($externalId), 0, 8),
-                'name' => $data['name'] ?? 'UISP Site ' . $externalId,
+                'site_code' => 'UISP-'.substr(md5($externalId), 0, 8),
+                'name' => $data['name'] ?? 'UISP Site '.$externalId,
                 'type' => 'pop',
                 'status' => 'active',
+                'company_id' => $this->integration->company_id,
                 'metadata' => ['source' => 'uisp', 'external_id' => $externalId],
             ]);
 
@@ -135,8 +143,9 @@ class UispImportService
     protected function processDevice(array $data, array &$results): void
     {
         $externalId = $data['external_id'] ?? null;
-        if (!$externalId) {
+        if (! $externalId) {
             $results['devices']['failed']++;
+
             return;
         }
 
@@ -159,16 +168,17 @@ class UispImportService
                     ]);
                     $results['devices']['updated']++;
                     $this->processDeviceInterfaces($data, $asset, $results);
+
                     return;
                 }
             }
 
             $siteId = $this->resolveSiteId($data);
-            $assetTag = 'UISP-' . substr($externalId, 0, 8);
+            $assetTag = 'UISP-'.substr($externalId, 0, 8);
             $baseTag = $assetTag;
             $counter = 1;
             while (Asset::where('asset_tag', $assetTag)->exists()) {
-                $assetTag = $baseTag . '-' . $counter++;
+                $assetTag = $baseTag.'-'.$counter++;
             }
 
             $asset = Asset::create([
@@ -215,7 +225,7 @@ class UispImportService
     protected function processInterface(array $interfaceData, Asset $asset, array &$results): void
     {
         $externalId = $interfaceData['external_id'] ?? null;
-        $existing = \App\Models\AssetInterface::where('asset_id', $asset->id)
+        $existing = AssetInterface::where('asset_id', $asset->id)
             ->where('name', $interfaceData['name'])
             ->first();
 
@@ -230,7 +240,7 @@ class UispImportService
             ]);
             $results['interfaces']['updated']++;
         } else {
-            \App\Models\AssetInterface::create([
+            AssetInterface::create([
                 'asset_id' => $asset->id,
                 'name' => $interfaceData['name'] ?? 'unknown',
                 'display_name' => $interfaceData['display_name'] ?? null,
@@ -258,21 +268,23 @@ class UispImportService
     protected function processIp(array $ipData, Asset $asset, array &$results): void
     {
         $interfaceName = $ipData['interface_name'] ?? null;
-        if (!$interfaceName) {
+        if (! $interfaceName) {
             $results['ips']['skipped']++;
+
             return;
         }
 
-        $interface = \App\Models\AssetInterface::where('asset_id', $asset->id)
+        $interface = AssetInterface::where('asset_id', $asset->id)
             ->where('name', $interfaceName)
             ->first();
 
-        if (!$interface) {
+        if (! $interface) {
             $results['ips']['skipped']++;
+
             return;
         }
 
-        $existing = \App\Models\IpAddress::where('asset_interface_id', $interface->id)
+        $existing = IpAddress::where('asset_interface_id', $interface->id)
             ->where('ip_address', $ipData['ip'])
             ->first();
 
@@ -285,7 +297,7 @@ class UispImportService
             ]);
             $results['ips']['updated']++;
         } else {
-            \App\Models\IpAddress::create([
+            IpAddress::create([
                 'asset_interface_id' => $interface->id,
                 'ip_address' => $ipData['ip'],
                 'prefix_length' => $ipData['prefix'] ?? null,
@@ -304,24 +316,30 @@ class UispImportService
 
     protected function resolveSiteId(array $data): int
     {
-        if (!empty($data['site_id'])) {
+        if (! empty($data['site_id'])) {
             $site = Site::find($data['site_id']);
-            if ($site) return $site->id;
+            if ($site) {
+                return $site->id;
+            }
         }
 
-        if (!empty($data['site_external_id'])) {
+        if (! empty($data['site_external_id'])) {
             $ref = SiteExternalReference::where('provider', 'uisp')
                 ->where('external_id', (string) $data['site_external_id'])
                 ->first();
-            if ($ref) return $ref->site_id;
+            if ($ref) {
+                return $ref->site_id;
+            }
         }
 
         $site = Site::create([
-            'site_code' => 'UISP-DEFAULT-' . time(),
+            'site_code' => 'UISP-DEFAULT-'.time(),
             'name' => 'UISP Default Site',
             'type' => 'pop',
             'status' => 'active',
+            'company_id' => $this->integration->company_id,
         ]);
+
         return $site->id;
     }
 
@@ -336,6 +354,7 @@ class UispImportService
                 $summary['review']++;
             }
         }
+
         return $summary;
     }
 }

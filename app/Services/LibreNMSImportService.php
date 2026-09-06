@@ -2,19 +2,19 @@
 
 namespace App\Services;
 
+use App\Integrations\Providers\LibreNMS\LibreNMSClient;
 use App\Models\Asset;
 use App\Models\AssetExternalReference;
 use App\Models\ImportHistory;
 use App\Models\Integration;
-use App\Models\Site;
 use App\Models\User;
-use App\Integrations\Providers\LibreNMS\LibreNMSClient;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class LibreNMSImportService
 {
     protected SiteMappingService $siteMapping;
+
     protected AuditService $audit;
 
     public function __construct(SiteMappingService $siteMapping, AuditService $audit)
@@ -33,6 +33,7 @@ class LibreNMSImportService
         }
 
         $devices = $result['data']['devices'] ?? [];
+
         return ['devices' => $devices, 'count' => count($devices)];
     }
 
@@ -71,17 +72,21 @@ class LibreNMSImportService
         $existingRef = AssetExternalReference::where('provider', 'librenms')
             ->where('external_id', $deviceId)
             ->first();
-        
+
         $existingAsset = $existingRef ? Asset::find($existingRef->asset_id) : null;
-        if (!$existingAsset && $hostname) {
+        if (! $existingAsset && $hostname) {
             $existingAsset = Asset::where('description', $hostname)->orWhere('asset_tag', $hostname)->first();
         }
 
         $siteMapping = $this->siteMapping->mapDevice($device, $integration);
 
         $action = 'create';
-        if ($existingAsset) $action = 'update';
-        if ($siteMapping['status'] !== 'mapped') $action = 'skip_unmapped';
+        if ($existingAsset) {
+            $action = 'update';
+        }
+        if ($siteMapping['status'] !== 'mapped') {
+            $action = 'skip_unmapped';
+        }
 
         return [
             'id' => $deviceId,
@@ -109,24 +114,27 @@ class LibreNMSImportService
             'failed' => 0,
         ];
 
-        DB::transaction(function () use ($integration, $user, $selectedDevices, &$results, $history) {
+        DB::transaction(function () use ($integration, $selectedDevices, &$results) {
             foreach ($selectedDevices as $deviceData) {
                 try {
                     $deviceId = $deviceData['external_id'];
                     $client = new LibreNMSClient($integration);
                     // Fetch full details for this specific device if needed, or use what we have
-                    $fullDevice = $deviceData; 
+                    $fullDevice = $deviceData;
+                    // The frontend sends `external_id`; the mapper expects `device_id`.
+                    $fullDevice['device_id'] = $fullDevice['device_id'] ?? $fullDevice['external_id'] ?? null;
 
                     $siteMapping = $this->siteMapping->mapDevice($fullDevice, $integration);
                     if ($siteMapping['status'] !== 'mapped') {
                         $results['skipped']++;
+
                         continue;
                     }
 
                     $existingRef = AssetExternalReference::where('provider', 'librenms')
                         ->where('external_id', $deviceId)
                         ->first();
-                    
+
                     $asset = $existingRef ? Asset::find($existingRef->asset_id) : null;
 
                     if ($asset) {
@@ -139,11 +147,11 @@ class LibreNMSImportService
                         ]);
                         $results['updated']++;
                     } else {
-                        $assetTag = 'LNM-' . substr($deviceId, 0, 8);
+                        $assetTag = 'LNM-'.substr($deviceId, 0, 8);
                         $baseTag = $assetTag;
                         $counter = 1;
                         while (Asset::where('asset_tag', $assetTag)->exists()) {
-                            $assetTag = $baseTag . '-' . $counter++;
+                            $assetTag = $baseTag.'-'.$counter++;
                         }
 
                         $newAsset = Asset::create([
@@ -185,8 +193,11 @@ class LibreNMSImportService
         $summary = ['create' => 0, 'update' => 0, 'skip_unmapped' => 0, 'total' => count($preview)];
         foreach ($preview as $item) {
             $action = $item['action'] ?? 'skip_unmapped';
-            if (isset($summary[$action])) $summary[$action]++;
+            if (isset($summary[$action])) {
+                $summary[$action]++;
+            }
         }
+
         return $summary;
     }
 }

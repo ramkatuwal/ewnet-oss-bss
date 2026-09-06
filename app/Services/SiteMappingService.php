@@ -2,11 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\Integration;
 use App\Models\Site;
 use App\Models\SiteExternalReference;
-use App\Models\LibreNmsObject;
-use App\Models\Integration;
-use Illuminate\Support\Facades\Log;
 
 class SiteMappingService
 {
@@ -23,7 +21,7 @@ class SiteMappingService
         $lng = $deviceData['lng'] ?? null;
 
         if (empty($deviceId)) {
-            return ['status' => 'error', 'message' => 'Missing device_id', 'site_id' => null];
+            return ['status' => 'error', 'message' => 'Missing device_id', 'site_id' => null, 'site_name' => null];
         }
 
         // 1. Check for Explicit Mapping via SiteExternalReference
@@ -36,7 +34,8 @@ class SiteMappingService
             $site = $explicitRef->site;
             if ($site) {
                 $this->enrichGps($site, $lat, $lng);
-                return ['status' => 'mapped', 'message' => 'Explicitly mapped', 'site_id' => $site->id];
+
+                return ['status' => 'mapped', 'message' => 'Explicitly mapped', 'site_id' => $site->id, 'site_name' => $site->name];
             }
         }
 
@@ -45,16 +44,18 @@ class SiteMappingService
         if ($siteByCode) {
             $this->createOrUpdateReference($siteByCode, 'librenms', 'device', $deviceId, $deviceData);
             $this->enrichGps($siteByCode, $lat, $lng);
-            return ['status' => 'mapped', 'message' => 'Matched by hostname/code', 'site_id' => $siteByCode->id];
+
+            return ['status' => 'mapped', 'message' => 'Matched by hostname/code', 'site_id' => $siteByCode->id, 'site_name' => $siteByCode->name];
         }
 
         // 3. Heuristic Matching: By Location Name
-        if (!empty($location)) {
+        if (! empty($location)) {
             $siteByName = Site::where('name', $location)->first();
             if ($siteByName) {
                 $this->createOrUpdateReference($siteByName, 'librenms', 'location', $location, $deviceData);
                 $this->enrichGps($siteByName, $lat, $lng);
-                return ['status' => 'mapped', 'message' => 'Matched by location name', 'site_id' => $siteByName->id];
+
+                return ['status' => 'mapped', 'message' => 'Matched by location name', 'site_id' => $siteByName->id, 'site_name' => $siteByName->name];
             }
         }
 
@@ -65,17 +66,18 @@ class SiteMappingService
                 ->whereBetween('latitude', [$lat - 0.0005, $lat + 0.0005])
                 ->whereBetween('longitude', [$lng - 0.0005, $lng + 0.0005])
                 ->first();
-            
+
             if ($nearbySite) {
                 $existingRef = $nearbySite->externalReferences()->where('provider', 'librenms')->exists();
-                if (!$existingRef) {
+                if (! $existingRef) {
                     $this->createOrUpdateReference($nearbySite, 'librenms', 'device', $deviceId, $deviceData);
-                    return ['status' => 'mapped', 'message' => 'Matched by GPS proximity', 'site_id' => $nearbySite->id];
+
+                    return ['status' => 'mapped', 'message' => 'Matched by GPS proximity', 'site_id' => $nearbySite->id, 'site_name' => $nearbySite->name];
                 }
             }
         }
 
-        return ['status' => 'unmapped', 'message' => 'No matching Site found', 'site_id' => null];
+        return ['status' => 'unmapped', 'message' => 'No matching Site found', 'site_id' => null, 'site_name' => null];
     }
 
     private function createOrUpdateReference(Site $site, string $provider, string $type, string $externalId, array $metadata): void
