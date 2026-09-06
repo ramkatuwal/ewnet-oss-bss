@@ -7,6 +7,8 @@ backups/
 /.docker/
 # Docker
 docker/nginx/logs/
+docker/nginx/certs/
+*.log
 .DS_Store
 .env
 .env.backup

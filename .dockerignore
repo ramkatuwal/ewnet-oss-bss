@@ -1,0 +1,39 @@
+# VCS / secrets
+.git
+.env
+.env.backup
+.env.testing
+.env.production
+
+# Local artifacts / docs (not needed at runtime)
+*.md
+docs/
+backups/
+audit_report_*.txt
+audit_results.txt
+backup_before_upgrade_*.sql
+_ide_helper.php
+
+# Dependencies (installed inside the image / volume-mounted at runtime)
+node_modules
+vendor
+npm-debug.log
+
+# Build artifacts
+public/build
+public/hot
+public/storage
+coverage
+.phpunit.result.cache
+
+# Docker / per-install state
+docker/nginx/logs
+docker/nginx/certs
+test-output.xml
+
+# Logs / temp
+storage/logs/*.log
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/testing/*
+.gitkeep
