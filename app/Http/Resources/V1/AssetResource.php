@@ -28,6 +28,8 @@ class AssetResource extends JsonResource
             'specifications' => $this->specifications,
             'description' => $this->description,
             'notes' => $this->notes,
+            'ip_address' => $this->primary_ip,
+            'mac_address' => $this->primary_mac,
             'created_by' => $this->created_by,
             'updated_by' => $this->updated_by,
             'created_at' => $this->created_at,

@@ -3,19 +3,19 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\ImportAssetsRequest;
 use App\Http\Requests\Api\V1\StoreAssetRequest;
 use App\Http\Requests\Api\V1\UpdateAssetRequest;
-use App\Http\Requests\Api\V1\ImportAssetsRequest;
+use App\Http\Resources\V1\AssetResource;
+use App\Jobs\ProcessAssetImport;
 use App\Models\Asset;
 use App\Models\Site;
-use App\Services\AuditService;
 use App\Services\AssetExportService;
 use App\Services\AssetImportService;
-use App\Jobs\ProcessAssetImport;
+use App\Services\AuditService;
 use App\Services\ManagementScopeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Http\Resources\V1\AssetResource;
 
 class AssetController extends Controller
 {
@@ -23,22 +23,22 @@ class AssetController extends Controller
     {
         $this->authorize('viewAny', Asset::class);
 
-        $query = Asset::with(['site.company', 'site.region', 'site.branch']);
+        $query = Asset::with(['site.company', 'site.region', 'site.branch', 'ipAddresses', 'interfaces']);
         $query = ManagementScopeService::applyScopeToQuery($query, $request->user(), Asset::class);
 
         // Filters
         if ($request->filled('search')) {
             $search = $request->input('search');
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('asset_tag', 'ilike', "%{$search}%")
-                  ->orWhere('serial_number', 'ilike', "%{$search}%")
-                  ->orWhere('manufacturer', 'ilike', "%{$search}%")
-                  ->orWhere('model', 'ilike', "%{$search}%")
-                  ->orWhere('description', 'ilike', "%{$search}%")
-                  ->orWhereHas('site', function($sq) use ($search) {
-                      $sq->where('name', 'ilike', "%{$search}%")
-                         ->orWhere('site_code', 'ilike', "%{$search}%");
-                  });
+                    ->orWhere('serial_number', 'ilike', "%{$search}%")
+                    ->orWhere('manufacturer', 'ilike', "%{$search}%")
+                    ->orWhere('model', 'ilike', "%{$search}%")
+                    ->orWhere('description', 'ilike', "%{$search}%")
+                    ->orWhereHas('site', function ($sq) use ($search) {
+                        $sq->where('name', 'ilike', "%{$search}%")
+                            ->orWhere('site_code', 'ilike', "%{$search}%");
+                    });
             });
         }
 
@@ -77,7 +77,7 @@ class AssetController extends Controller
                 'last_page' => $assets->lastPage(),
                 'per_page' => $assets->perPage(),
                 'total' => $assets->total(),
-            ]
+            ],
         ]);
     }
 
@@ -92,14 +92,14 @@ class AssetController extends Controller
 
         AuditService::log('asset.created', 'success', $asset, $request->validated());
 
-        return new AssetResource($asset->load(['site.company', 'site.region', 'site.branch']));
+        return new AssetResource($asset->load(['site.company', 'site.region', 'site.branch', 'ipAddresses', 'interfaces']));
     }
 
     public function show(Asset $asset)
     {
         $this->authorize('view', $asset);
 
-        return new AssetResource($asset->load(['site.company', 'site.region', 'site.branch']));
+        return new AssetResource($asset->load(['site.company', 'site.region', 'site.branch', 'ipAddresses', 'interfaces']));
     }
 
     public function update(UpdateAssetRequest $request, Asset $asset)
@@ -110,7 +110,7 @@ class AssetController extends Controller
 
         AuditService::log('asset.updated', 'success', $asset, $request->validated());
 
-        return new AssetResource($asset->load(['site.company', 'site.region', 'site.branch']));
+        return new AssetResource($asset->load(['site.company', 'site.region', 'site.branch', 'ipAddresses', 'interfaces']));
     }
 
     public function destroy(Asset $asset)
@@ -161,8 +161,8 @@ class AssetController extends Controller
                     'maintenance' => $statusCounts['MAINTENANCE'] ?? 0,
                     'faulty' => $statusCounts['FAULTY'] ?? 0,
                     'retired' => $statusCounts['RETIRED'] ?? 0,
-                ]
-            ]
+                ],
+            ],
         ]);
     }
 
@@ -174,11 +174,11 @@ class AssetController extends Controller
 
         if ($request->filled('search')) {
             $search = $request->input('search');
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('asset_tag', 'ilike', "%{$search}%")
-                  ->orWhere('serial_number', 'ilike', "%{$search}%")
-                  ->orWhere('manufacturer', 'ilike', "%{$search}%")
-                  ->orWhere('model', 'ilike', "%{$search}%");
+                    ->orWhere('serial_number', 'ilike', "%{$search}%")
+                    ->orWhere('manufacturer', 'ilike', "%{$search}%")
+                    ->orWhere('model', 'ilike', "%{$search}%");
             });
         }
 
@@ -191,14 +191,14 @@ class AssetController extends Controller
                 'last_page' => $assets->lastPage(),
                 'per_page' => $assets->perPage(),
                 'total' => $assets->total(),
-            ]
+            ],
         ]);
     }
 
     public function import(ImportAssetsRequest $request, AssetImportService $importService)
     {
         $path = $request->file('file')->store('imports', 'local');
-        $fullPath = storage_path('app/' . $path);
+        $fullPath = storage_path('app/'.$path);
 
         ProcessAssetImport::dispatch($fullPath, $request->user()->id);
 
@@ -214,6 +214,7 @@ class AssetController extends Controller
         if ($format === 'xlsx') {
             return $exportService->exportXlsx($request->user(), $filters);
         }
+
         return $exportService->exportCsv($request->user(), $filters);
     }
 }

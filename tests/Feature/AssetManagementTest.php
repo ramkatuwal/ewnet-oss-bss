@@ -3,9 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\Asset;
+use App\Models\AssetInterface;
 use App\Models\Company;
-use App\Models\Region;
-use App\Models\Branch;
+use App\Models\IpAddress;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\UserManagementScope;
@@ -224,7 +224,7 @@ class AssetManagementTest extends TestCase
             'type' => 'Battery',
             'quantity' => 1,
             'serial_number' => function () {
-                return 'SN-LIST-' . fake()->unique()->numberBetween(100, 999);
+                return 'SN-LIST-'.fake()->unique()->numberBetween(100, 999);
             },
             'status' => 'OPERATIONAL',
         ]);
@@ -320,5 +320,63 @@ class AssetManagementTest extends TestCase
 
         $response->assertStatus(422);
         $response->assertJsonValidationErrors(['serial_number']);
+    }
+
+    public function test_can_view_network_asset_primary_ip_and_mac()
+    {
+        $company = Company::factory()->create();
+        $site = Site::factory()->create(['company_id' => $company->id]);
+        $user = User::factory()->create(['company_id' => $company->id]);
+        $user->givePermissionTo('assets.view');
+        $user->givePermissionTo('sites.view');
+
+        UserManagementScope::create([
+            'user_id' => $user->id,
+            'scope_type' => 'company',
+            'scope_id' => $company->id,
+            'granted_by' => $user->id,
+        ]);
+        $user->refresh();
+
+        $asset = Asset::factory()->create([
+            'site_id' => $site->id,
+            'category' => 'NETWORK',
+            'type' => 'Router',
+            'quantity' => 1,
+            'serial_number' => 'SN-NET-IP-001',
+            'status' => 'OPERATIONAL',
+        ]);
+
+        $interface = AssetInterface::create([
+            'asset_id' => $asset->id,
+            'name' => 'eth0',
+            'mac_address' => '00:1A:2B:3C:4D:5E',
+            'is_management' => true,
+        ]);
+        IpAddress::create([
+            'asset_interface_id' => $interface->id,
+            'ip_address' => '192.168.1.10',
+            'prefix_length' => 24,
+            'is_management' => true,
+            'is_primary' => true,
+        ]);
+
+        // Secondary interface without a MAC-owned management IP
+        $secondary = AssetInterface::create([
+            'asset_id' => $asset->id,
+            'name' => 'eth1',
+            'mac_address' => '0A:BB:CC:DD:EE:FF',
+        ]);
+        IpAddress::create([
+            'asset_interface_id' => $secondary->id,
+            'ip_address' => '10.0.0.1',
+            'prefix_length' => 24,
+        ]);
+
+        $response = $this->actingAs($user)->getJson('/api/v1/assets');
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('data.0.ip_address', '192.168.1.10/24');
+        $response->assertJsonPath('data.0.mac_address', '00:1A:2B:3C:4D:5E');
     }
 }

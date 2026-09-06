@@ -4,10 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Asset extends Model
 {
@@ -41,6 +41,11 @@ class Asset extends Model
         'purchase_date' => 'date',
         'installation_date' => 'date',
         'warranty_expiry' => 'date',
+    ];
+
+    protected $appends = [
+        'primary_ip',
+        'primary_mac',
     ];
 
     // Categories
@@ -117,6 +122,32 @@ class Asset extends Model
             'id',                // Local key on assets
             'id'                 // Local key on asset_interfaces
         );
+    }
+
+    public function getPrimaryIpAttribute(): ?string
+    {
+        $ips = $this->relationLoaded('ipAddresses') ? $this->ipAddresses : $this->ipAddresses()->get();
+
+        $primary = $ips->first(fn (IpAddress $ip) => $ip->is_primary || $ip->is_management) ?? $ips->first();
+
+        if (! $primary) {
+            return null;
+        }
+
+        return $primary->ip_address.($primary->prefix_length ? '/'.$primary->prefix_length : '');
+    }
+
+    public function getPrimaryMacAttribute(): ?string
+    {
+        $interfaces = $this->relationLoaded('interfaces') ? $this->interfaces : $this->interfaces()->get();
+
+        foreach ($interfaces as $interface) {
+            if (! empty($interface->mac_address)) {
+                return $interface->mac_address;
+            }
+        }
+
+        return null;
     }
 
     public function managementIp(): ?IpAddress
