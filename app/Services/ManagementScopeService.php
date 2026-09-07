@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Department;
 use App\Models\FiberCable;
+use App\Models\FiberSegment;
 use App\Models\Integration;
 use App\Models\IntegrationCredential;
 use App\Models\NetworkConnectionPoint;
@@ -117,6 +118,9 @@ class ManagementScopeService
         if ($resource instanceof NetworkConnectionPoint) {
             return static::isNetworkConnectionPointInScope($resource, $scopeType, $scopeId);
         }
+        if ($resource instanceof FiberSegment) {
+            return static::isFiberSegmentInScope($resource, $scopeType, $scopeId);
+        }
         if ($resource instanceof Integration) {
             // Global (system-level) integrations are only reachable via the global scope
             if ($resource->company_id === null) {
@@ -202,6 +206,8 @@ class ManagementScopeService
                 $ids = array_merge($ids, static::getFiberCableIdsForScope($type, $id));
             } elseif ($modelClass === NetworkConnectionPoint::class) {
                 $ids = array_merge($ids, static::getNetworkConnectionPointIdsForScope($type, $id));
+            } elseif ($modelClass === FiberSegment::class) {
+                $ids = array_merge($ids, static::getFiberSegmentIdsForScope($type, $id));
             } elseif ($modelClass === User::class) {
                 $ids = array_merge($ids, static::getUserIdsForScope($type, $id));
             }
@@ -427,5 +433,19 @@ class ManagementScopeService
         }
 
         return NetworkConnectionPoint::where('company_id', $id)->pluck('id')->toArray();
+    }
+
+    protected static function isFiberSegmentInScope(FiberSegment $segment, string $scopeType, int $scopeId): bool
+    {
+        return $scopeType === 'company' && (int) $segment->company_id === $scopeId;
+    }
+
+    protected static function getFiberSegmentIdsForScope(string $type, int $id): array
+    {
+        if ($type !== 'company') {
+            return [];
+        }
+
+        return FiberSegment::where('company_id', $id)->pluck('id')->toArray();
     }
 }

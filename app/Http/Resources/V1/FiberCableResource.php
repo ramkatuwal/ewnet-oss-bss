@@ -35,6 +35,8 @@ class FiberCableResource extends JsonResource
             'start_site_id' => $this->start_site_id,
             'end_site_id' => $this->end_site_id,
             'route_geometry' => $geojson,
+            'route_geometry_authority' => $this->route_geometry_authority,
+            'route_geometry_available' => $geojson !== null,
             'length_meters' => $this->length_meters,
             'installation_date' => $this->installation_date?->toDateString(),
             'survey_source' => $this->survey_source,

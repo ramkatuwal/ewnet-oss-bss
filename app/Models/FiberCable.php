@@ -6,6 +6,7 @@ use Database\Factories\FiberCableFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class FiberCable extends Model
@@ -98,5 +99,10 @@ class FiberCable extends Model
     public function surveyedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'surveyed_by');
+    }
+
+    public function segments(): HasMany
+    {
+        return $this->hasMany(FiberSegment::class);
     }
 }

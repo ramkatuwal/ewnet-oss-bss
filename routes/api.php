@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DebugController;
 use App\Http\Controllers\Api\V1\DepartmentController;
 use App\Http\Controllers\Api\V1\FiberCableController;
+use App\Http\Controllers\Api\V1\FiberSegmentController;
 use App\Http\Controllers\Api\V1\ImportHistoryController;
 use App\Http\Controllers\Api\V1\IntegrationController;
 use App\Http\Controllers\Api\V1\IntegrationCredentialController;
@@ -94,6 +95,9 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     // FIM — Fiber Cables (backend-only spatial foundation)
     Route::apiResource('/fim/fiber-cables', FiberCableController::class)->parameters([
         'fiber-cables' => 'fiberCable',
+    ]);
+    Route::apiResource('/fim/fiber-segments', FiberSegmentController::class)->parameters([
+        'fiber-segments' => 'fiberSegment',
     ]);
 
     // Asset Lifecycle

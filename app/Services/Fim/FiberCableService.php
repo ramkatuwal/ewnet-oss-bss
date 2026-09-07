@@ -3,8 +3,10 @@
 namespace App\Services\Fim;
 
 use App\Models\FiberCable;
+use App\Models\FiberSegment;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class FiberCableService
 {
@@ -71,6 +73,12 @@ class FiberCableService
     {
         $geojson = $validated['route_geometry'] ?? null;
         unset($validated['route_geometry']);
+
+        if ($geojson !== null && FiberSegment::where('fiber_cable_id', $cable->id)->exists()) {
+            throw ValidationException::withMessages([
+                'route_geometry' => 'Cable route geometry is derived from its live fiber segments and cannot be edited directly.',
+            ]);
+        }
 
         DB::transaction(function () use ($cable, $validated, $geojson, $user) {
             $sets = [];

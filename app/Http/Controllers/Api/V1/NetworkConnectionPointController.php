@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreNetworkConnectionPointRequest;
 use App\Http\Requests\Api\V1\UpdateNetworkConnectionPointRequest;
 use App\Http\Resources\V1\NetworkConnectionPointResource;
+use App\Models\FiberSegment;
 use App\Models\NetworkConnectionPoint;
 use App\Services\AuditService;
 use App\Services\Fim\NetworkConnectionPointService;
@@ -95,6 +96,14 @@ class NetworkConnectionPointController extends Controller
     public function destroy(NetworkConnectionPoint $networkConnectionPoint)
     {
         $this->authorize('delete', $networkConnectionPoint);
+
+        if (FiberSegment::where('endpoint_a_id', $networkConnectionPoint->id)
+            ->orWhere('endpoint_b_id', $networkConnectionPoint->id)
+            ->exists()) {
+            return response()->json([
+                'message' => 'This connection point is referenced by a fiber segment and cannot be deleted.',
+            ], 422);
+        }
 
         $networkConnectionPoint->delete();
 
