@@ -22,6 +22,7 @@ class AssetFactory extends Factory
 
         return [
             'site_id' => Site::factory(),
+            'company_id' => null,
             'asset_tag' => 'EW-'.strtoupper($category).'-'.$this->faker->unique()->numberBetween(1000, 9999),
             'serial_number' => $this->faker->optional(0.7)->lexify('SN??????????'),
             'category' => $category,

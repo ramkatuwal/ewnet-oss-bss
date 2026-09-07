@@ -15,6 +15,7 @@ class Asset extends Model
 
     protected $fillable = [
         'site_id',
+        'company_id',
         'asset_tag',
         'serial_number',
         'category',
@@ -75,6 +76,11 @@ class Asset extends Model
         'POOR',
         'CRITICAL',
     ];
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
 
     public function site(): BelongsTo
     {

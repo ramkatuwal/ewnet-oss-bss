@@ -77,6 +77,10 @@ class SystemPermissionSeeder extends Seeder
             'fim.cables.create',
             'fim.cables.update',
             'fim.cables.delete',
+            'fim.connection-points.view',
+            'fim.connection-points.create',
+            'fim.connection-points.update',
+            'fim.connection-points.delete',
         ];
 
         foreach ($permissions as $permission) {

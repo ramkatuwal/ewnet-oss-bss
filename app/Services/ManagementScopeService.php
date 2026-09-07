@@ -9,6 +9,7 @@ use App\Models\Department;
 use App\Models\FiberCable;
 use App\Models\Integration;
 use App\Models\IntegrationCredential;
+use App\Models\NetworkConnectionPoint;
 use App\Models\Region;
 use App\Models\Site;
 use App\Models\User;
@@ -113,6 +114,9 @@ class ManagementScopeService
         if ($resource instanceof FiberCable) {
             return static::isFiberCableInScope($resource, $scopeType, $scopeId);
         }
+        if ($resource instanceof NetworkConnectionPoint) {
+            return static::isNetworkConnectionPointInScope($resource, $scopeType, $scopeId);
+        }
         if ($resource instanceof Integration) {
             // Global (system-level) integrations are only reachable via the global scope
             if ($resource->company_id === null) {
@@ -196,6 +200,8 @@ class ManagementScopeService
                 }
             } elseif ($modelClass === FiberCable::class) {
                 $ids = array_merge($ids, static::getFiberCableIdsForScope($type, $id));
+            } elseif ($modelClass === NetworkConnectionPoint::class) {
+                $ids = array_merge($ids, static::getNetworkConnectionPointIdsForScope($type, $id));
             } elseif ($modelClass === User::class) {
                 $ids = array_merge($ids, static::getUserIdsForScope($type, $id));
             }
@@ -391,5 +397,35 @@ class ManagementScopeService
         }
 
         return [];
+    }
+
+    /**
+     * NetworkConnectionPoint scope inherits from site company.
+     *
+     * Region/branch/department scopes do NOT grant NCP access unless the
+     * NCP's site is in scope. Conservative: deny unless company scope matches.
+     */
+    protected static function isNetworkConnectionPointInScope(NetworkConnectionPoint $point, string $scopeType, int $scopeId): bool
+    {
+        if ($scopeType === 'company' && $point->company_id === $scopeId) {
+            return true;
+        }
+
+        if ($point->site && static::isSiteInScope($point->site, $scopeType, $scopeId)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    protected static function getNetworkConnectionPointIdsForScope(string $type, int $id): array
+    {
+        $siteIds = static::getSiteIdsForScope($type, $id);
+
+        if (! empty($siteIds)) {
+            return NetworkConnectionPoint::whereIn('site_id', $siteIds)->pluck('id')->toArray();
+        }
+
+        return NetworkConnectionPoint::where('company_id', $id)->pluck('id')->toArray();
     }
 }

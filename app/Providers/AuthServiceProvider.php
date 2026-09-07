@@ -3,8 +3,10 @@
 namespace App\Providers;
 
 use App\Models\FiberCable;
+use App\Models\NetworkConnectionPoint;
 use App\Models\Site;
 use App\Policies\FiberCablePolicy;
+use App\Policies\NetworkConnectionPointPolicy;
 use App\Policies\PermissionPolicy;
 use App\Policies\RolePolicy;
 use App\Policies\SitePolicy;
@@ -26,6 +28,7 @@ class AuthServiceProvider extends ServiceProvider
         Permission::class => PermissionPolicy::class,
         Site::class => SitePolicy::class,
         FiberCable::class => FiberCablePolicy::class,
+        NetworkConnectionPoint::class => NetworkConnectionPointPolicy::class,
     ];
 
     /**
@@ -40,5 +43,6 @@ class AuthServiceProvider extends ServiceProvider
         Gate::policy(Permission::class, PermissionPolicy::class);
         Gate::policy(Site::class, SitePolicy::class);
         Gate::policy(FiberCable::class, FiberCablePolicy::class);
+        Gate::policy(NetworkConnectionPoint::class, NetworkConnectionPointPolicy::class);
     }
 }

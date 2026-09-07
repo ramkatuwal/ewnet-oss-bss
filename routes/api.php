@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\IntegrationCredentialController;
 use App\Http\Controllers\Api\V1\LibreNMSImportController;
 use App\Http\Controllers\Api\V1\LibreNMSSiteController;
 use App\Http\Controllers\Api\V1\ManagementScopeController;
+use App\Http\Controllers\Api\V1\NetworkConnectionPointController;
 use App\Http\Controllers\Api\V1\PermissionController;
 use App\Http\Controllers\Api\V1\PhotoController;
 use App\Http\Controllers\Api\V1\ProfileController;
@@ -85,6 +86,11 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::get('/assets/{asset}/photos', [PhotoController::class, 'assetPhotos']);
     Route::post('/assets/{asset}/photos', [PhotoController::class, 'storeAssetPhoto']);
     Route::delete('/assets/{asset}/photos/{photo}', [PhotoController::class, 'deleteAssetPhoto']);
+    // FIM — Network Connection Points (boundary-point foundation)
+    Route::apiResource('/fim/connection-points', NetworkConnectionPointController::class)->parameters([
+        'connection-points' => 'networkConnectionPoint',
+    ]);
+
     // FIM — Fiber Cables (backend-only spatial foundation)
     Route::apiResource('/fim/fiber-cables', FiberCableController::class)->parameters([
         'fiber-cables' => 'fiberCable',
