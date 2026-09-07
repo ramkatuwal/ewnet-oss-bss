@@ -16,6 +16,7 @@ class UpdateAssetRequest extends FormRequest
     public function rules(): array
     {
         $asset = $this->route('asset');
+
         return [
             'site_id' => ['sometimes', 'exists:sites,id'],
             'asset_tag' => ['sometimes', 'string', 'max:255', Rule::unique('assets', 'asset_tag')->ignore($asset->id)],

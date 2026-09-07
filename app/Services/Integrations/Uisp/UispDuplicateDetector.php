@@ -316,9 +316,20 @@ class UispDuplicateDetector
             return ['action' => 'error', 'reason' => 'Missing external ID'];
         }
 
-        $name = $this->normalizeName($uispSite['name'] ?? null);
-        $location = $uispSite['location'] ?? [];
-        $address = $uispSite['address'] ?? [];
+        // UISP v2.1 nests site attributes under `identification` (name, status,
+        // parent site); keep flat `name`/`location` as a backward-compatible fallback.
+        $identification = $uispSite['identification'] ?? [];
+        $name = $this->normalizeName($identification['name'] ?? $uispSite['name'] ?? null);
+        $status = $identification['status'] ?? null;
+
+        $description = $uispSite['description'] ?? [];
+        $location = $description['location'] ?? $uispSite['location'] ?? [];
+        $addressData = $description['address'] ?? $uispSite['address'] ?? [];
+        $address = is_string($addressData)
+            ? $addressData
+            : ($addressData['fullAddress'] ?? $addressData['address'] ?? null);
+
+        $parent = $identification['parent'] ?? null;
 
         $uispRef = SiteExternalReference::where('provider', 'uisp')
             ->where('external_type', 'site')
@@ -335,10 +346,13 @@ class UispDuplicateDetector
                 'evidence' => [['field' => 'external_id', 'strength' => 'exact']],
                 'matches' => ['external_id'],
                 'name' => $name,
-                'address' => $address['fullAddress'] ?? null,
+                'status' => $status,
+                'address' => $address,
                 'latitude' => $location['lat'] ?? null,
                 'longitude' => $location['lon'] ?? null,
                 'external_id' => $externalId,
+                'parent_external_id' => $parent['id'] ?? null,
+                'parent_name' => $parent['name'] ?? null,
             ];
         }
 
@@ -354,10 +368,13 @@ class UispDuplicateDetector
                     'evidence' => [['field' => 'name', 'strength' => 'moderate']],
                     'matches' => ['name'],
                     'name' => $name,
-                    'address' => $address['fullAddress'] ?? null,
+                    'status' => $status,
+                    'address' => $address,
                     'latitude' => $location['lat'] ?? null,
                     'longitude' => $location['lon'] ?? null,
                     'external_id' => $externalId,
+                    'parent_external_id' => $parent['id'] ?? null,
+                    'parent_name' => $parent['name'] ?? null,
                 ];
             }
         }
@@ -371,10 +388,13 @@ class UispDuplicateDetector
             'evidence' => [],
             'matches' => [],
             'name' => $name,
-            'address' => $address['fullAddress'] ?? null,
+            'status' => $status,
+            'address' => $address,
             'latitude' => $location['lat'] ?? null,
             'longitude' => $location['lon'] ?? null,
             'external_id' => $externalId,
+            'parent_external_id' => $parent['id'] ?? null,
+            'parent_name' => $parent['name'] ?? null,
         ];
     }
 

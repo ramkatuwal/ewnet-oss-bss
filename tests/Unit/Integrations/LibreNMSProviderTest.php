@@ -12,7 +12,7 @@ class LibreNMSProviderTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->provider = new LibreNMSProvider();
+        $this->provider = new LibreNMSProvider;
     }
 
     public function test_identity_returns_librenms(): void

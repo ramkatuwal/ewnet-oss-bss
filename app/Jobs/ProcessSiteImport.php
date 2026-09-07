@@ -17,6 +17,7 @@ class ProcessSiteImport implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 1; // Don't retry entire batch on row failure
+
     public int $timeout = 600;
 
     public function __construct(
@@ -27,13 +28,15 @@ class ProcessSiteImport implements ShouldQueue
     public function handle(SiteImportService $importService): void
     {
         $user = User::find($this->userId);
-        if (!$user) {
+        if (! $user) {
             \Log::error("ProcessSiteImport: User {$this->userId} not found.");
+
             return;
         }
 
-        if (!Storage::disk('local')->exists($this->filePath)) {
+        if (! Storage::disk('local')->exists($this->filePath)) {
             \Log::error("ProcessSiteImport: File {$this->filePath} not found.");
+
             return;
         }
 
@@ -49,7 +52,7 @@ class ProcessSiteImport implements ShouldQueue
 
         foreach ($csv as $offset => $record) {
             $results['total']++;
-            
+
             // Normalize keys to lowercase snake_case
             $normalized = [];
             foreach ($record as $key => $value) {
@@ -77,6 +80,6 @@ class ProcessSiteImport implements ShouldQueue
         // Cleanup original file after processing (optional, keeping for audit trail for now)
         // Storage::disk('local')->delete($this->filePath);
 
-        \Log::info("Site Import Complete", $results);
+        \Log::info('Site Import Complete', $results);
     }
 }

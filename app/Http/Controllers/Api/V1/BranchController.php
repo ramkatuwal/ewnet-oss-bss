@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\BranchRequest;
 use App\Http\Resources\V1\BranchResource;
 use App\Models\Branch;
+use App\Models\Region;
 use App\Services\AuditService;
 use App\Services\ManagementScopeService;
 use Illuminate\Http\Request;
@@ -35,9 +36,9 @@ class BranchController extends Controller
             $search = $request->get('search');
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'ilike', "%{$search}%")
-                  ->orWhere('code', 'ilike', "%{$search}%")
-                  ->orWhere('city', 'ilike', "%{$search}%")
-                  ->orWhere('email', 'ilike', "%{$search}%");
+                    ->orWhere('code', 'ilike', "%{$search}%")
+                    ->orWhere('city', 'ilike', "%{$search}%")
+                    ->orWhere('email', 'ilike', "%{$search}%");
             });
         }
 
@@ -50,8 +51,8 @@ class BranchController extends Controller
     {
         $this->authorize('create', Branch::class);
 
-        if (!$request->user()->hasRole('Super Admin')) {
-            $region = \App\Models\Region::findOrFail($request->region_id);
+        if (! $request->user()->hasRole('Super Admin')) {
+            $region = Region::findOrFail($request->region_id);
             if ($region->company_id != $request->user()->company_id) {
                 abort(403, 'Cannot create branch in another company\'s region');
             }
@@ -74,8 +75,8 @@ class BranchController extends Controller
     {
         $this->authorize('update', $branch);
 
-        if ($request->has('region_id') && !$request->user()->hasRole('Super Admin')) {
-            $region = \App\Models\Region::findOrFail($request->region_id);
+        if ($request->has('region_id') && ! $request->user()->hasRole('Super Admin')) {
+            $region = Region::findOrFail($request->region_id);
             if ($region->company_id != $request->user()->company_id) {
                 abort(403, 'Cannot move branch to another company\'s region');
             }

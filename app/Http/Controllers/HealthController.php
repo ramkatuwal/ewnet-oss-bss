@@ -18,7 +18,7 @@ class HealthController extends Controller
             DB::connection()->getPdo();
             $status['database'] = 'connected';
         } catch (\Exception $e) {
-            $status['database'] = 'failed: ' . $e->getMessage();
+            $status['database'] = 'failed: '.$e->getMessage();
             $overall = 'unhealthy';
         }
 
@@ -26,7 +26,7 @@ class HealthController extends Controller
             Cache::store('redis')->put('health_check', true, 10);
             $status['redis'] = 'connected';
         } catch (\Exception $e) {
-            $status['redis'] = 'failed: ' . $e->getMessage();
+            $status['redis'] = 'failed: '.$e->getMessage();
             $overall = 'unhealthy';
         }
 
@@ -35,7 +35,7 @@ class HealthController extends Controller
             $status['storage'] = 'writable';
             Storage::disk('local')->delete('health_check.txt');
         } catch (\Exception $e) {
-            $status['storage'] = 'failed: ' . $e->getMessage();
+            $status['storage'] = 'failed: '.$e->getMessage();
             $overall = 'unhealthy';
         }
 
@@ -44,7 +44,7 @@ class HealthController extends Controller
             'checks' => $status,
             'timestamp' => now()->toIso8601String(),
             'application' => 'EWNET OSS/BSS',
-            'version' => '1.0.0'
+            'version' => '1.0.0',
         ]);
     }
 }

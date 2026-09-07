@@ -41,6 +41,6 @@ class IpAddress extends Model
 
     public function getFullIpAttribute(): string
     {
-        return $this->ip_address . ($this->prefix_length ? '/' . $this->prefix_length : '');
+        return $this->ip_address.($this->prefix_length ? '/'.$this->prefix_length : '');
     }
 }

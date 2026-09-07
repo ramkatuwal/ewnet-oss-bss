@@ -32,7 +32,7 @@ class SystemConfigService
         'token', 'credential', 'password', 'secret',
     ];
 
-    public static function getAll(): array
+    public static function getAll(bool $absoluteUrls = false): array
     {
         $settings = self::getSettingsFromCache();
         $result = [];
@@ -49,8 +49,8 @@ class SystemConfigService
             // FIX: Normalize storage paths to a single /storage/ prefix (idempotent)
             if (in_array($key, ['logo_path', 'favicon_path']) && $value) {
                 $relative = self::normalizeStoragePath($value);
-
-                $result[$group][$key] = $relative ? url('storage/'.$relative) : null;
+                $url = $relative ? '/storage/'.$relative : null;
+                $result[$group][$key] = $absoluteUrls && $url ? url($url) : $url;
             } else {
                 $result[$group][$key] = $value;
             }

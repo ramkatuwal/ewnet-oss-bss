@@ -63,7 +63,7 @@ class PermissionController extends Controller
         $authUser = $request->user();
 
         $request->validate([
-            'name' => 'required|string|max:255|unique:permissions,name,' . $permission->id,
+            'name' => 'required|string|max:255|unique:permissions,name,'.$permission->id,
         ]);
 
         $oldName = $permission->name;

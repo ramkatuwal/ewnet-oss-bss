@@ -9,18 +9,21 @@ use Illuminate\Support\Facades\Log;
 class UispClient
 {
     protected Integration $integration;
+
     protected string $baseUrl;
+
     protected string $token;
+
     protected bool $verifyTls;
 
     public function __construct(Integration $integration)
     {
         $this->integration = $integration;
-        
+
         // Canonical configuration key is 'api_url'
         $rawUrl = $integration->configuration['api_url'] ?? '';
         $this->baseUrl = rtrim($rawUrl, '/');
-        
+
         if (empty($this->baseUrl)) {
             throw new \InvalidArgumentException('UISP integration missing api_url in configuration.');
         }
@@ -37,7 +40,7 @@ class UispClient
             ->where('credential_type', 'api_token')
             ->first();
 
-        if (!$credential) {
+        if (! $credential) {
             throw new \InvalidArgumentException('UISP integration missing active api_token credential.');
         }
 
@@ -54,10 +57,10 @@ class UispClient
                 'x-auth-token' => $this->token,
                 'Accept' => 'application/json',
             ])
-            ->timeout(30)
-            ->connectTimeout(10)
-            ->withoutVerifying(!$this->verifyTls)
-            ->$method($url, $options);
+                ->timeout(30)
+                ->connectTimeout(10)
+                ->withoutVerifying(! $this->verifyTls)
+                ->$method($url, $options);
 
             if ($response->failed()) {
                 Log::error('UISP API request failed', [
@@ -80,13 +83,13 @@ class UispClient
     protected function buildUrl(string $path): string
     {
         // Ensure path starts with / but does not duplicate the base path
-        $path = '/' . ltrim($path, '/');
-        
+        $path = '/'.ltrim($path, '/');
+
         // If base URL already ends with the version path, ensure we don't double it
         // Base: https://unms.example.com/nms/api/v2.1
         // Path: /sites
         // Result: https://unms.example.com/nms/api/v2.1/sites
-        return $this->baseUrl . $path;
+        return $this->baseUrl.$path;
     }
 
     /**
@@ -95,12 +98,12 @@ class UispClient
     protected function validateUrl(string $url): void
     {
         $parsed = parse_url($url);
-        if (!$parsed || !isset($parsed['host'])) {
+        if (! $parsed || ! isset($parsed['host'])) {
             throw new \InvalidArgumentException('Invalid URL format.');
         }
 
         $host = $parsed['host'];
-        
+
         // Enforce HTTPS in production
         if (($parsed['scheme'] ?? '') !== 'https' && app()->environment('production')) {
             throw new \InvalidArgumentException('UISP base_url must use HTTPS in production.');
@@ -113,13 +116,13 @@ class UispClient
 
         // Resolve host to IP to check for private ranges
         $ips = dns_get_record($host, DNS_A | DNS_AAAA);
-        if (!$ips) {
+        if (! $ips) {
             throw new \InvalidArgumentException("Unable to resolve host: {$host}");
         }
 
         foreach ($ips as $ip) {
             if ($this->isPrivateIp($ip['ip'])) {
-                throw new \InvalidArgumentException("Access to private/internal IP addresses is forbidden for security reasons.");
+                throw new \InvalidArgumentException('Access to private/internal IP addresses is forbidden for security reasons.');
             }
         }
     }
@@ -127,7 +130,7 @@ class UispClient
     protected function isPrivateIp(string $ip): bool
     {
         $ipLong = ip2long($ip);
-        
+
         // IPv4 Private Ranges
         if ($ipLong !== false) {
             $privateRanges = [

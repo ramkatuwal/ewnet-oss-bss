@@ -68,7 +68,7 @@ const UISPSiteTab: React.FC = () => {
         name: item.name || 'Unknown Site',
         external_id: item.external_id || '',
         address: item.address || '',
-        status: item.action === 'create' ? 'new' : item.action === 'link' ? 'linked' : item.status || 'unknown',
+        status: item.status || (item.action === 'create' ? 'new' : item.action === 'link' ? 'linked' : 'unknown'),
       },
       analysis: {
         decision: item.action === 'link' ? 'LINK' : item.action === 'create' ? 'CREATE' : 'REVIEW',

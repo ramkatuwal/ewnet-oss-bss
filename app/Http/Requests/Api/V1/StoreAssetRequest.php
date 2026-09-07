@@ -44,7 +44,7 @@ class StoreAssetRequest extends FormRequest
 
             // Scope check: Ensure user has access to the site
             $site = Site::find($data['site_id']);
-            if ($site && !$this->user()->can('view', $site)) {
+            if ($site && ! $this->user()->can('view', $site)) {
                 $validator->errors()->add('site_id', 'You do not have permission to add assets to this site.');
             }
 

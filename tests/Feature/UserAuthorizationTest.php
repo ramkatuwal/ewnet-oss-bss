@@ -17,11 +17,17 @@ class UserAuthorizationTest extends TestCase
     use RefreshDatabase;
 
     protected $superAdmin;
+
     protected $companyAdmin;
+
     protected $branchAdmin;
+
     protected $deptAdmin;
+
     protected $regularUser;
+
     protected $companyA;
+
     protected $companyB;
 
     protected function setUp(): void
@@ -32,7 +38,9 @@ class UserAuthorizationTest extends TestCase
             'users.view', 'users.create', 'users.update', 'users.delete',
             'roles.view', 'roles.create', 'roles.update', 'roles.delete',
         ];
-        foreach ($permissions as $perm) Permission::firstOrCreate(['name' => $perm]);
+        foreach ($permissions as $perm) {
+            Permission::firstOrCreate(['name' => $perm]);
+        }
 
         $superAdminRole = Role::firstOrCreate(['name' => 'Super Admin']);
         $superAdminRole->givePermissionTo($permissions);
@@ -75,10 +83,10 @@ class UserAuthorizationTest extends TestCase
     public function test_company_admin_cannot_list_another_companys_users()
     {
         User::factory()->count(3)->create(['company_id' => $this->companyB->id]);
-        
+
         $response = $this->actingAs($this->companyAdmin)->getJson('/api/v1/organization/users');
         $response->assertStatus(200);
-        
+
         $userIds = collect($response->json('data'))->pluck('id')->toArray();
         $this->assertNotContains($this->regularUser->id, $userIds);
     }
@@ -92,7 +100,7 @@ class UserAuthorizationTest extends TestCase
     public function test_company_admin_cannot_update_another_companys_user()
     {
         $response = $this->actingAs($this->companyAdmin)->putJson("/api/v1/organization/users/{$this->regularUser->id}", [
-            'name' => 'Hacked Name'
+            'name' => 'Hacked Name',
         ]);
         $response->assertStatus(403);
     }
@@ -107,7 +115,7 @@ class UserAuthorizationTest extends TestCase
     public function test_company_admin_cannot_modify_super_admin()
     {
         $response = $this->actingAs($this->companyAdmin)->putJson("/api/v1/organization/users/{$this->superAdmin->id}", [
-            'name' => 'Hacked Super Admin'
+            'name' => 'Hacked Super Admin',
         ]);
         $response->assertStatus(403);
     }
@@ -122,7 +130,7 @@ class UserAuthorizationTest extends TestCase
     public function test_branch_admin_cannot_create_user_outside_permitted_branch_scope()
     {
         $otherBranch = Branch::factory()->create(['region_id' => Region::factory()->create(['company_id' => $this->companyA->id])->id]);
-        
+
         $response = $this->actingAs($this->branchAdmin)->postJson('/api/v1/organization/users', [
             'name' => 'Test User',
             'email' => 'test@example.com',
@@ -136,7 +144,7 @@ class UserAuthorizationTest extends TestCase
     public function test_department_admin_cannot_escape_department_scope()
     {
         $otherDept = Department::factory()->create(['branch_id' => $this->branchAdmin->branch_id]);
-        
+
         $response = $this->actingAs($this->deptAdmin)->postJson('/api/v1/organization/users', [
             'name' => 'Test User',
             'email' => 'test2@example.com',
@@ -164,9 +172,9 @@ class UserAuthorizationTest extends TestCase
     {
         $superAdminRole = Role::where('name', 'Super Admin')->first();
         $targetUser = User::factory()->create(['company_id' => $this->companyA->id]);
-        
+
         $response = $this->actingAs($this->companyAdmin)->putJson("/api/v1/organization/users/{$targetUser->id}", [
-            'roles' => [$superAdminRole->id]
+            'roles' => [$superAdminRole->id],
         ]);
         $response->assertStatus(403);
     }

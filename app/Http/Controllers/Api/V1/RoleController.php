@@ -7,6 +7,7 @@ use App\Http\Requests\Api\V1\StoreRoleRequest;
 use App\Http\Requests\Api\V1\UpdateRoleRequest;
 use App\Http\Resources\V1\RoleResource;
 use App\Http\Resources\V1\UserResource;
+use App\Models\User;
 use App\Services\AuditService;
 use App\Services\ManagementScopeService;
 use Illuminate\Http\Request;
@@ -38,15 +39,15 @@ class RoleController extends Controller
         $authUser = $request->user();
 
         // Authorization: Prevent non-Super Admin from creating Super Admin role
-        if ($data['name'] === 'Super Admin' && !$authUser->hasRole('Super Admin')) {
+        if ($data['name'] === 'Super Admin' && ! $authUser->hasRole('Super Admin')) {
             abort(403, 'Only Super Admin can create Super Admin role');
         }
 
         // Authorization: Prevent assigning permissions the actor doesn't possess
-        if (isset($data['permissions']) && !$authUser->hasRole('Super Admin')) {
+        if (isset($data['permissions']) && ! $authUser->hasRole('Super Admin')) {
             $perms = Permission::whereIn('id', $data['permissions'])->pluck('name');
             foreach ($perms as $permName) {
-                if (!$authUser->hasPermissionTo($permName)) {
+                if (! $authUser->hasPermissionTo($permName)) {
                     abort(403, "Cannot assign permission '{$permName}' you do not possess");
                 }
             }
@@ -66,6 +67,7 @@ class RoleController extends Controller
 
         $role->load('permissions');
         $role->users_count = \DB::table('model_has_roles')->where('role_id', $role->id)->count();
+
         return new RoleResource($role);
     }
 
@@ -75,6 +77,7 @@ class RoleController extends Controller
 
         $role->load('permissions');
         $role->users_count = \DB::table('model_has_roles')->where('role_id', $role->id)->count();
+
         return new RoleResource($role);
     }
 
@@ -84,15 +87,15 @@ class RoleController extends Controller
         $authUser = $request->user();
 
         // Authorization: Prevent non-Super Admin from renaming to Super Admin
-        if (isset($data['name']) && $data['name'] === 'Super Admin' && !$authUser->hasRole('Super Admin')) {
+        if (isset($data['name']) && $data['name'] === 'Super Admin' && ! $authUser->hasRole('Super Admin')) {
             abort(403, 'Only Super Admin can rename to Super Admin');
         }
 
         // Authorization: Prevent assigning permissions the actor doesn't possess
-        if (isset($data['permissions']) && !$authUser->hasRole('Super Admin')) {
+        if (isset($data['permissions']) && ! $authUser->hasRole('Super Admin')) {
             $perms = Permission::whereIn('id', $data['permissions'])->pluck('name');
             foreach ($perms as $permName) {
-                if (!$authUser->hasPermissionTo($permName)) {
+                if (! $authUser->hasPermissionTo($permName)) {
                     abort(403, "Cannot assign permission '{$permName}' you do not possess");
                 }
             }
@@ -115,6 +118,7 @@ class RoleController extends Controller
         $role = $role->fresh();
         $role->load('permissions');
         $role->users_count = \DB::table('model_has_roles')->where('role_id', $role->id)->count();
+
         return new RoleResource($role);
     }
 
@@ -145,22 +149,22 @@ class RoleController extends Controller
         // Use raw query instead of Spatie's users() relationship to avoid config issues
         $userIds = \DB::table('model_has_roles')
             ->where('role_id', $role->id)
-            ->where('model_type', \App\Models\User::class)
+            ->where('model_type', User::class)
             ->pluck('model_id');
-        
-        $query = \App\Models\User::whereIn('id', $userIds)
+
+        $query = User::whereIn('id', $userIds)
             ->with(['company', 'branch.region', 'department', 'managementScopes']);
 
         // Apply management scope filtering for non-Super Admin
-        if (!ManagementScopeService::hasGlobalScope($authUser)) {
-            $query = ManagementScopeService::applyScopeToQuery($query, $authUser, \App\Models\User::class);
+        if (! ManagementScopeService::hasGlobalScope($authUser)) {
+            $query = ManagementScopeService::applyScopeToQuery($query, $authUser, User::class);
         }
 
         if ($request->filled('search')) {
             $search = $request->get('search');
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'ilike', "%{$search}%")
-                  ->orWhere('email', 'ilike', "%{$search}%");
+                    ->orWhere('email', 'ilike', "%{$search}%");
             });
         }
 

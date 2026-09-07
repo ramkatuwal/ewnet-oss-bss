@@ -12,12 +12,12 @@ class TestController extends Controller
         try {
             return response()->json([
                 'message' => 'Test controller works',
-                'data' => $request->all()
+                'data' => $request->all(),
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Error in test controller',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

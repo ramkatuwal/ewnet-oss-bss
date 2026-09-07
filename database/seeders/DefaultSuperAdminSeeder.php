@@ -2,11 +2,12 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\User;
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class DefaultSuperAdminSeeder extends Seeder
 {
@@ -26,21 +27,21 @@ class DefaultSuperAdminSeeder extends Seeder
         );
 
         // Assign role to user
-        if (!$user->hasRole($role)) {
+        if (! $user->hasRole($role)) {
             $user->assignRole($role);
         }
 
         // Get ALL permissions currently in the database
         $allPermissions = Permission::all();
-        
+
         // Sync all permissions to the Super Admin role
         $role->syncPermissions($allPermissions);
 
         // Clear permission cache to ensure immediate availability
-        \Spatie\Permission\PermissionRegistrar::class;
-        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        PermissionRegistrar::class;
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        $this->command->info('Super Admin role synced with ' . $allPermissions->count() . ' permissions.');
+        $this->command->info('Super Admin role synced with '.$allPermissions->count().' permissions.');
         $this->command->warn('Default Password: Admin@2026!');
     }
 }

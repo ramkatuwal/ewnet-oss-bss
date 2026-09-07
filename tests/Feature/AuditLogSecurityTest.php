@@ -15,9 +15,13 @@ class AuditLogSecurityTest extends TestCase
     use RefreshDatabase;
 
     protected User $superAdmin;
+
     protected User $companyManager;
+
     protected User $otherCompanyUser;
+
     protected Company $company1;
+
     protected Company $company2;
 
     protected function setUp(): void
@@ -134,7 +138,7 @@ class AuditLogSecurityTest extends TestCase
     {
         // Clear existing logs first
         AuditLog::query()->delete();
-        
+
         for ($i = 0; $i < 30; $i++) {
             AuditLog::create([
                 'actor_type' => User::class,

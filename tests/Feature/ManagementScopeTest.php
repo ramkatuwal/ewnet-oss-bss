@@ -9,6 +9,8 @@ use App\Models\Region;
 use App\Models\User;
 use App\Models\UserManagementScope;
 use App\Services\ManagementScopeService;
+use Faker\Factory;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -19,25 +21,38 @@ class ManagementScopeTest extends TestCase
     use RefreshDatabase;
 
     protected Company $companyA;
+
     protected Company $companyB;
+
     protected Region $regionWest;
+
     protected Region $regionCentral;
+
     protected Branch $branchSurkhet;
+
     protected Branch $branchDailekh;
+
     protected Department $deptTech;
+
     protected Department $deptSales;
+
     protected User $superAdmin;
+
     protected User $companyManager;
+
     protected User $regionManager;
+
     protected User $branchManager;
+
     protected User $deptManager;
+
     protected User $unscopedUser;
 
     protected function setUp(): void
     {
         parent::setUp();
         // Reset Faker unique history to prevent collisions
-        \Faker\Factory::create()->unique(true);
+        Factory::create()->unique(true);
 
         // Create permissions
         $perms = [
@@ -47,7 +62,9 @@ class ManagementScopeTest extends TestCase
             'departments.view', 'departments.update',
             'users.view', 'users.update', 'users.create',
         ];
-        foreach ($perms as $p) Permission::firstOrCreate(['name' => $p]);
+        foreach ($perms as $p) {
+            Permission::firstOrCreate(['name' => $p]);
+        }
 
         // Create roles
         $managerRole = Role::firstOrCreate(['name' => 'Manager']);
@@ -317,7 +334,7 @@ class ManagementScopeTest extends TestCase
 
     public function test_duplicate_scope_assignment_is_prevented(): void
     {
-        $this->expectException(\Illuminate\Database\QueryException::class);
+        $this->expectException(QueryException::class);
 
         UserManagementScope::create([
             'user_id' => $this->companyManager->id,

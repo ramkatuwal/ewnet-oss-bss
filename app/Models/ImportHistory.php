@@ -42,14 +42,19 @@ class ImportHistory extends Model
     // ── Constants ──────────────────────────────────────────────
 
     public const SOURCE_UISP = 'uisp';
+
     public const SOURCE_LIBRENMS = 'librenms';
 
     public const TYPE_DEVICE = 'device';
+
     public const TYPE_SITE = 'site';
 
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_RUNNING = 'running';
+
     public const STATUS_COMPLETED = 'completed';
+
     public const STATUS_FAILED = 'failed';
 
     public const SOURCES = [
@@ -157,9 +162,10 @@ class ImportHistory extends Model
 
     public function getDurationInSeconds(): ?int
     {
-        if (!$this->started_at || !$this->completed_at) {
+        if (! $this->started_at || ! $this->completed_at) {
             return null;
         }
+
         return $this->started_at->diffInSeconds($this->completed_at);
     }
 }

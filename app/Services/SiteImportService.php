@@ -2,13 +2,12 @@
 
 namespace App\Services;
 
-use App\Models\Site;
+use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Region;
-use App\Models\Branch;
+use App\Models\Site;
 use App\Models\User;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\ValidationException;
 
 class SiteImportService
 {
@@ -23,8 +22,8 @@ class SiteImportService
             $validator = Validator::make($row, [
                 'site_code' => 'required|string|max:255',
                 'name' => 'required|string|max:255',
-                'type' => 'required|in:' . implode(',', Site::TYPES),
-                'status' => 'required|in:' . implode(',', Site::STATUSES),
+                'type' => 'required|in:'.implode(',', Site::TYPES),
+                'status' => 'required|in:'.implode(',', Site::STATUSES),
                 'latitude' => 'nullable|numeric|between:-90,90',
                 'longitude' => 'nullable|numeric|between:-180,180',
                 'altitude' => 'nullable|numeric',
@@ -36,7 +35,7 @@ class SiteImportService
             if ($validator->fails()) {
                 return [
                     'success' => false,
-                    'message' => 'Validation failed: ' . implode(', ', $validator->errors()->all()),
+                    'message' => 'Validation failed: '.implode(', ', $validator->errors()->all()),
                     'site_id' => null,
                 ];
             }
@@ -48,9 +47,9 @@ class SiteImportService
             $regionId = null;
             $branchId = null;
 
-            if (!empty($data['company_name'])) {
+            if (! empty($data['company_name'])) {
                 $company = Company::where('name', $data['company_name'])->first();
-                if (!$company || !ManagementScopeService::isInScope($actor, $company)) {
+                if (! $company || ! ManagementScopeService::isInScope($actor, $company)) {
                     return [
                         'success' => false,
                         'message' => "Company '{$data['company_name']}' not found or outside your management scope.",
@@ -60,12 +59,12 @@ class SiteImportService
                 $companyId = $company->id;
             }
 
-            if (!empty($data['region_name']) && $companyId) {
+            if (! empty($data['region_name']) && $companyId) {
                 $region = Region::where('name', $data['region_name'])
                     ->where('company_id', $companyId)
                     ->first();
-                
-                if (!$region || !ManagementScopeService::isInScope($actor, $region)) {
+
+                if (! $region || ! ManagementScopeService::isInScope($actor, $region)) {
                     return [
                         'success' => false,
                         'message' => "Region '{$data['region_name']}' not found in company or outside scope.",
@@ -73,20 +72,20 @@ class SiteImportService
                     ];
                 }
                 $regionId = $region->id;
-            } elseif (!empty($data['region_name'])) {
-                 return [
+            } elseif (! empty($data['region_name'])) {
+                return [
                     'success' => false,
-                    'message' => "Region specified without Company.",
+                    'message' => 'Region specified without Company.',
                     'site_id' => null,
                 ];
             }
 
-            if (!empty($data['branch_name']) && $regionId) {
+            if (! empty($data['branch_name']) && $regionId) {
                 $branch = Branch::where('name', $data['branch_name'])
                     ->where('region_id', $regionId)
                     ->first();
 
-                if (!$branch || !ManagementScopeService::isInScope($actor, $branch)) {
+                if (! $branch || ! ManagementScopeService::isInScope($actor, $branch)) {
                     return [
                         'success' => false,
                         'message' => "Branch '{$data['branch_name']}' not found in region or outside scope.",
@@ -94,10 +93,10 @@ class SiteImportService
                     ];
                 }
                 $branchId = $branch->id;
-            } elseif (!empty($data['branch_name'])) {
+            } elseif (! empty($data['branch_name'])) {
                 return [
                     'success' => false,
-                    'message' => "Branch specified without Region.",
+                    'message' => 'Branch specified without Region.',
                     'site_id' => null,
                 ];
             }
@@ -107,14 +106,14 @@ class SiteImportService
 
             if ($site) {
                 // Check if actor can update this existing site
-                if (!ManagementScopeService::isInScope($actor, $site)) {
+                if (! ManagementScopeService::isInScope($actor, $site)) {
                     return [
                         'success' => false,
                         'message' => "Site '{$data['site_code']}' exists but is outside your management scope. Update denied.",
                         'site_id' => $site->id,
                     ];
                 }
-                
+
                 $site->update([
                     'name' => $data['name'],
                     'type' => $data['type'],
@@ -126,9 +125,9 @@ class SiteImportService
                     'region_id' => $regionId,
                     'branch_id' => $branchId,
                 ]);
-                
+
                 AuditService::log('site.import.updated', 'success', $site, ['source' => 'csv_import']);
-                
+
                 return ['success' => true, 'message' => 'Updated', 'site_id' => $site->id];
             } else {
                 // Create new site
@@ -153,7 +152,7 @@ class SiteImportService
         } catch (\Exception $e) {
             return [
                 'success' => false,
-                'message' => 'System Error: ' . $e->getMessage(),
+                'message' => 'System Error: '.$e->getMessage(),
                 'site_id' => null,
             ];
         }

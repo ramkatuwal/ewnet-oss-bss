@@ -17,7 +17,7 @@ class DebugRouteTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         Permission::firstOrCreate(['name' => 'system.debug.view']);
         $role = Role::firstOrCreate(['name' => 'Super Admin']);
         $role->givePermissionTo('system.debug.view');

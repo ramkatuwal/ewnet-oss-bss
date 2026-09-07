@@ -64,7 +64,7 @@ class LibreNMSPortSyncTest extends TestCase
             '*/pollers*' => Http::response(['status' => 'ok', 'pollers' => []]),
         ]);
 
-        $provider = new LibreNMSProvider();
+        $provider = new LibreNMSProvider;
         $counts = $provider->synchronize($this->integration);
 
         $this->assertSame(2, $counts['created']);
@@ -99,7 +99,7 @@ class LibreNMSPortSyncTest extends TestCase
             '*/pollers*' => Http::response(['status' => 'ok', 'pollers' => []]),
         ]);
 
-        $provider = new LibreNMSProvider();
+        $provider = new LibreNMSProvider;
         $counts = $provider->synchronize($this->integration);
 
         $this->assertSame(1, $counts['skipped']);
@@ -131,7 +131,7 @@ class LibreNMSPortSyncTest extends TestCase
             '*/pollers*' => Http::response(['status' => 'ok', 'pollers' => []]),
         ]);
 
-        $provider = new LibreNMSProvider();
+        $provider = new LibreNMSProvider;
 
         // First sync: creates port
         $first = $provider->synchronize($this->integration);
@@ -162,7 +162,7 @@ class LibreNMSPortSyncTest extends TestCase
             '*/pollers*' => Http::response(['status' => 'ok', 'pollers' => []]),
         ]);
 
-        $provider = new LibreNMSProvider();
+        $provider = new LibreNMSProvider;
         $counts = $provider->synchronize($this->integration);
 
         $this->assertSame(1, $counts['failed']);
@@ -186,7 +186,7 @@ class LibreNMSPortSyncTest extends TestCase
             '*/pollers*' => Http::response(['status' => 'ok', 'pollers' => []]),
         ]);
 
-        $provider = new LibreNMSProvider();
+        $provider = new LibreNMSProvider;
         $provider->synchronize($this->integration);
 
         // Exactly one request per endpoint: devices, ports, alerts, pollers

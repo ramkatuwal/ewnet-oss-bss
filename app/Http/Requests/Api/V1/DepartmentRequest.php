@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Models\Branch;
+use App\Models\Department;
 use App\Services\ManagementScopeService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -21,18 +23,18 @@ class DepartmentRequest extends FormRequest
 
         if ($branchId) {
             $companyId = $this->input('company_id');
-            $tempDept = new \App\Models\Department([
+            $tempDept = new Department([
                 'branch_id' => $branchId,
                 'company_id' => $companyId,
             ]);
-            if (!ManagementScopeService::isInScope($user, $tempDept)) {
+            if (! ManagementScopeService::isInScope($user, $tempDept)) {
                 return false;
             }
         }
 
         // For updates, also verify authority over existing resource
         if ($this->route('department')) {
-            if (!ManagementScopeService::isInScope($user, $this->route('department'))) {
+            if (! ManagementScopeService::isInScope($user, $this->route('department'))) {
                 return false;
             }
         }
@@ -82,7 +84,7 @@ class DepartmentRequest extends FormRequest
             $companyId = $this->input('company_id');
 
             if ($branchId && $companyId) {
-                $branch = \App\Models\Branch::with('region')->find($branchId);
+                $branch = Branch::with('region')->find($branchId);
                 if ($branch && $branch->region && $branch->region->company_id != $companyId) {
                     $validator->errors()->add('branch_id', 'The selected branch does not belong to the specified company.');
                 }

@@ -2,16 +2,16 @@
 
 namespace Tests\Unit\Imports;
 
-use Tests\TestCase;
-use App\Services\Imports\ReconciliationEngine;
 use App\Dto\Imports\NormalizedRecord;
 use App\Models\Asset;
 use App\Models\AssetExternalReference;
 use App\Models\AssetInterface;
 use App\Models\IpAddress;
 use App\Models\Site;
+use App\Services\Imports\ReconciliationEngine;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Tests\TestCase;
 
 class ReconciliationEngineTest extends TestCase
 {
@@ -24,7 +24,7 @@ class ReconciliationEngineTest extends TestCase
         parent::setUp();
 
         $this->site = Site::create([
-            'site_code' => 'TEST-SITE-' . time(),
+            'site_code' => 'TEST-SITE-'.time(),
             'name' => 'Test Site',
             'type' => 'pop',
             'status' => 'active',
@@ -38,9 +38,9 @@ class ReconciliationEngineTest extends TestCase
 
     public function test_create_decision_when_no_match()
     {
-        $engine = new ReconciliationEngine();
+        $engine = new ReconciliationEngine;
 
-        $record = new NormalizedRecord();
+        $record = new NormalizedRecord;
         $record->sourceType = 'device';
         $record->provider = 'librenms';
         $record->externalId = 'nonexistent';
@@ -74,9 +74,9 @@ class ReconciliationEngineTest extends TestCase
             'external_id' => 'mac-test-123',
         ]);
 
-        $engine = new ReconciliationEngine();
+        $engine = new ReconciliationEngine;
 
-        $record = new NormalizedRecord();
+        $record = new NormalizedRecord;
         $record->sourceType = 'device';
         $record->provider = 'librenms';
         $record->externalId = 'mac-test-456';
@@ -132,9 +132,9 @@ class ReconciliationEngineTest extends TestCase
             'external_id' => 'conflict-002',
         ]);
 
-        $engine = new ReconciliationEngine();
+        $engine = new ReconciliationEngine;
 
-        $record = new NormalizedRecord();
+        $record = new NormalizedRecord;
         $record->sourceType = 'device';
         $record->provider = 'librenms';
         $record->externalId = 'conflict-003';
@@ -178,7 +178,7 @@ class ReconciliationEngineTest extends TestCase
             'external_id' => 'interface-123',
         ];
 
-        $engine = new ReconciliationEngine();
+        $engine = new ReconciliationEngine;
         $result1 = $engine->reconcileInterface($interfaceData, $asset->id);
         $this->assertEquals('CREATE', $result1['decision']);
 
@@ -195,7 +195,7 @@ class ReconciliationEngineTest extends TestCase
             'external_id' => $interfaceData['external_id'],
         ]);
 
-        $engine2 = new ReconciliationEngine();
+        $engine2 = new ReconciliationEngine;
         $result2 = $engine2->reconcileInterface($interfaceData, $asset->id);
         $this->assertEquals('LINK', $result2['decision']);
         $this->assertEquals($interface->id, $result2['destination_id']);
@@ -240,7 +240,7 @@ class ReconciliationEngineTest extends TestCase
             'external_id' => 'ip-789',
         ];
 
-        $engine = new ReconciliationEngine();
+        $engine = new ReconciliationEngine;
         $result1 = $engine->reconcileIpAddress($ipData, $interface->id, $asset->id);
         $this->assertEquals('CREATE', $result1['decision']);
 
@@ -255,7 +255,7 @@ class ReconciliationEngineTest extends TestCase
             'external_id' => $ipData['external_id'],
         ]);
 
-        $engine2 = new ReconciliationEngine();
+        $engine2 = new ReconciliationEngine;
         $result2 = $engine2->reconcileIpAddress($ipData, $interface->id, $asset->id);
         $this->assertEquals('LINK', $result2['decision']);
         $this->assertEquals($ip->id, $result2['destination_id']);
@@ -291,7 +291,7 @@ class ReconciliationEngineTest extends TestCase
         ];
 
         for ($i = 0; $i < 3; $i++) {
-            $engine = new ReconciliationEngine();
+            $engine = new ReconciliationEngine;
             $result = $engine->reconcileInterface($interfaceData, $asset->id);
 
             if ($i === 0) {
@@ -340,7 +340,7 @@ class ReconciliationEngineTest extends TestCase
             'external_id' => 'UISP-DEVICE-123',
         ]);
 
-        $record = new NormalizedRecord();
+        $record = new NormalizedRecord;
         $record->sourceType = 'device';
         $record->provider = 'librenms';
         $record->externalId = 'LIBRENMS-DEVICE-456';
@@ -349,7 +349,7 @@ class ReconciliationEngineTest extends TestCase
         $record->name = 'SKT-CORE-NAT-1';
         $record->ipAddress = '10.10.10.10';
 
-        $engine = new ReconciliationEngine();
+        $engine = new ReconciliationEngine;
         $result = $engine->reconcile($record);
 
         // Should LINK to the existing asset
@@ -382,8 +382,8 @@ class ReconciliationEngineTest extends TestCase
             'external_id' => 'concurrent-interface-1',
         ];
 
-        $engine1 = new ReconciliationEngine();
-        $engine2 = new ReconciliationEngine();
+        $engine1 = new ReconciliationEngine;
+        $engine2 = new ReconciliationEngine;
 
         $result1 = $engine1->reconcileInterface($interfaceData, $asset->id);
         $result2 = $engine2->reconcileInterface($interfaceData, $asset->id);

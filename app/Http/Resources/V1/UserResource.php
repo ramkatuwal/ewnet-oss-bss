@@ -19,11 +19,11 @@ class UserResource extends JsonResource
             'company_id' => $this->company_id,
             'branch_id' => $this->branch_id,
             'department_id' => $this->department_id,
-            'company' => $this->whenLoaded('company', fn() => [
+            'company' => $this->whenLoaded('company', fn () => [
                 'id' => $this->company->id,
                 'name' => $this->company->name,
             ]),
-            'branch' => $this->whenLoaded('branch', fn() => [
+            'branch' => $this->whenLoaded('branch', fn () => [
                 'id' => $this->branch->id,
                 'name' => $this->branch->name,
                 'region' => $this->branch->relationLoaded('region') ? [
@@ -31,15 +31,15 @@ class UserResource extends JsonResource
                     'name' => $this->branch->region->name,
                 ] : null,
             ]),
-            'department' => $this->whenLoaded('department', fn() => [
+            'department' => $this->whenLoaded('department', fn () => [
                 'id' => $this->department->id,
                 'name' => $this->department->name,
             ]),
-            'roles' => $this->whenLoaded('roles', fn() => $this->roles->map(fn($r) => [
+            'roles' => $this->whenLoaded('roles', fn () => $this->roles->map(fn ($r) => [
                 'id' => $r->id,
                 'name' => $r->name,
             ])),
-            'management_scopes' => $this->whenLoaded('managementScopes', fn() => $this->managementScopes->map(fn($s) => [
+            'management_scopes' => $this->whenLoaded('managementScopes', fn () => $this->managementScopes->map(fn ($s) => [
                 'id' => $s->id,
                 'scope_type' => $s->scope_type,
                 'scope_id' => $s->scope_id,

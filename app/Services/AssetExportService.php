@@ -8,7 +8,6 @@ use League\Csv\Writer;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-use App\Services\ManagementScopeService;
 
 class AssetExportService
 {
@@ -17,13 +16,13 @@ class AssetExportService
         $query = Asset::with(['site.company', 'site.region', 'site.branch']);
         $query = ManagementScopeService::applyScopeToQuery($query, $user, Asset::class);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('asset_tag', 'ilike', "%{$search}%")
-                  ->orWhere('serial_number', 'ilike', "%{$search}%")
-                  ->orWhere('manufacturer', 'ilike', "%{$search}%")
-                  ->orWhere('model', 'ilike', "%{$search}%");
+                    ->orWhere('serial_number', 'ilike', "%{$search}%")
+                    ->orWhere('manufacturer', 'ilike', "%{$search}%")
+                    ->orWhere('model', 'ilike', "%{$search}%");
             });
         }
 
@@ -58,7 +57,7 @@ class AssetExportService
             echo $csv->toString();
         }, 200, [
             'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="assets_export_' . date('Y-m-d_His') . '.csv"',
+            'Content-Disposition' => 'attachment; filename="assets_export_'.date('Y-m-d_His').'.csv"',
         ]);
     }
 
@@ -67,19 +66,19 @@ class AssetExportService
         $query = Asset::with(['site.company', 'site.region', 'site.branch']);
         $query = ManagementScopeService::applyScopeToQuery($query, $user, Asset::class);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('asset_tag', 'ilike', "%{$search}%")
-                  ->orWhere('serial_number', 'ilike', "%{$search}%")
-                  ->orWhere('manufacturer', 'ilike', "%{$search}%")
-                  ->orWhere('model', 'ilike', "%{$search}%");
+                    ->orWhere('serial_number', 'ilike', "%{$search}%")
+                    ->orWhere('manufacturer', 'ilike', "%{$search}%")
+                    ->orWhere('model', 'ilike', "%{$search}%");
             });
         }
 
         $assets = $query->get();
 
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
 
         $headers = [
@@ -114,7 +113,7 @@ class AssetExportService
             $writer->save('php://output');
         }, 200, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Content-Disposition' => 'attachment; filename="assets_export_' . date('Y-m-d_His') . '.xlsx"',
+            'Content-Disposition' => 'attachment; filename="assets_export_'.date('Y-m-d_His').'.xlsx"',
         ]);
     }
 }

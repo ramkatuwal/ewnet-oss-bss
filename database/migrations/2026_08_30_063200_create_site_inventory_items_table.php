@@ -27,7 +27,7 @@ return new class extends Migration
             $table->json('metadata')->nullable();
             $table->timestamps();
             $table->softDeletes();
-            
+
             $table->index(['site_id', 'category']);
             $table->index(['asset_tag', 'serial_number']);
         });

@@ -4,41 +4,51 @@ namespace App\Services\Imports;
 
 use App\Dto\Imports\NormalizedRecord;
 use App\Models\Asset;
-use App\Models\Site;
 use App\Models\AssetInterface;
 use App\Models\IpAddress;
+use App\Models\Site;
 use Illuminate\Support\Collection;
 
 class ReconciliationEngine
 {
     protected Collection $destinationAssets;
+
     protected Collection $destinationSites;
 
     // Asset indexes
     protected array $assetByExtRef = [];
+
     protected array $assetByMac = [];
+
     protected array $assetBySerial = [];
+
     protected array $assetByIp = [];
+
     protected array $assetByName = [];
 
     // Site indexes
     protected array $siteByExtRef = [];
+
     protected array $siteByName = [];
 
     // Interface indexes
     protected array $interfaceByExtRef = [];
+
     protected array $interfaceByAssetAndName = [];
+
     protected array $interfaceByAssetAndMac = [];
 
     // IP indexes
     protected array $ipByExtRef = [];
+
     protected array $ipByInterfaceAndIp = [];
+
     protected array $ipByAssetAndIp = [];
 
     public function __construct()
     {
-        $this->destinationAssets = new Collection();
-        $this->destinationSites = new Collection();
+        $this->destinationAssets = new Collection;
+        $this->destinationSites = new Collection;
         $this->loadDestinationIndexes();
         $this->loadInterfaceIndexes();
         $this->loadIpIndexes();
@@ -51,31 +61,41 @@ class ReconciliationEngine
 
             foreach ($asset->externalReferences as $ref) {
                 $key = "{$ref->provider}:{$ref->external_type}:{$ref->external_id}";
-                if (!isset($this->assetByExtRef[$key])) $this->assetByExtRef[$key] = [];
+                if (! isset($this->assetByExtRef[$key])) {
+                    $this->assetByExtRef[$key] = [];
+                }
                 $this->assetByExtRef[$key][] = $asset->id;
             }
 
             $mac = $asset->specifications['mac_address'] ?? null;
             if ($mac) {
                 $macKey = strtolower($mac);
-                if (!isset($this->assetByMac[$macKey])) $this->assetByMac[$macKey] = [];
+                if (! isset($this->assetByMac[$macKey])) {
+                    $this->assetByMac[$macKey] = [];
+                }
                 $this->assetByMac[$macKey][] = $asset->id;
             }
 
             if ($asset->serial_number) {
-                if (!isset($this->assetBySerial[$asset->serial_number])) $this->assetBySerial[$asset->serial_number] = [];
+                if (! isset($this->assetBySerial[$asset->serial_number])) {
+                    $this->assetBySerial[$asset->serial_number] = [];
+                }
                 $this->assetBySerial[$asset->serial_number][] = $asset->id;
             }
 
             $ip = $asset->specifications['ip_address'] ?? $asset->specifications['ip'] ?? null;
             if ($ip) {
-                if (!isset($this->assetByIp[$ip])) $this->assetByIp[$ip] = [];
+                if (! isset($this->assetByIp[$ip])) {
+                    $this->assetByIp[$ip] = [];
+                }
                 $this->assetByIp[$ip][] = $asset->id;
             }
 
             if ($asset->description) {
                 $nameKey = strtolower(trim($asset->description));
-                if (!isset($this->assetByName[$nameKey])) $this->assetByName[$nameKey] = [];
+                if (! isset($this->assetByName[$nameKey])) {
+                    $this->assetByName[$nameKey] = [];
+                }
                 $this->assetByName[$nameKey][] = $asset->id;
             }
         });
@@ -85,13 +105,17 @@ class ReconciliationEngine
 
             foreach ($site->externalReferences as $ref) {
                 $key = "{$ref->provider}:{$ref->external_type}:{$ref->external_id}";
-                if (!isset($this->siteByExtRef[$key])) $this->siteByExtRef[$key] = [];
+                if (! isset($this->siteByExtRef[$key])) {
+                    $this->siteByExtRef[$key] = [];
+                }
                 $this->siteByExtRef[$key][] = $site->id;
             }
 
             if ($site->name) {
                 $nameKey = strtolower(trim($site->name));
-                if (!isset($this->siteByName[$nameKey])) $this->siteByName[$nameKey] = [];
+                if (! isset($this->siteByName[$nameKey])) {
+                    $this->siteByName[$nameKey] = [];
+                }
                 $this->siteByName[$nameKey][] = $site->id;
             }
         });
@@ -102,19 +126,25 @@ class ReconciliationEngine
         AssetInterface::with(['asset'])->cursor()->each(function ($interface) {
             if ($interface->provider && $interface->external_type && $interface->external_id) {
                 $key = "{$interface->provider}:{$interface->external_type}:{$interface->external_id}";
-                if (!isset($this->interfaceByExtRef[$key])) $this->interfaceByExtRef[$key] = [];
+                if (! isset($this->interfaceByExtRef[$key])) {
+                    $this->interfaceByExtRef[$key] = [];
+                }
                 $this->interfaceByExtRef[$key][] = $interface->id;
             }
 
             if ($interface->asset_id && $interface->name) {
                 $key = "{$interface->asset_id}:{$interface->name}";
-                if (!isset($this->interfaceByAssetAndName[$key])) $this->interfaceByAssetAndName[$key] = [];
+                if (! isset($this->interfaceByAssetAndName[$key])) {
+                    $this->interfaceByAssetAndName[$key] = [];
+                }
                 $this->interfaceByAssetAndName[$key][] = $interface->id;
             }
 
             if ($interface->asset_id && $interface->mac_address) {
-                $key = "{$interface->asset_id}:" . strtolower($interface->mac_address);
-                if (!isset($this->interfaceByAssetAndMac[$key])) $this->interfaceByAssetAndMac[$key] = [];
+                $key = "{$interface->asset_id}:".strtolower($interface->mac_address);
+                if (! isset($this->interfaceByAssetAndMac[$key])) {
+                    $this->interfaceByAssetAndMac[$key] = [];
+                }
                 $this->interfaceByAssetAndMac[$key][] = $interface->id;
             }
         });
@@ -125,19 +155,25 @@ class ReconciliationEngine
         IpAddress::with(['interface'])->cursor()->each(function ($ip) {
             if ($ip->provider && $ip->external_type && $ip->external_id) {
                 $key = "{$ip->provider}:{$ip->external_type}:{$ip->external_id}";
-                if (!isset($this->ipByExtRef[$key])) $this->ipByExtRef[$key] = [];
+                if (! isset($this->ipByExtRef[$key])) {
+                    $this->ipByExtRef[$key] = [];
+                }
                 $this->ipByExtRef[$key][] = $ip->id;
             }
 
             if ($ip->asset_interface_id && $ip->ip_address) {
                 $key = "{$ip->asset_interface_id}:{$ip->ip_address}";
-                if (!isset($this->ipByInterfaceAndIp[$key])) $this->ipByInterfaceAndIp[$key] = [];
+                if (! isset($this->ipByInterfaceAndIp[$key])) {
+                    $this->ipByInterfaceAndIp[$key] = [];
+                }
                 $this->ipByInterfaceAndIp[$key][] = $ip->id;
             }
 
             if ($ip->interface && $ip->interface->asset_id && $ip->ip_address) {
                 $key = "{$ip->interface->asset_id}:{$ip->ip_address}";
-                if (!isset($this->ipByAssetAndIp[$key])) $this->ipByAssetAndIp[$key] = [];
+                if (! isset($this->ipByAssetAndIp[$key])) {
+                    $this->ipByAssetAndIp[$key] = [];
+                }
                 $this->ipByAssetAndIp[$key][] = $ip->id;
             }
         });
@@ -150,6 +186,7 @@ class ReconciliationEngine
         } elseif ($record->sourceType === 'site') {
             return $this->reconcileSite($record);
         }
+
         return ['decision' => 'ERROR', 'reason' => 'Unknown source type'];
     }
 
@@ -182,7 +219,7 @@ class ReconciliationEngine
 
         if ($record->ipAddress && isset($this->assetByIp[$record->ipAddress])) {
             foreach ($this->assetByIp[$record->ipAddress] as $id) {
-                if (!isset($candidates[$id]) || $candidates[$id] !== 'exact') {
+                if (! isset($candidates[$id]) || $candidates[$id] !== 'exact') {
                     $candidates[$id] = 'moderate';
                 }
             }
@@ -193,7 +230,7 @@ class ReconciliationEngine
             $nameKey = strtolower(trim($record->name));
             if (isset($this->assetByName[$nameKey])) {
                 foreach ($this->assetByName[$nameKey] as $id) {
-                    if (!isset($candidates[$id])) {
+                    if (! isset($candidates[$id])) {
                         $candidates[$id] = 'weak';
                     }
                 }
@@ -221,7 +258,7 @@ class ReconciliationEngine
             $nameKey = strtolower(trim($record->name));
             if (isset($this->siteByName[$nameKey])) {
                 foreach ($this->siteByName[$nameKey] as $id) {
-                    if (!isset($candidates[$id])) {
+                    if (! isset($candidates[$id])) {
                         $candidates[$id] = 'moderate';
                     }
                 }
@@ -270,7 +307,9 @@ class ReconciliationEngine
         if ($count > 1) {
             $hasModerate = false;
             foreach ($candidates as $strength) {
-                if ($strength === 'moderate') $hasModerate = true;
+                if ($strength === 'moderate') {
+                    $hasModerate = true;
+                }
             }
 
             if ($hasModerate || count($strongMatches) === 0) {
@@ -294,7 +333,7 @@ class ReconciliationEngine
         $candidates = [];
         $evidence = [];
 
-        if (!empty($interfaceData['external_id']) && !empty($interfaceData['provider'])) {
+        if (! empty($interfaceData['external_id']) && ! empty($interfaceData['provider'])) {
             $key = "{$interfaceData['provider']}:interface:{$interfaceData['external_id']}";
             if (isset($this->interfaceByExtRef[$key])) {
                 foreach ($this->interfaceByExtRef[$key] as $id) {
@@ -304,11 +343,11 @@ class ReconciliationEngine
             }
         }
 
-        if ($assetId && !empty($interfaceData['name'])) {
+        if ($assetId && ! empty($interfaceData['name'])) {
             $key = "{$assetId}:{$interfaceData['name']}";
             if (isset($this->interfaceByAssetAndName[$key])) {
                 foreach ($this->interfaceByAssetAndName[$key] as $id) {
-                    if (!isset($candidates[$id]) || $candidates[$id] !== 'exact') {
+                    if (! isset($candidates[$id]) || $candidates[$id] !== 'exact') {
                         $candidates[$id] = 'strong';
                     }
                 }
@@ -316,11 +355,11 @@ class ReconciliationEngine
             }
         }
 
-        if ($assetId && !empty($interfaceData['mac_address'])) {
-            $key = "{$assetId}:" . strtolower($interfaceData['mac_address']);
+        if ($assetId && ! empty($interfaceData['mac_address'])) {
+            $key = "{$assetId}:".strtolower($interfaceData['mac_address']);
             if (isset($this->interfaceByAssetAndMac[$key])) {
                 foreach ($this->interfaceByAssetAndMac[$key] as $id) {
-                    if (!isset($candidates[$id]) || $candidates[$id] !== 'exact') {
+                    if (! isset($candidates[$id]) || $candidates[$id] !== 'exact') {
                         $candidates[$id] = 'strong';
                     }
                 }
@@ -346,10 +385,11 @@ class ReconciliationEngine
             if (in_array($strength, ['exact', 'strong'])) {
                 return ['decision' => 'LINK', 'destination_id' => $id, 'evidence' => $evidence];
             }
+
             return ['decision' => 'REVIEW', 'destination_id' => $id, 'evidence' => $evidence];
         }
 
-        $strongMatches = array_filter($candidates, fn($s) => in_array($s, ['exact', 'strong']));
+        $strongMatches = array_filter($candidates, fn ($s) => in_array($s, ['exact', 'strong']));
         if (count($strongMatches) > 1) {
             return ['decision' => 'CONFLICT', 'evidence' => $evidence, 'candidate_ids' => array_keys($strongMatches)];
         }
@@ -366,7 +406,7 @@ class ReconciliationEngine
         $candidates = [];
         $evidence = [];
 
-        if (!empty($ipData['external_id']) && !empty($ipData['provider'])) {
+        if (! empty($ipData['external_id']) && ! empty($ipData['provider'])) {
             $key = "{$ipData['provider']}:ip:{$ipData['external_id']}";
             if (isset($this->ipByExtRef[$key])) {
                 foreach ($this->ipByExtRef[$key] as $id) {
@@ -376,11 +416,11 @@ class ReconciliationEngine
             }
         }
 
-        if ($interfaceId && !empty($ipData['ip'])) {
+        if ($interfaceId && ! empty($ipData['ip'])) {
             $key = "{$interfaceId}:{$ipData['ip']}";
             if (isset($this->ipByInterfaceAndIp[$key])) {
                 foreach ($this->ipByInterfaceAndIp[$key] as $id) {
-                    if (!isset($candidates[$id]) || $candidates[$id] !== 'exact') {
+                    if (! isset($candidates[$id]) || $candidates[$id] !== 'exact') {
                         $candidates[$id] = 'strong';
                     }
                 }
@@ -388,11 +428,11 @@ class ReconciliationEngine
             }
         }
 
-        if ($assetId && !empty($ipData['ip'])) {
+        if ($assetId && ! empty($ipData['ip'])) {
             $key = "{$assetId}:{$ipData['ip']}";
             if (isset($this->ipByAssetAndIp[$key])) {
                 foreach ($this->ipByAssetAndIp[$key] as $id) {
-                    if (!isset($candidates[$id])) {
+                    if (! isset($candidates[$id])) {
                         $candidates[$id] = 'moderate';
                     }
                 }
@@ -421,10 +461,11 @@ class ReconciliationEngine
             if ($strength === 'moderate') {
                 return ['decision' => 'REVIEW', 'destination_id' => $id, 'evidence' => $evidence, 'reason' => 'Same IP on different interface'];
             }
+
             return ['decision' => 'REVIEW', 'destination_id' => $id, 'evidence' => $evidence];
         }
 
-        $strongMatches = array_filter($candidates, fn($s) => in_array($s, ['exact', 'strong']));
+        $strongMatches = array_filter($candidates, fn ($s) => in_array($s, ['exact', 'strong']));
         if (count($strongMatches) > 1) {
             return ['decision' => 'CONFLICT', 'evidence' => $evidence, 'candidate_ids' => array_keys($strongMatches)];
         }

@@ -40,7 +40,7 @@ class LibreNMSProvider implements IntegrationProviderInterface
 
         if (empty($url)) {
             $errors[] = 'Endpoint URL is required.';
-        } elseif (!filter_var($url, FILTER_VALIDATE_URL)) {
+        } elseif (! filter_var($url, FILTER_VALIDATE_URL)) {
             $errors[] = 'Endpoint must be a valid URL.';
         }
 
@@ -117,6 +117,7 @@ class LibreNMSProvider implements IntegrationProviderInterface
                 'integration_id' => $integration->id,
             ]);
             $counts['failed']++;
+
             return $counts;
         }
 
@@ -144,6 +145,7 @@ class LibreNMSProvider implements IntegrationProviderInterface
             $externalId = (string) ($device['device_id'] ?? '');
             if (empty($externalId)) {
                 $counts['failed']++;
+
                 continue;
             }
 
@@ -177,6 +179,7 @@ class LibreNMSProvider implements IntegrationProviderInterface
 
                 if ($portResult['status'] === 404) {
                     $counts['skipped']++;
+
                     continue;
                 }
 
@@ -186,6 +189,7 @@ class LibreNMSProvider implements IntegrationProviderInterface
                     $portId = (string) ($port['port_id'] ?? '');
                     if (empty($portId)) {
                         $counts['failed']++;
+
                         continue;
                     }
 
@@ -221,6 +225,7 @@ class LibreNMSProvider implements IntegrationProviderInterface
                 $alertId = (string) ($alert['alert_id'] ?? $alert['id'] ?? '');
                 if (empty($alertId)) {
                     $counts['failed']++;
+
                     continue;
                 }
 
@@ -257,6 +262,7 @@ class LibreNMSProvider implements IntegrationProviderInterface
                 $pollerId = (string) ($poller['id'] ?? $poller['poller_name'] ?? '');
                 if (empty($pollerId)) {
                     $counts['failed']++;
+
                     continue;
                 }
 

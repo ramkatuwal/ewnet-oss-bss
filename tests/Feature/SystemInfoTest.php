@@ -4,9 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Tests\TestCase;
 
 class SystemInfoTest extends TestCase
 {
@@ -65,7 +65,7 @@ class SystemInfoTest extends TestCase
                     'container',
                     'services' => ['postgresql', 'redis', 'horizon', 'nginx'],
                     'git' => ['commit', 'branch'],
-                ]
+                ],
             ]);
     }
 
@@ -79,7 +79,7 @@ class SystemInfoTest extends TestCase
 
         $this->assertArrayHasKey('commit', $data['git']);
         $this->assertArrayHasKey('branch', $data['git']);
-        
+
         // Commit should be 7-character hash or null
         if ($data['git']['commit']) {
             $this->assertMatchesRegularExpression('/^[a-f0-9]{7}$/', $data['git']['commit']);
@@ -116,7 +116,7 @@ class SystemInfoTest extends TestCase
                     'branding' => ['app_name', 'browser_title'],
                     'header' => ['show_logo', 'show_title'],
                     'theme' => ['compactness', 'dark_mode', 'primary_color'],
-                ]
+                ],
             ]);
     }
 

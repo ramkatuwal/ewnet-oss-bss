@@ -21,7 +21,7 @@ interface IntegrationProviderInterface
     /**
      * Synchronize data between EWNET and the external provider.
      *
-     * @param Integration $integration The integration to synchronize
+     * @param  Integration  $integration  The integration to synchronize
      * @return array{processed:int, created:int, updated:int, unchanged:int, skipped:int, failed:int, status?:string}
      */
     public function synchronize(Integration $integration): array;

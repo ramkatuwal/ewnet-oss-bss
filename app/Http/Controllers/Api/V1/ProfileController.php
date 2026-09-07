@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Api\V1\UpdateProfileRequest;
 use App\Http\Requests\Api\V1\ChangePasswordRequest;
+use App\Http\Requests\Api\V1\UpdateProfileRequest;
 use App\Http\Requests\Api\V1\UploadAvatarRequest;
 use App\Http\Resources\V1\UserResource;
 use App\Services\AuditService;
@@ -42,7 +42,7 @@ class ProfileController extends Controller
         $validated = $request->validated();
 
         // Verify current password
-        if (!Hash::check($validated['current_password'], $user->password)) {
+        if (! Hash::check($validated['current_password'], $user->password)) {
             AuditService::log('profile.password_change', 'failure', $user, [
                 'reason' => 'invalid_current_password',
             ]);
@@ -86,7 +86,7 @@ class ProfileController extends Controller
                     Storage::disk('public')->delete($oldAvatar);
                 }
             } catch (\Exception $e) {
-                \Log::warning('Failed to delete old avatar: ' . $e->getMessage());
+                \Log::warning('Failed to delete old avatar: '.$e->getMessage());
             }
         }
 
@@ -120,7 +120,7 @@ class ProfileController extends Controller
                     Storage::disk('public')->delete($avatarPath);
                 }
             } catch (\Exception $e) {
-                \Log::warning('Failed to delete avatar file: ' . $e->getMessage());
+                \Log::warning('Failed to delete avatar file: '.$e->getMessage());
             }
         }
 

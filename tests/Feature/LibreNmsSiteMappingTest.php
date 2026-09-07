@@ -26,7 +26,7 @@ class LibreNmsSiteMappingTest extends TestCase
         $company = Company::factory()->create();
         $site = Site::factory()->create(['company_id' => $company->id, 'site_code' => 'TEST-001']);
         $integration = Integration::factory()->create(['provider' => 'librenms']);
-        
+
         SiteExternalReference::create([
             'site_id' => $site->id,
             'provider' => 'librenms',
@@ -34,7 +34,7 @@ class LibreNmsSiteMappingTest extends TestCase
             'external_id' => '999',
         ]);
 
-        $service = new SiteMappingService();
+        $service = new SiteMappingService;
         $result = $service->mapDevice(['device_id' => '999', 'hostname' => 'other-host'], $integration);
 
         $this->assertEquals('mapped', $result['status']);
@@ -47,7 +47,7 @@ class LibreNmsSiteMappingTest extends TestCase
         $site = Site::factory()->create(['company_id' => $company->id, 'site_code' => 'KTM-POP-001']);
         $integration = Integration::factory()->create(['provider' => 'librenms']);
 
-        $service = new SiteMappingService();
+        $service = new SiteMappingService;
         $result = $service->mapDevice(['device_id' => '123', 'hostname' => 'ktm-pop-001'], $integration);
 
         $this->assertEquals('mapped', $result['status']);
@@ -64,7 +64,7 @@ class LibreNmsSiteMappingTest extends TestCase
         $site = Site::factory()->create(['company_id' => $company->id, 'name' => 'Kathmandu Core']);
         $integration = Integration::factory()->create(['provider' => 'librenms']);
 
-        $service = new SiteMappingService();
+        $service = new SiteMappingService;
         $result = $service->mapDevice(['device_id' => '456', 'hostname' => 'router-1', 'location' => 'Kathmandu Core'], $integration);
 
         $this->assertEquals('mapped', $result['status']);
@@ -74,8 +74,8 @@ class LibreNmsSiteMappingTest extends TestCase
     public function test_unmapped_device()
     {
         $integration = Integration::factory()->create(['provider' => 'librenms']);
-        $service = new SiteMappingService();
-        
+        $service = new SiteMappingService;
+
         $result = $service->mapDevice(['device_id' => '789', 'hostname' => 'unknown-host'], $integration);
 
         $this->assertEquals('unmapped', $result['status']);
@@ -87,23 +87,23 @@ class LibreNmsSiteMappingTest extends TestCase
         $company = Company::factory()->create();
         // Use create() with explicit nulls to override factory defaults
         $site = Site::factory()->create([
-            'company_id' => $company->id, 
-            'latitude' => null, 
-            'longitude' => null
+            'company_id' => $company->id,
+            'latitude' => null,
+            'longitude' => null,
         ]);
-        
+
         $integration = Integration::factory()->create(['provider' => 'librenms']);
 
-        $service = new SiteMappingService();
+        $service = new SiteMappingService;
         $service->mapDevice([
-            'device_id' => '101', 
-            'hostname' => $site->site_code, 
-            'lat' => 27.7172, 
-            'lng' => 85.3240
+            'device_id' => '101',
+            'hostname' => $site->site_code,
+            'lat' => 27.7172,
+            'lng' => 85.3240,
         ], $integration);
 
         $site->refresh();
-        Log::info("Debug GPS", ["lat" => $site->latitude, "lng" => $site->longitude, "raw_lat" => $site->getRawOriginal("latitude")]);
+        Log::info('Debug GPS', ['lat' => $site->latitude, 'lng' => $site->longitude, 'raw_lat' => $site->getRawOriginal('latitude')]);
         $this->assertEquals(27.7172, $site->latitude);
         $this->assertEquals(85.3240, $site->longitude);
     }
@@ -114,12 +114,12 @@ class LibreNmsSiteMappingTest extends TestCase
         $site = Site::factory()->create(['company_id' => $company->id, 'latitude' => 10.0, 'longitude' => 10.0]);
         $integration = Integration::factory()->create(['provider' => 'librenms']);
 
-        $service = new SiteMappingService();
+        $service = new SiteMappingService;
         $service->mapDevice([
-            'device_id' => '102', 
-            'hostname' => $site->site_code, 
-            'lat' => 20.0, 
-            'lng' => 20.0
+            'device_id' => '102',
+            'hostname' => $site->site_code,
+            'lat' => 20.0,
+            'lng' => 20.0,
         ], $integration);
 
         $site->refresh();

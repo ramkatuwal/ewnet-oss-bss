@@ -2,14 +2,12 @@
 
 namespace Tests\Unit;
 
-use Tests\TestCase;
-use App\Models\Company;
-use App\Models\Region;
 use App\Models\Branch;
+use App\Models\Company;
 use App\Models\Department;
-use App\Models\Designation;
-use App\Models\Employee;
+use App\Models\Region;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
 
 class OrganizationTest extends TestCase
 {
@@ -41,7 +39,4 @@ class OrganizationTest extends TestCase
         $this->assertTrue($branch->departments->contains($department));
         $this->assertEquals(1, $branch->departments->count());
     }
-
-
-
 }

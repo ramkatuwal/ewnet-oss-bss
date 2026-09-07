@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('external_id');
             $table->json('metadata')->nullable();
             $table->timestamps();
-            
+
             $table->unique(['provider', 'external_type', 'external_id']);
             $table->index(['provider', 'external_type']);
         });

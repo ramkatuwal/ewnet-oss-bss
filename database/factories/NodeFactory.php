@@ -17,7 +17,7 @@ class NodeFactory extends Factory
 
         return [
             'code' => $this->faker->unique()->lexify('NODE-????'),
-            'name' => $this->faker->company . ' Node',
+            'name' => $this->faker->company.' Node',
             'type' => $this->faker->randomElement($types),
             'status' => $this->faker->randomElement($statuses),
             'description' => $this->faker->optional()->sentence,

@@ -2,10 +2,10 @@
 
 namespace Tests\Unit\Imports;
 
-use Tests\TestCase;
-use App\Services\Imports\UispSourceAdapter;
 use App\Models\Integration;
+use App\Services\Imports\UispSourceAdapter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
 
 class UispSourceAdapterTest extends TestCase
 {
@@ -28,20 +28,24 @@ class UispSourceAdapterTest extends TestCase
         // We need to test the extractInterfaces method without the client
         // Since the method doesn't actually need the client, we can create a test double
         // using a simple anonymous class that extends the parent but skips the client setup
-        $adapter = new class($integration) extends UispSourceAdapter {
+        $adapter = new class($integration) extends UispSourceAdapter
+        {
             private $integrationData;
-            
-            public function __construct($integration) {
+
+            public function __construct($integration)
+            {
                 // Store the integration data without calling parent constructor
                 $this->integrationData = $integration;
             }
-            
+
             // Expose the protected method for testing
-            public function testExtractInterfaces($device) {
+            public function test_extract_interfaces($device)
+            {
                 return $this->extractInterfaces($device);
             }
-            
-            public function testExtractIpAddresses($device) {
+
+            public function test_extract_ip_addresses($device)
+            {
                 return $this->extractIpAddresses($device);
             }
         };
@@ -63,8 +67,8 @@ class UispSourceAdapterTest extends TestCase
                             'address' => '192.168.1.1',
                             'prefix' => 24,
                             'primary' => true,
-                        ]
-                    ]
+                        ],
+                    ],
                 ],
                 [
                     'id' => 'if-2',
@@ -73,11 +77,11 @@ class UispSourceAdapterTest extends TestCase
                     'mac' => '11:22:33:44:55:66',
                     'speed' => 100000000,
                     'status' => 'down',
-                ]
-            ]
+                ],
+            ],
         ];
 
-        $interfaces = $adapter->testExtractInterfaces($device);
+        $interfaces = $adapter->test_extract_interfaces($device);
 
         $this->assertCount(2, $interfaces);
         $this->assertEquals('eth0', $interfaces[0]['name']);
@@ -98,14 +102,17 @@ class UispSourceAdapterTest extends TestCase
             'configuration' => ['api_url' => 'https://unms.test/api.v2.1'],
         ]);
 
-        $adapter = new class($integration) extends UispSourceAdapter {
+        $adapter = new class($integration) extends UispSourceAdapter
+        {
             private $integrationData;
-            
-            public function __construct($integration) {
+
+            public function __construct($integration)
+            {
                 $this->integrationData = $integration;
             }
-            
-            public function testExtractInterfaces($device) {
+
+            public function test_extract_interfaces($device)
+            {
                 return $this->extractInterfaces($device);
             }
         };
@@ -114,14 +121,14 @@ class UispSourceAdapterTest extends TestCase
             'id' => 'device-456',
             'name' => 'Core Router',
             'management_ip' => '10.10.10.1',
-            'interfaces' => []
+            'interfaces' => [],
         ];
 
-        $interfaces = $adapter->testExtractInterfaces($device);
+        $interfaces = $adapter->test_extract_interfaces($device);
 
-        $managementInterfaces = array_filter($interfaces, fn($i) => $i['name'] === 'management');
+        $managementInterfaces = array_filter($interfaces, fn ($i) => $i['name'] === 'management');
         $this->assertCount(1, $managementInterfaces);
-        
+
         $mgmt = array_values($managementInterfaces)[0];
         $this->assertEquals('management', $mgmt['name']);
         $this->assertEquals('Management IP', $mgmt['display_name']);
@@ -140,14 +147,17 @@ class UispSourceAdapterTest extends TestCase
             'configuration' => ['api_url' => 'https://unms.test/api.v2.1'],
         ]);
 
-        $adapter = new class($integration) extends UispSourceAdapter {
+        $adapter = new class($integration) extends UispSourceAdapter
+        {
             private $integrationData;
-            
-            public function __construct($integration) {
+
+            public function __construct($integration)
+            {
                 $this->integrationData = $integration;
             }
-            
-            public function testExtractIpAddresses($device) {
+
+            public function test_extract_ip_addresses($device)
+            {
                 return $this->extractIpAddresses($device);
             }
         };
@@ -156,10 +166,10 @@ class UispSourceAdapterTest extends TestCase
             'id' => 'device-789',
             'name' => 'Router with IP',
             'ip' => '10.10.10.2',
-            'interfaces' => []
+            'interfaces' => [],
         ];
 
-        $ips = $adapter->testExtractIpAddresses($device);
+        $ips = $adapter->test_extract_ip_addresses($device);
 
         $this->assertCount(1, $ips);
         $this->assertEquals('10.10.10.2', $ips[0]['ip']);

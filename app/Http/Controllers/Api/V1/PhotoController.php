@@ -12,7 +12,6 @@ use App\Models\SitePhoto;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 class PhotoController extends Controller
 {

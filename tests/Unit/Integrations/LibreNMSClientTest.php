@@ -6,6 +6,7 @@ use App\Integrations\Providers\LibreNMS\LibreNMSClient;
 use App\Models\Integration;
 use App\Models\IntegrationCredential;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -100,7 +101,7 @@ class LibreNMSClientTest extends TestCase
     public function test_connection_failure_throws(): void
     {
         Http::fake(function () {
-            throw new \Illuminate\Http\Client\ConnectionException('DNS failure');
+            throw new ConnectionException('DNS failure');
         });
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('connection failed');

@@ -12,7 +12,7 @@ class BranchResource extends JsonResource
         return [
             'id' => $this->id,
             'region_id' => $this->region_id,
-            'region' => $this->whenLoaded('region', fn() => [
+            'region' => $this->whenLoaded('region', fn () => [
                 'id' => $this->region->id,
                 'name' => $this->region->name,
                 'code' => $this->region->code,

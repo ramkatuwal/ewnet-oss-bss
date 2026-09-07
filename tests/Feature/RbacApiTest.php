@@ -17,17 +17,17 @@ class RbacApiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $permissions = [
             'roles.view', 'roles.create', 'roles.update', 'roles.delete',
             'permissions.view', 'permissions.create', 'permissions.update', 'permissions.delete',
-            'users.view', 'users.create', 'users.update', 'users.delete'
+            'users.view', 'users.create', 'users.update', 'users.delete',
         ];
-        
+
         foreach ($permissions as $perm) {
             Permission::firstOrCreate(['name' => $perm]);
         }
-        
+
         $role = Role::firstOrCreate(['name' => 'Super Admin']);
         $role->givePermissionTo($permissions);
 

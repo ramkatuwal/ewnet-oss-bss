@@ -10,7 +10,7 @@ class RegionFactory extends Factory
     {
         return [
             'company_id' => CompanyFactory::new()->create()->id,
-            'name' => $this->faker->city . ' Region',
+            'name' => $this->faker->city.' Region',
             'code' => $this->faker->unique()->regexify('[A-Z]{3}'),
             'description' => $this->faker->sentence,
             'city' => $this->faker->city,

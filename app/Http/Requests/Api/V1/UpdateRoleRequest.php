@@ -9,17 +9,19 @@ class UpdateRoleRequest extends FormRequest
     public function authorize(): bool
     {
         $role = $this->route('role');
-        if ($role->name === 'Super Admin' && !$this->user()->hasRole('Super Admin')) {
+        if ($role->name === 'Super Admin' && ! $this->user()->hasRole('Super Admin')) {
             return false;
         }
+
         return $this->user()->hasPermissionTo('roles.update');
     }
 
     public function rules(): array
     {
         $roleId = $this->route('role')?->id;
+
         return [
-            'name' => 'sometimes|required|string|max:255|unique:roles,name,' . $roleId,
+            'name' => 'sometimes|required|string|max:255|unique:roles,name,'.$roleId,
             'permissions' => 'sometimes|array',
             'permissions.*' => 'integer|exists:permissions,id',
         ];

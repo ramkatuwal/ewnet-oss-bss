@@ -177,7 +177,7 @@ class ProfileManagementTest extends TestCase
             'new_password' => 'test1234',
             'new_password_confirmation' => 'test1234',
         ])->assertStatus(401);
-        
+
         $this->deleteJson('/api/v1/profile/avatar')
             ->assertStatus(401);
     }

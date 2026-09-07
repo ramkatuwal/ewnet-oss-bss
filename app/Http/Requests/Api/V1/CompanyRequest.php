@@ -51,8 +51,8 @@ class CompanyRequest extends FormRequest
         if ($this->isMethod('PUT') || $this->isMethod('PATCH') || $this->input('_method') === 'PUT') {
             $id = $this->route('company')?->id;
             if ($id) {
-                $rules['registration_number'] .= ',' . $id;
-                $rules['pan_number'] .= ',' . $id;
+                $rules['registration_number'] .= ','.$id;
+                $rules['pan_number'] .= ','.$id;
             }
         }
 

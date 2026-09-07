@@ -6,6 +6,7 @@ use App\Models\Asset;
 use App\Models\AssetLifecycleEvent;
 use App\Models\Site;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 class AssetLifecycleService
@@ -70,7 +71,7 @@ class AssetLifecycleService
         $oldStatus = $asset->status;
 
         if ($oldStatus === $newStatus) {
-            throw new \InvalidArgumentException('Status is already set to ' . $newStatus);
+            throw new \InvalidArgumentException('Status is already set to '.$newStatus);
         }
 
         return DB::transaction(function () use ($asset, $newStatus, $user, $notes, $oldStatus) {
@@ -116,7 +117,7 @@ class AssetLifecycleService
         return $this->changeStatus($asset, 'DISPOSED', $user, $notes);
     }
 
-    public function getHistory(Asset $asset): \Illuminate\Database\Eloquent\Collection
+    public function getHistory(Asset $asset): Collection
     {
         return $asset->lifecycleEvents()
             ->with(['fromSite', 'toSite', 'createdBy'])

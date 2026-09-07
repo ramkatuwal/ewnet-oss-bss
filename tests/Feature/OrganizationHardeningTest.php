@@ -17,9 +17,13 @@ class OrganizationHardeningTest extends TestCase
     use RefreshDatabase;
 
     protected $superAdmin;
+
     protected $companyUser;
+
     protected $company;
+
     protected $otherCompany;
+
     protected $permissions;
 
     protected function setUp(): void
@@ -54,7 +58,7 @@ class OrganizationHardeningTest extends TestCase
         $region = Region::factory()->create(['company_id' => $this->company->id, 'name' => 'Base Region', 'code' => 'BR001']);
         $branch = Branch::factory()->create(['region_id' => $region->id, 'name' => 'Base Branch', 'code' => 'BB001']);
         $department = Department::factory()->create(['branch_id' => $branch->id, 'name' => 'Base Dept', 'code' => 'BD001']);
-        
+
         // 6. Create user belonging to Company A's hierarchy
         $this->companyUser = User::factory()->create([
             'company_id' => $this->company->id,
@@ -79,7 +83,7 @@ class OrganizationHardeningTest extends TestCase
         ]);
 
         $response->assertStatus(422)
-                 ->assertJsonValidationErrors(['name']);
+            ->assertJsonValidationErrors(['name']);
     }
 
     public function test_same_region_name_allowed_in_different_companies()
@@ -140,11 +144,11 @@ class OrganizationHardeningTest extends TestCase
         $response = $this->actingAs($this->companyUser)->getJson('/api/v1/organization/regions?per_page=100');
 
         $response->assertStatus(200);
-        
+
         $responseData = $response->json('data');
         $regionIds = array_column($responseData, 'id');
         $companyIds = array_column($responseData, 'company_id');
-        
+
         // Department-scoped user should NOT see ANY regions (no upward access)
         $this->assertNotContains($ownRegion->id, $regionIds, 'Department-scoped user should NOT see regions in own company');
         $this->assertNotContains($otherRegion->id, $regionIds, 'User should NOT see other company region');
@@ -159,11 +163,11 @@ class OrganizationHardeningTest extends TestCase
         $response = $this->actingAs($this->superAdmin)->getJson('/api/v1/organization/regions?per_page=100');
 
         $response->assertStatus(200);
-        
+
         $responseData = $response->json('data');
         $regionIds = array_column($responseData, 'id');
         $companyIds = array_column($responseData, 'company_id');
-        
+
         $this->assertContains($region1->id, $regionIds, 'Super Admin should see region 1');
         $this->assertContains($region2->id, $regionIds, 'Super Admin should see region 2');
         $this->assertContains($this->company->id, $companyIds, 'Super Admin should see company A regions');

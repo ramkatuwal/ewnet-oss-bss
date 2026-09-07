@@ -3,6 +3,7 @@
 namespace App\Services\Integrations;
 
 use App\Contracts\IntegrationProviderInterface;
+use App\Jobs\RunIntegrationSync;
 use App\Models\Integration;
 use App\Models\IntegrationSync;
 use App\Services\AuditService;
@@ -15,7 +16,7 @@ class IntegrationManager
 
     public static function register(string $providerKey, string $providerClass): void
     {
-        if (!is_subclass_of($providerClass, IntegrationProviderInterface::class)) {
+        if (! is_subclass_of($providerClass, IntegrationProviderInterface::class)) {
             throw new \InvalidArgumentException("{$providerClass} must implement IntegrationProviderInterface");
         }
         static::$providers[$providerKey] = $providerClass;
@@ -23,9 +24,10 @@ class IntegrationManager
 
     public static function resolve(string $providerKey): IntegrationProviderInterface
     {
-        if (!isset(static::$providers[$providerKey])) {
+        if (! isset(static::$providers[$providerKey])) {
             throw new \InvalidArgumentException("Unknown integration provider: {$providerKey}");
         }
+
         return app(static::$providers[$providerKey]);
     }
 
@@ -103,7 +105,7 @@ class IntegrationManager
             'initiated_by' => $userId,
         ]);
 
-        \App\Jobs\RunIntegrationSync::dispatch($sync);
+        RunIntegrationSync::dispatch($sync);
 
         AuditService::log('integration.sync_started', 'success', $integration, [
             'sync_id' => $sync->id,

@@ -44,12 +44,14 @@ class UispSourceAdapter implements ImportSourceInterface
     public function normalizeDevice(array $raw): NormalizedRecord
     {
         $id = $raw['id'] ?? $raw['identification']['id'] ?? null;
-        if (!$id) throw new \InvalidArgumentException('UISP device missing ID');
+        if (! $id) {
+            throw new \InvalidArgumentException('UISP device missing ID');
+        }
 
         $ip = $this->extractIp($raw);
         $name = $raw['name'] ?? $raw['identification']['name'] ?? 'Unknown Device';
 
-        $record = new NormalizedRecord();
+        $record = new NormalizedRecord;
         $record->sourceType = 'device';
         $record->provider = 'uisp';
         $record->externalId = (string) $id;
@@ -73,9 +75,11 @@ class UispSourceAdapter implements ImportSourceInterface
     public function normalizeSite(array $raw): NormalizedRecord
     {
         $id = $raw['id'] ?? $raw['uuid'] ?? null;
-        if (!$id) throw new \InvalidArgumentException('UISP site missing ID');
+        if (! $id) {
+            throw new \InvalidArgumentException('UISP site missing ID');
+        }
 
-        $record = new NormalizedRecord();
+        $record = new NormalizedRecord;
         $record->sourceType = 'site';
         $record->provider = 'uisp';
         $record->externalId = (string) $id;
@@ -117,7 +121,7 @@ class UispSourceAdapter implements ImportSourceInterface
         }
 
         // Also add management IP as an interface if present
-        if (!empty($device['management_ip'])) {
+        if (! empty($device['management_ip'])) {
             $interfaces[] = [
                 'name' => 'management',
                 'display_name' => 'Management IP',
@@ -125,7 +129,7 @@ class UispSourceAdapter implements ImportSourceInterface
                 'type' => 'management',
                 'provider' => 'uisp',
                 'external_type' => 'management_ip',
-                'external_id' => $deviceId . '_mgmt',
+                'external_id' => $deviceId.'_mgmt',
                 'metadata' => ['management_ip' => $device['management_ip']],
                 'ip_addresses' => [
                     [
@@ -135,8 +139,8 @@ class UispSourceAdapter implements ImportSourceInterface
                         'is_management' => true,
                         'provider' => 'uisp',
                         'external_type' => 'management_ip',
-                        'external_id' => $deviceId . '_mgmt_ip',
-                    ]
+                        'external_id' => $deviceId.'_mgmt_ip',
+                    ],
                 ],
             ];
         }
@@ -153,7 +157,9 @@ class UispSourceAdapter implements ImportSourceInterface
 
         foreach ($interface['ip_addresses'] ?? [] as $ipData) {
             $ip = $ipData['address'] ?? $ipData['ip'] ?? null;
-            if (!$ip) continue;
+            if (! $ip) {
+                continue;
+            }
 
             $ips[] = [
                 'ip' => $ip,
@@ -178,7 +184,7 @@ class UispSourceAdapter implements ImportSourceInterface
         $ips = [];
 
         // Device-level IPs
-        if (!empty($device['ip'])) {
+        if (! empty($device['ip'])) {
             $ips[] = [
                 'ip' => $device['ip'],
                 'prefix' => null,
@@ -186,7 +192,7 @@ class UispSourceAdapter implements ImportSourceInterface
                 'is_management' => true,
                 'provider' => 'uisp',
                 'external_type' => 'device_ip',
-                'external_id' => ($device['id'] ?? $device['uuid'] ?? '') . '_ip',
+                'external_id' => ($device['id'] ?? $device['uuid'] ?? '').'_ip',
                 'metadata' => ['source' => 'device'],
             ];
         }

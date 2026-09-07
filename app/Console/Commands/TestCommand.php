@@ -36,12 +36,12 @@ class TestCommand extends Command
 
         // Disable TTY for Docker/CI compatibility
         $process = new Process($command);
-        $process->setTty(false); 
+        $process->setTty(false);
         $process->setTimeout(null); // No timeout
-        
+
         // Run and output directly
         $process->run(function ($type, $buffer) {
-            if (Process::ERR === $type) {
+            if ($type === Process::ERR) {
                 echo $buffer;
             } else {
                 echo $buffer;

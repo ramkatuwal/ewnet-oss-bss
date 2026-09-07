@@ -5,17 +5,16 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreSiteRequest;
 use App\Http\Requests\Api\V1\UpdateSiteRequest;
+use App\Http\Resources\V1\SiteDashboardResource;
 use App\Http\Resources\V1\SiteResource;
-use App\Models\Site;
+use App\Jobs\ProcessSiteImport;
 use App\Models\Asset;
+use App\Models\Site;
 use App\Services\AuditService;
 use App\Services\ManagementScopeService;
-use App\Services\SiteExportService;
 use App\Services\SiteDashboardService;
-use App\Jobs\ProcessSiteImport;
+use App\Services\SiteExportService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use App\Http\Resources\V1\SiteDashboardResource;
 
 class SiteController extends Controller
 {
@@ -28,10 +27,10 @@ class SiteController extends Controller
 
         if ($request->filled('search')) {
             $search = $request->input('search');
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('site_code', 'ilike', "%{$search}%")
-                  ->orWhere('name', 'ilike', "%{$search}%")
-                  ->orWhere('address', 'ilike', "%{$search}%");
+                    ->orWhere('name', 'ilike', "%{$search}%")
+                    ->orWhere('address', 'ilike', "%{$search}%");
             });
         }
 
@@ -105,7 +104,7 @@ class SiteController extends Controller
         ]);
 
         $path = $request->file('file')->store('imports', 'local');
-        $fullPath = storage_path('app/' . $path);
+        $fullPath = storage_path('app/'.$path);
 
         ProcessSiteImport::dispatch($fullPath, $request->user()->id);
 
@@ -113,7 +112,6 @@ class SiteController extends Controller
     }
 
     public function export(Request $request, SiteExportService $exportService)
-
     {
 
         $this->authorize('sites.export');
@@ -121,8 +119,6 @@ class SiteController extends Controller
         $format = $request->input('format', 'csv');
 
         $filters = $request->only(['search']);
-
-
 
         if ($format === 'xlsx') {
 
@@ -139,7 +135,7 @@ class SiteController extends Controller
         $this->authorize('viewAny', Site::class);
 
         $user = $request->user();
-        
+
         // Start with a scoped query for Sites
         $scopedQuery = Site::query();
         $scopedQuery = ManagementScopeService::applyScopeToQuery($scopedQuery, $user, Site::class);
@@ -188,14 +184,12 @@ class SiteController extends Controller
         ]);
     }
 
-
     public function dashboard(Request $request, SiteDashboardService $dashboardService)
     {
         $this->authorize('viewAny', Site::class);
-        
+
         $metrics = $dashboardService->getDashboardMetrics($request->user());
-        
+
         return new SiteDashboardResource($metrics);
     }
-
 }

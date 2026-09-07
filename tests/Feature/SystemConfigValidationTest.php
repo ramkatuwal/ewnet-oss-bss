@@ -3,10 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\User;
-use App\Models\SystemSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
 use Spatie\Permission\Models\Role;
+use Tests\TestCase;
 
 class SystemConfigValidationTest extends TestCase
 {
@@ -28,7 +27,7 @@ class SystemConfigValidationTest extends TestCase
 
         foreach ($validValues as $value) {
             $response = $this->actingAs($user)->putJson('/api/v1/system/configuration', [
-                'theme' => ['compactness' => $value]
+                'theme' => ['compactness' => $value],
             ]);
 
             $response->assertStatus(200);
@@ -45,7 +44,7 @@ class SystemConfigValidationTest extends TestCase
 
         foreach ($invalidValues as $value) {
             $response = $this->actingAs($user)->putJson('/api/v1/system/configuration', [
-                'theme' => ['compactness' => $value]
+                'theme' => ['compactness' => $value],
             ]);
 
             $response->assertStatus(422);
@@ -63,7 +62,7 @@ class SystemConfigValidationTest extends TestCase
 
         foreach ($validColors as $color) {
             $response = $this->actingAs($user)->putJson('/api/v1/system/configuration', [
-                'theme' => ['primary_color' => $color]
+                'theme' => ['primary_color' => $color],
             ]);
 
             $response->assertStatus(200);
@@ -80,7 +79,7 @@ class SystemConfigValidationTest extends TestCase
 
         foreach ($invalidColors as $color) {
             $response = $this->actingAs($user)->putJson('/api/v1/system/configuration', [
-                'theme' => ['primary_color' => $color]
+                'theme' => ['primary_color' => $color],
             ]);
 
             $response->assertStatus(422);
@@ -96,7 +95,7 @@ class SystemConfigValidationTest extends TestCase
 
         // null passes validation and should not return 422
         $response = $this->actingAs($user)->putJson('/api/v1/system/configuration', [
-            'theme' => ['compactness' => null]
+            'theme' => ['compactness' => null],
         ]);
 
         // null is accepted by validation (passes through)

@@ -10,7 +10,7 @@ class BranchFactory extends Factory
     {
         return [
             'region_id' => RegionFactory::new()->create()->id,
-            'name' => $this->faker->company . ' Branch',
+            'name' => $this->faker->company.' Branch',
             'code' => $this->faker->unique()->regexify('[A-Z]{3}-[0-9]{3}'),
             'address' => $this->faker->address,
             'city' => $this->faker->city,

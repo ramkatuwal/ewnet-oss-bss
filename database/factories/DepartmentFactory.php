@@ -20,7 +20,7 @@ class DepartmentFactory extends Factory
         return [
             'company_id' => $branch->region->company_id,
             'branch_id' => $branch->id,
-            'name' => $this->faker->unique()->company() . ' Department',
+            'name' => $this->faker->unique()->company().' Department',
             'code' => strtoupper($this->faker->unique()->bothify('DEP###')),
             'description' => $this->faker->sentence(),
             'settings' => [],

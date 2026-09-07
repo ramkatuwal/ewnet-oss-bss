@@ -32,7 +32,7 @@ class SystemConfigRequest extends FormRequest
             'theme.compactness' => ['sometimes', Rule::in(['compact', 'comfortable', 'spacious'])],
             'theme.dark_mode' => 'sometimes|boolean',
             'theme.primary_color' => ['sometimes', 'regex:/^#[0-9a-fA-F]{6}$/'],
-            
+
             'navigation' => 'sometimes|array',
         ];
     }

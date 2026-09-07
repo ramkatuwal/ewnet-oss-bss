@@ -12,7 +12,9 @@ use Illuminate\Support\Facades\Log;
 class UispSiteSyncService
 {
     protected Integration $integration;
+
     protected UispClient $client;
+
     protected array $counts = [
         'created' => 0,
         'updated' => 0,
@@ -40,14 +42,15 @@ class UispSiteSyncService
                 $this->syncSingleSite($uispSite);
             }
 
-            $this->counts['processed'] = 
-                $this->counts['created'] + 
-                $this->counts['updated'] + 
-                $this->counts['unchanged'] + 
-                $this->counts['skipped'] + 
+            $this->counts['processed'] =
+                $this->counts['created'] +
+                $this->counts['updated'] +
+                $this->counts['unchanged'] +
+                $this->counts['skipped'] +
                 $this->counts['failed'];
 
             Log::info('UISP Site Synchronization Completed', $this->counts);
+
             return $this->counts;
         } catch (\Throwable $e) {
             Log::error('UISP Site Synchronization Failed', [
@@ -61,9 +64,10 @@ class UispSiteSyncService
     protected function syncSingleSite(array $uispSite): void
     {
         $externalId = $uispSite['id'] ?? null;
-        if (!$externalId) {
+        if (! $externalId) {
             $this->counts['failed']++;
             Log::warning('UISP site missing ID', ['site' => $uispSite]);
+
             return;
         }
 
@@ -71,6 +75,7 @@ class UispSiteSyncService
         if (empty($uispSite['name'] ?? null)) {
             $this->counts['skipped']++;
             Log::warning('UISP site skipped: missing name', ['external_id' => $externalId]);
+
             return;
         }
 
@@ -81,13 +86,14 @@ class UispSiteSyncService
 
         $siteData = $this->mapSiteData($uispSite);
 
-        DB::transaction(function () use ($reference, $siteData, $externalId, $uispSite) {
+        DB::transaction(function () use ($reference, $siteData, $externalId) {
             if ($reference) {
                 $site = $reference->site;
-                if (!$site) {
+                if (! $site) {
                     // Orphan reference — recreate
                     $this->counts['skipped']++;
                     Log::warning('Orphan site external reference', ['external_id' => $externalId]);
+
                     return;
                 }
                 if ($this->hasChanges($site, $siteData)) {
@@ -100,11 +106,11 @@ class UispSiteSyncService
                 }
             } else {
                 // Generate a unique site_code
-                $siteCode = $siteData['site_code'] ?? 'UISP-' . substr($externalId, 0, 8);
+                $siteCode = $siteData['site_code'] ?? 'UISP-'.substr($externalId, 0, 8);
                 $baseCode = $siteCode;
                 $counter = 1;
                 while (Site::where('site_code', $siteCode)->exists()) {
-                    $siteCode = $baseCode . '-' . $counter++;
+                    $siteCode = $baseCode.'-'.$counter++;
                 }
                 $siteData['site_code'] = $siteCode;
 

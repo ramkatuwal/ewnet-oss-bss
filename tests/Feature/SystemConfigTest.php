@@ -2,11 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use App\Models\SystemSetting;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
 use Spatie\Permission\Models\Role;
+use Tests\TestCase;
 
 class SystemConfigTest extends TestCase
 {
@@ -32,7 +32,7 @@ class SystemConfigTest extends TestCase
         $user = User::factory()->create();
 
         $response = $this->actingAs($user)->putJson('/api/v1/system/configuration', [
-            'branding' => ['app_name' => 'TEST']
+            'branding' => ['app_name' => 'TEST'],
         ]);
 
         $response->assertStatus(403);
@@ -45,7 +45,7 @@ class SystemConfigTest extends TestCase
         $user->assignRole($role);
 
         $response = $this->actingAs($user)->putJson('/api/v1/system/configuration', [
-            'branding' => ['app_name' => 'EWNET PRODUCTION']
+            'branding' => ['app_name' => 'EWNET PRODUCTION'],
         ]);
 
         $response->assertStatus(200);
@@ -63,7 +63,7 @@ class SystemConfigTest extends TestCase
         $user->assignRole($role);
 
         $response = $this->actingAs($user)->putJson('/api/v1/system/configuration', [
-            'branding' => ['unknown_key' => 'test']
+            'branding' => ['unknown_key' => 'test'],
         ]);
 
         $response->assertStatus(422);
@@ -76,7 +76,7 @@ class SystemConfigTest extends TestCase
         $user->assignRole($role);
 
         $response = $this->actingAs($user)->putJson('/api/v1/system/configuration', [
-            'theme' => ['compactness' => 'invalid_value']
+            'theme' => ['compactness' => 'invalid_value'],
         ]);
 
         $response->assertStatus(422);

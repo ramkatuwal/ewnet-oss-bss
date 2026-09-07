@@ -3,8 +3,8 @@
 namespace App\Providers;
 
 use App\Listeners\LogAuthenticationAttempt;
-use App\Policies\SystemPolicy;
 use App\Models\SystemSetting;
+use App\Policies\SystemPolicy;
 use Illuminate\Auth\Events\Attempting;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;

@@ -19,7 +19,7 @@ class ManagementScopeController extends Controller
         $this->authorize('view', $user);
 
         return response()->json(
-            $user->managementScopes->map(fn(UserManagementScope $s) => [
+            $user->managementScopes->map(fn (UserManagementScope $s) => [
                 'id' => $s->id,
                 'scope_type' => $s->scope_type,
                 'scope_id' => $s->scope_id,
@@ -38,19 +38,19 @@ class ManagementScopeController extends Controller
         $this->authorize('update', $user);
 
         $validated = $request->validate([
-            'scope_type' => 'required|string|in:' . implode(',', UserManagementScope::SCOPE_TYPES),
+            'scope_type' => 'required|string|in:'.implode(',', UserManagementScope::SCOPE_TYPES),
             'scope_id' => 'required|integer|min:1',
         ]);
 
         $actor = $request->user();
 
         // Validate scope entity exists
-        if (!UserManagementScope::validateScope($validated['scope_type'], $validated['scope_id'])) {
+        if (! UserManagementScope::validateScope($validated['scope_type'], $validated['scope_id'])) {
             abort(422, "Invalid scope: {$validated['scope_type']} #{$validated['scope_id']} does not exist.");
         }
 
         // Check actor can grant this scope
-        if (!ManagementScopeService::canGrantScope($actor, $validated['scope_type'], $validated['scope_id'])) {
+        if (! ManagementScopeService::canGrantScope($actor, $validated['scope_type'], $validated['scope_id'])) {
             AuditService::log('scope.assign.attempt', 'failure', $user, [
                 'scope_type' => $validated['scope_type'],
                 'scope_id' => $validated['scope_id'],
@@ -107,7 +107,7 @@ class ManagementScopeController extends Controller
         }
 
         // Check actor can revoke this scope (same rules as granting)
-        if (!ManagementScopeService::canGrantScope($actor, $scope->scope_type, $scope->scope_id)) {
+        if (! ManagementScopeService::canGrantScope($actor, $scope->scope_type, $scope->scope_id)) {
             AuditService::log('scope.revoke.attempt', 'failure', $user, [
                 'scope_type' => $scope->scope_type,
                 'scope_id' => $scope->scope_id,

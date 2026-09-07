@@ -17,12 +17,12 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->text('notes')->nullable();
             $table->json('metadata')->nullable();
-            
+
             // Physical Location (Optional)
             $table->decimal('latitude', 10, 7)->nullable();
             $table->decimal('longitude', 10, 7)->nullable();
             $table->decimal('altitude', 8, 2)->nullable();
-            
+
             // Address (Optional)
             $table->string('province')->nullable();
             $table->string('district')->nullable();
@@ -31,15 +31,15 @@ return new class extends Migration
             $table->string('tole')->nullable();
             $table->text('address')->nullable();
             $table->string('postal_code')->nullable();
-            
+
             // Organizational Ownership (Optional)
             $table->foreignId('company_id')->nullable()->constrained()->onDelete('set null');
             $table->foreignId('region_id')->nullable()->constrained()->onDelete('set null');
             $table->foreignId('branch_id')->nullable()->constrained()->onDelete('set null');
-            
+
             $table->timestamps();
             $table->softDeletes();
-            
+
             // Indexes
             $table->index(['company_id', 'region_id', 'branch_id']);
             $table->index(['latitude', 'longitude']);

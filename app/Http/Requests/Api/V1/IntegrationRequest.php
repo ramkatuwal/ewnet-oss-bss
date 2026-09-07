@@ -33,7 +33,7 @@ class IntegrationRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'type.in' => 'The type must be one of: ' . implode(', ', Integration::TYPES),
+            'type.in' => 'The type must be one of: '.implode(', ', Integration::TYPES),
             'configuration.endpoint.url' => 'The endpoint must be a valid URL.',
             'configuration.timeout.max' => 'Timeout cannot exceed 300 seconds.',
         ];

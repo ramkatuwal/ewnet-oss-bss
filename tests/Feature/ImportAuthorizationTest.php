@@ -2,27 +2,25 @@
 
 namespace Tests\Feature;
 
-use Tests\TestCase;
-use App\Models\User;
 use App\Models\Integration;
-use App\Models\IntegrationCredential;
-use App\Services\Imports\GenericImportService;
-use App\Services\Imports\LibreNmsSourceAdapter;
-use App\Services\Imports\UispSourceAdapter;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\App;
-use Illuminate\Support\Facades\Route;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Tests\TestCase;
 
 class ImportAuthorizationTest extends TestCase
 {
     use RefreshDatabase;
 
     protected $uispUser;
+
     protected $librenmsUser;
+
     protected $superAdmin;
+
     protected $integration;
+
     protected $uispIntegration;
 
     protected function setUp(): void
@@ -95,5 +93,4 @@ class ImportAuthorizationTest extends TestCase
         $this->assertTrue($this->superAdmin->hasPermissionTo('librenms.import'));
         $this->assertTrue($this->superAdmin->hasPermissionTo('integration.uisp.import'));
     }
-
 }

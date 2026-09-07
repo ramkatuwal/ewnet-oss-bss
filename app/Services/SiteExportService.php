@@ -4,11 +4,11 @@ namespace App\Services;
 
 use App\Models\Site;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Collection;
 use League\Csv\Writer;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-use Symfony\Component\HttpFoundation\Response;
 
 class SiteExportService
 {
@@ -21,7 +21,7 @@ class SiteExportService
             'Site Code', 'Name', 'Type', 'Status',
             'Company', 'Region', 'Branch',
             'Latitude', 'Longitude', 'Altitude',
-            'Address', 'Municipality', 'District', 'Province'
+            'Address', 'Municipality', 'District', 'Province',
         ]);
 
         foreach ($sites as $site) {
@@ -47,7 +47,7 @@ class SiteExportService
             echo $csv->toString();
         }, 200, [
             'Content-Type' => 'text/csv; charset=utf-8',
-            'Content-Disposition' => 'attachment; filename="sites_export_' . date('Y-m-d_His') . '.csv"',
+            'Content-Disposition' => 'attachment; filename="sites_export_'.date('Y-m-d_His').'.csv"',
         ]);
     }
 
@@ -55,14 +55,14 @@ class SiteExportService
     {
         $sites = $this->getSites($user, $filters);
 
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
 
         $headers = [
             'Site Code', 'Name', 'Type', 'Status',
             'Company', 'Region', 'Branch',
             'Latitude', 'Longitude', 'Altitude',
-            'Address', 'Municipality', 'District', 'Province'
+            'Address', 'Municipality', 'District', 'Province',
         ];
 
         $row = 1;
@@ -97,18 +97,18 @@ class SiteExportService
             unlink($tempFile);
         }, 200, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Content-Disposition' => 'attachment; filename="sites_export_' . date('Y-m-d_His') . '.xlsx"',
+            'Content-Disposition' => 'attachment; filename="sites_export_'.date('Y-m-d_His').'.xlsx"',
         ]);
     }
 
-    private function getSites(User $user, array $filters = []): \Illuminate\Database\Eloquent\Collection
+    private function getSites(User $user, array $filters = []): Collection
     {
         $query = Site::with(['company', 'region', 'branch']);
         $query = ManagementScopeService::applyScopeToQuery($query, $user, Site::class);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $query->where('name', 'like', "%{$filters['search']}%")
-                  ->orWhere('site_code', 'like', "%{$filters['search']}%");
+                ->orWhere('site_code', 'like', "%{$filters['search']}%");
         }
 
         return $query->get();

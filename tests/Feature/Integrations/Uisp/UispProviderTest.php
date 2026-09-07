@@ -3,6 +3,7 @@
 namespace Tests\Feature\Integrations\Uisp;
 
 use App\Integrations\Providers\Uisp\UispProvider;
+use App\Models\Asset;
 use App\Models\Integration;
 use App\Models\IntegrationCredential;
 use App\Models\Site;
@@ -16,12 +17,13 @@ class UispProviderTest extends TestCase
     use RefreshDatabase;
 
     protected UispProvider $provider;
+
     protected Integration $integration;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->provider = new UispProvider();
+        $this->provider = new UispProvider;
 
         $this->integration = Integration::create([
             'name' => 'Test UISP',
@@ -122,7 +124,7 @@ class UispProviderTest extends TestCase
                     'status' => 'active',
                     'location' => [],
                     'address' => [],
-                ]
+                ],
             ], 200),
             '*/nms/api/v2.1/devices' => Http::response([
                 [
@@ -135,12 +137,12 @@ class UispProviderTest extends TestCase
                         'mac' => 'AA:BB:CC:DD:EE:FF',
                         'firmwareVersion' => 'v2.0.0',
                         'site' => [
-                            'id' => 'uisp-site-001'
-                        ]
+                            'id' => 'uisp-site-001',
+                        ],
                     ],
                     'status' => 'online',
                     'overview' => [],
-                ]
+                ],
             ], 200),
         ]);
 
@@ -148,7 +150,7 @@ class UispProviderTest extends TestCase
         $this->assertEquals('completed', $result['status']);
 
         // Verify MAC is in specifications, NOT serial_number
-        $asset = \App\Models\Asset::where('model', 'EdgeRouter X')->first();
+        $asset = Asset::where('model', 'EdgeRouter X')->first();
         $this->assertNotNull($asset);
         $this->assertEquals('AA:BB:CC:DD:EE:FF', $asset->specifications['mac_address']);
         $this->assertNull($asset->serial_number); // Ensure serial_number is not misused for MAC

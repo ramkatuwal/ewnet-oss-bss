@@ -50,7 +50,7 @@ class LibreNmsObject extends Model
             ->where('external_id', $externalId)
             ->first();
 
-        if (!$existing) {
+        if (! $existing) {
             static::create([
                 'integration_id' => $integrationId,
                 'object_type' => $objectType,
@@ -61,12 +61,14 @@ class LibreNmsObject extends Model
                 'status' => $status,
                 'last_synced_at' => now(),
             ]);
+
             return 'created';
         }
 
         // Check if data actually changed
         if ($existing->data === $data && $existing->display_name === $displayName && $existing->status === $status) {
             $existing->touch('last_synced_at');
+
             return 'unchanged';
         }
 
@@ -77,6 +79,7 @@ class LibreNmsObject extends Model
             'external_parent_id' => $externalParentId ?? $existing->external_parent_id,
             'last_synced_at' => now(),
         ]);
+
         return 'updated';
     }
 }

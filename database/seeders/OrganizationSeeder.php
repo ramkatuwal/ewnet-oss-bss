@@ -2,12 +2,12 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use App\Models\Company;
-use App\Models\Region;
 use App\Models\Branch;
+use App\Models\Company;
 use App\Models\Department;
+use App\Models\Region;
 use App\Models\User;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
 class OrganizationSeeder extends Seeder
@@ -92,6 +92,6 @@ class OrganizationSeeder extends Seeder
 
         $this->command->info('✅ Organization seeded successfully!');
         $this->command->info("Company: {$company->name}");
-        $this->command->info("Admin user: admin@ewnet.com.np");
+        $this->command->info('Admin user: admin@ewnet.com.np');
     }
 }

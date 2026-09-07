@@ -29,8 +29,8 @@ class RegionController extends Controller
             $search = $request->get('search');
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'ilike', "%{$search}%")
-                  ->orWhere('code', 'ilike', "%{$search}%")
-                  ->orWhere('city', 'ilike', "%{$search}%");
+                    ->orWhere('code', 'ilike', "%{$search}%")
+                    ->orWhere('city', 'ilike', "%{$search}%");
             });
         }
 
@@ -43,7 +43,7 @@ class RegionController extends Controller
     {
         $this->authorize('create', Region::class);
 
-        if (!$request->user()->hasRole('Super Admin')) {
+        if (! $request->user()->hasRole('Super Admin')) {
             if ($request->company_id != $request->user()->company_id) {
                 abort(403, 'Cannot create region in another company');
             }
@@ -66,7 +66,7 @@ class RegionController extends Controller
     {
         $this->authorize('update', $region);
 
-        if ($request->has('company_id') && !$request->user()->hasRole('Super Admin')) {
+        if ($request->has('company_id') && ! $request->user()->hasRole('Super Admin')) {
             if ($request->company_id != $request->user()->company_id) {
                 abort(403, 'Cannot move region to another company');
             }

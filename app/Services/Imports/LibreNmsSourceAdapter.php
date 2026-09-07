@@ -52,12 +52,12 @@ class LibreNmsSourceAdapter implements ImportSourceInterface
 
         foreach ($devices as $device) {
             $location = $device['location'] ?? $device['sysLocation'] ?? null;
-            if ($location && !in_array($location, $seen)) {
+            if ($location && ! in_array($location, $seen)) {
                 $seen[] = $location;
                 $sites[] = [
                     'name' => $location,
-                    'external_id' => 'location-' . md5($location),
-                    'devices' => array_filter($devices, fn($d) => ($d['location'] ?? $d['sysLocation'] ?? null) === $location),
+                    'external_id' => 'location-'.md5($location),
+                    'devices' => array_filter($devices, fn ($d) => ($d['location'] ?? $d['sysLocation'] ?? null) === $location),
                 ];
             }
         }
@@ -68,9 +68,11 @@ class LibreNmsSourceAdapter implements ImportSourceInterface
     public function normalizeDevice(array $raw): NormalizedRecord
     {
         $id = $raw['device_id'] ?? null;
-        if (!$id) throw new \InvalidArgumentException('LibreNMS device missing device_id');
+        if (! $id) {
+            throw new \InvalidArgumentException('LibreNMS device missing device_id');
+        }
 
-        $record = new NormalizedRecord();
+        $record = new NormalizedRecord;
         $record->sourceType = 'device';
         $record->provider = 'librenms';
         $record->externalId = (string) $id;
@@ -92,10 +94,10 @@ class LibreNmsSourceAdapter implements ImportSourceInterface
 
     public function normalizeSite(array $raw): NormalizedRecord
     {
-        $record = new NormalizedRecord();
+        $record = new NormalizedRecord;
         $record->sourceType = 'site';
         $record->provider = 'librenms';
-        $record->externalId = $raw['external_id'] ?? 'site-' . md5($raw['name'] ?? '');
+        $record->externalId = $raw['external_id'] ?? 'site-'.md5($raw['name'] ?? '');
         $record->name = $raw['name'] ?? 'Unknown Site';
         $record->metadata = $raw;
 
@@ -111,7 +113,7 @@ class LibreNmsSourceAdapter implements ImportSourceInterface
         $interfaces = [];
         $deviceId = $device['device_id'] ?? null;
 
-        if (!$deviceId) {
+        if (! $deviceId) {
             return $interfaces;
         }
 
@@ -150,6 +152,7 @@ class LibreNmsSourceAdapter implements ImportSourceInterface
     protected function fetchInterfaces(string $deviceId): array
     {
         $result = $this->client->getDevicePorts($deviceId);
+
         return $result['ports'] ?? [];
     }
 
@@ -160,7 +163,7 @@ class LibreNmsSourceAdapter implements ImportSourceInterface
     {
         $ips = [];
 
-        if (!empty($port['ip'])) {
+        if (! empty($port['ip'])) {
             $ips[] = [
                 'ip' => $port['ip'],
                 'prefix' => $port['mask'] ?? null,
@@ -168,7 +171,7 @@ class LibreNmsSourceAdapter implements ImportSourceInterface
                 'is_management' => false,
                 'provider' => 'librenms',
                 'external_type' => 'port_ip',
-                'external_id' => $port['port_id'] . '_ip',
+                'external_id' => $port['port_id'].'_ip',
                 'metadata' => ['source' => 'port_ip'],
             ];
         }

@@ -95,6 +95,43 @@ class ImportPipelineTest extends TestCase
         $response->assertJsonPath('data.sites.analysis.0.action', 'create');
     }
 
+    public function test_uisp_preview_handles_real_v2_1_nested_site_schema(): void
+    {
+        Http::fake([
+            'https://uisp.test/api/sites' => Http::response([
+                [
+                    'id' => '0363373e-8cb5-4ef4-a2c9-59cccf5829a5',
+                    'identification' => [
+                        'id' => '0363373e-8cb5-4ef4-a2c9-59cccf5829a5',
+                        'name' => 'LAKANDRA-FTTH',
+                        'status' => 'active',
+                        'parent' => ['id' => 'parent-uuid', 'name' => 'LAKANDRA_POP'],
+                    ],
+                    'description' => [
+                        'address' => null,
+                        'location' => ['longitude' => 81.52572, 'latitude' => 28.97354],
+                    ],
+                ],
+            ]),
+            'https://uisp.test/api/devices' => Http::response([
+                ['id' => 'device-1', 'identification' => ['name' => 'Dev One']],
+            ]),
+        ]);
+
+        $integration = $this->uispIntegration();
+
+        $response = $this->actingAs($this->viewUser)
+            ->postJson("/api/v1/integrations/{$integration->id}/import/preview", [
+                'resource_type' => 'site',
+            ]);
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('data.sites.analysis.0.name', 'LAKANDRA-FTTH');
+        $response->assertJsonPath('data.sites.analysis.0.status', 'active');
+        $response->assertJsonPath('data.sites.analysis.0.parent_name', 'LAKANDRA_POP');
+        $response->assertJsonPath('data.sites.analysis.0.external_id', '0363373e-8cb5-4ef4-a2c9-59cccf5829a5');
+    }
+
     public function test_uisp_execute_creates_site_and_device_with_company_inheritance(): void
     {
         Http::fake();

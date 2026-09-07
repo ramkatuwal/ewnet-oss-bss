@@ -2,11 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\Asset;
+use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Region;
-use App\Models\Branch;
 use App\Models\Site;
-use App\Models\Asset;
 use App\Models\User;
 use App\Models\UserManagementScope;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -201,7 +201,7 @@ class SiteTest extends TestCase
         $company = Company::factory()->create();
         $user = User::factory()->create(['company_id' => $company->id]);
         $user->givePermissionTo('sites.view');
-        
+
         // Grant explicit company scope so user can see sites in this company
         UserManagementScope::create([
             'user_id' => $user->id,
@@ -280,7 +280,7 @@ class SiteTest extends TestCase
         $company = Company::factory()->create();
         $user = User::factory()->create(['company_id' => $company->id]);
         $user->givePermissionTo('sites.view');
-        
+
         UserManagementScope::create([
             'user_id' => $user->id,
             'scope_type' => 'company',
@@ -308,7 +308,7 @@ class SiteTest extends TestCase
         $company = Company::factory()->create();
         $user = User::factory()->create(['company_id' => $company->id]);
         $user->givePermissionTo('sites.view');
-        
+
         UserManagementScope::create([
             'user_id' => $user->id,
             'scope_type' => 'company',
@@ -334,7 +334,7 @@ class SiteTest extends TestCase
         $company = Company::factory()->create();
         $user = User::factory()->create(['company_id' => $company->id]);
         $user->givePermissionTo('sites.view');
-        
+
         UserManagementScope::create([
             'user_id' => $user->id,
             'scope_type' => 'company',
@@ -345,7 +345,7 @@ class SiteTest extends TestCase
         $site = Site::factory()->create(['company_id' => $company->id]);
         $asset1 = Asset::factory()->create(['site_id' => $site->id]);
         $asset2 = Asset::factory()->create(['site_id' => $site->id]);
-        
+
         $asset2->delete();
 
         $response = $this->actingAs($user)->getJson('/api/v1/sites/summary');
@@ -460,15 +460,15 @@ class SiteTest extends TestCase
             'granted_by' => $user->id,
         ]);
 
-        $uniqueCode = 'SEARCH-' . strtoupper(uniqid());
+        $uniqueCode = 'SEARCH-'.strtoupper(uniqid());
         Site::factory()->create([
             'company_id' => $company->id,
             'name' => 'Jambukandh Tower',
             'site_code' => $uniqueCode,
         ]);
 
-        $uppercase = $this->actingAs($user)->getJson('/api/v1/sites?search=' . strtoupper($uniqueCode));
-        $lowercase = $this->actingAs($user)->getJson('/api/v1/sites?search=' . strtolower($uniqueCode));
+        $uppercase = $this->actingAs($user)->getJson('/api/v1/sites?search='.strtoupper($uniqueCode));
+        $lowercase = $this->actingAs($user)->getJson('/api/v1/sites?search='.strtolower($uniqueCode));
         $mixed = $this->actingAs($user)->getJson('/api/v1/sites?search=SeArCh');
 
         $this->assertEquals(1, $uppercase->json('meta.total'));
@@ -491,7 +491,7 @@ class SiteTest extends TestCase
         ]);
 
         Site::factory()->count(20)->create(['company_id' => $company->id]);
-        $uniqueName = 'UniqueTarget-' . uniqid();
+        $uniqueName = 'UniqueTarget-'.uniqid();
         Site::factory()->create(['company_id' => $company->id, 'name' => $uniqueName]);
 
         $response = $this->actingAs($user)->getJson("/api/v1/sites?search={$uniqueName}&page=1&per_page=10");
@@ -623,5 +623,4 @@ class SiteTest extends TestCase
         $response->assertJsonPath('data.latitude', null);
         $response->assertJsonPath('data.longitude', null);
     }
-
 }

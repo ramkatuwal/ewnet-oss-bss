@@ -52,6 +52,7 @@ class UserManagementScope extends Model
     public function getScopeNameAttribute(): ?string
     {
         $entity = $this->resolveEntity();
+
         return $entity?->name ?? null;
     }
 
@@ -60,7 +61,7 @@ class UserManagementScope extends Model
      */
     public static function validateScope(string $type, int $id): bool
     {
-        if (!in_array($type, self::SCOPE_TYPES)) {
+        if (! in_array($type, self::SCOPE_TYPES)) {
             return false;
         }
 

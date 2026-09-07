@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -9,7 +10,7 @@ Route::get('/', function () {
 // Health check endpoint - stateless
 Route::get('/up', function () {
     return response()->json(['status' => 'ok']);
-})->withoutMiddleware([\Illuminate\Session\Middleware\StartSession::class]);
+})->withoutMiddleware([StartSession::class]);
 
 Route::get('/login', function () {
     return view('app');

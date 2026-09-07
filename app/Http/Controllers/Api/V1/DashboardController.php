@@ -3,25 +3,25 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
-use App\Models\Company;
-use App\Models\Region;
-use App\Models\Branch;
-use App\Models\Department;
 use App\Models\AuditLog;
+use App\Models\Branch;
+use App\Models\Company;
+use App\Models\Department;
+use App\Models\Region;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class DashboardController extends Controller
 {
     public function index(Request $request)
     {
         $user = Auth::user();
-        
+
         // Check if user has permission to view dashboard
-        if (!$user->can('dashboard.view')) {
+        if (! $user->can('dashboard.view')) {
             abort(403, 'Unauthorized to view dashboard');
         }
 
@@ -55,17 +55,17 @@ class DashboardController extends Controller
                 $branchIds = Branch::whereIn('region_id', $regionIds)->pluck('id')->toArray();
                 $departmentIds = Department::whereIn('branch_id', $branchIds)->pluck('id')->toArray();
             }
-            
-            if ($user->branch_id && !in_array($user->branch_id, $branchIds)) {
+
+            if ($user->branch_id && ! in_array($user->branch_id, $branchIds)) {
                 $branchIds[] = $user->branch_id;
                 $departmentIds = array_merge($departmentIds, Department::where('branch_id', $user->branch_id)->pluck('id')->toArray());
                 $branch = Branch::find($user->branch_id);
-                if ($branch && $branch->region_id && !in_array($branch->region_id, $regionIds)) {
+                if ($branch && $branch->region_id && ! in_array($branch->region_id, $regionIds)) {
                     $regionIds[] = $branch->region_id;
                 }
             }
-            
-            if ($user->department_id && !in_array($user->department_id, $departmentIds)) {
+
+            if ($user->department_id && ! in_array($user->department_id, $departmentIds)) {
                 $departmentIds[] = $user->department_id;
             }
 
@@ -73,12 +73,12 @@ class DashboardController extends Controller
             $organization['regions'] = Region::whereIn('id', $regionIds)->count();
             $organization['branches'] = Branch::whereIn('id', $branchIds)->count();
             $organization['departments'] = Department::whereIn('id', $departmentIds)->count();
-            
-            $organization['users'] = User::where(function($q) use ($companyIds, $branchIds, $departmentIds, $user) {
+
+            $organization['users'] = User::where(function ($q) use ($companyIds, $branchIds, $departmentIds, $user) {
                 $q->whereIn('company_id', $companyIds)
-                  ->orWhereIn('branch_id', $branchIds)
-                  ->orWhereIn('department_id', $departmentIds)
-                  ->orWhere('id', $user->id); // Always include self
+                    ->orWhereIn('branch_id', $branchIds)
+                    ->orWhereIn('department_id', $departmentIds)
+                    ->orWhere('id', $user->id); // Always include self
             })->count();
         }
 
@@ -93,26 +93,26 @@ class DashboardController extends Controller
             ->orderBy('created_at', 'desc')
             ->take(10);
 
-        if (!$isSuperAdmin) {
+        if (! $isSuperAdmin) {
             // For non-super-admin, filter by scope (actor or target is the user, or within their org)
-            $activityQuery->where(function($q) use ($user, $companyIds, $branchIds, $departmentIds) {
-                $q->where("actor_id", $user->id)
-                  ->orWhere("target_id", $user->id);
+            $activityQuery->where(function ($q) use ($user, $companyIds, $branchIds, $departmentIds) {
+                $q->where('actor_id', $user->id)
+                    ->orWhere('target_id', $user->id);
 
                 // Filter by organization_context JSONB column (audit_logs schema)
-                if (!empty($companyIds)) {
-                    $q->orWhereRaw("organization_context->>" . chr(39) . "company_id" . chr(39) . " IN (" . implode(",", array_fill(0, count($companyIds), "?")) . ")", array_map("strval", $companyIds));
+                if (! empty($companyIds)) {
+                    $q->orWhereRaw('organization_context->>'.chr(39).'company_id'.chr(39).' IN ('.implode(',', array_fill(0, count($companyIds), '?')).')', array_map('strval', $companyIds));
                 }
-                if (!empty($branchIds)) {
-                    $q->orWhereRaw("organization_context->>" . chr(39) . "branch_id" . chr(39) . " IN (" . implode(",", array_fill(0, count($branchIds), "?")) . ")", array_map("strval", $branchIds));
+                if (! empty($branchIds)) {
+                    $q->orWhereRaw('organization_context->>'.chr(39).'branch_id'.chr(39).' IN ('.implode(',', array_fill(0, count($branchIds), '?')).')', array_map('strval', $branchIds));
                 }
-                if (!empty($departmentIds)) {
-                    $q->orWhereRaw("organization_context->>" . chr(39) . "department_id" . chr(39) . " IN (" . implode(",", array_fill(0, count($departmentIds), "?")) . ")", array_map("strval", $departmentIds));
+                if (! empty($departmentIds)) {
+                    $q->orWhereRaw('organization_context->>'.chr(39).'department_id'.chr(39).' IN ('.implode(',', array_fill(0, count($departmentIds), '?')).')', array_map('strval', $departmentIds));
                 }
             });
         }
 
-        $activity = $activityQuery->get()->map(function($log) {
+        $activity = $activityQuery->get()->map(function ($log) {
             return [
                 'id' => $log->id,
                 'action' => $log->action,

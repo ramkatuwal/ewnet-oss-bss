@@ -15,9 +15,13 @@ class AuditSecurityTest extends TestCase
     use RefreshDatabase;
 
     protected $superAdmin;
+
     protected $companyAdmin;
+
     protected $regularUser;
+
     protected $companyA;
+
     protected $companyB;
 
     protected function setUp(): void
@@ -25,7 +29,9 @@ class AuditSecurityTest extends TestCase
         parent::setUp();
 
         $permissions = ['users.view', 'users.update', 'roles.view', 'roles.update'];
-        foreach ($permissions as $perm) Permission::firstOrCreate(['name' => $perm]);
+        foreach ($permissions as $perm) {
+            Permission::firstOrCreate(['name' => $perm]);
+        }
 
         $superAdminRole = Role::firstOrCreate(['name' => 'Super Admin']);
         $superAdminRole->givePermissionTo($permissions);
@@ -49,7 +55,7 @@ class AuditSecurityTest extends TestCase
     {
         $this->postJson('/api/v1/auth/login', [
             'email' => 'nonexistent@example.com',
-            'password' => 'wrongpassword'
+            'password' => 'wrongpassword',
         ])->assertStatus(401);
 
         // Use latest() to get the most recent failure log from THIS request
@@ -63,7 +69,7 @@ class AuditSecurityTest extends TestCase
     {
         $this->postJson('/api/v1/auth/login', [
             'email' => $this->companyAdmin->email,
-            'password' => 'password'
+            'password' => 'password',
         ])->assertStatus(200);
 
         $log = AuditLog::where('action', 'auth.login.success')->latest('id')->first();
@@ -75,7 +81,7 @@ class AuditSecurityTest extends TestCase
     public function test_organization_boundary_violation_is_audited()
     {
         $this->actingAs($this->companyAdmin)->putJson("/api/v1/organization/users/{$this->regularUser->id}", [
-            'name' => 'Hacked Name'
+            'name' => 'Hacked Name',
         ])->assertStatus(403);
 
         $log = AuditLog::where('action', 'user.update.attempt')
@@ -93,7 +99,7 @@ class AuditSecurityTest extends TestCase
         $role = Role::where('name', 'Company Admin')->first();
 
         $this->actingAs($this->superAdmin)->putJson("/api/v1/organization/users/{$targetUser->id}", [
-            'roles' => [$role->id]
+            'roles' => [$role->id],
         ])->assertStatus(200);
 
         // Use latest() to ensure we get the log from THIS specific request
@@ -113,7 +119,7 @@ class AuditSecurityTest extends TestCase
         $superAdminRole = Role::where('name', 'Super Admin')->first();
 
         $this->actingAs($this->companyAdmin)->putJson("/api/v1/organization/users/{$targetUser->id}", [
-            'roles' => [$superAdminRole->id]
+            'roles' => [$superAdminRole->id],
         ])->assertStatus(403);
 
         $log = AuditLog::where('action', 'user.role.assign.attempt')
@@ -144,7 +150,7 @@ class AuditSecurityTest extends TestCase
     {
         $this->postJson('/api/v1/auth/login', [
             'email' => $this->companyAdmin->email,
-            'password' => 'password'
+            'password' => 'password',
         ])->assertStatus(200);
 
         $log = AuditLog::where('action', 'auth.login.attempt')->latest('id')->first();

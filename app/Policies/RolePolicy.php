@@ -24,19 +24,28 @@ class RolePolicy
 
     public function update(User $user, Role $role): bool
     {
-        if ($role->name === 'Super Admin' && !$user->hasRole('Super Admin')) return false;
+        if ($role->name === 'Super Admin' && ! $user->hasRole('Super Admin')) {
+            return false;
+        }
+
         return $user->hasPermissionTo('roles.update');
     }
 
     public function delete(User $user, Role $role): bool
     {
-        if ($role->name === 'Super Admin') return false;
+        if ($role->name === 'Super Admin') {
+            return false;
+        }
+
         return $user->hasPermissionTo('roles.delete');
     }
 
     public function assign(User $user, Role $role): bool
     {
-        if ($role->name === 'Super Admin') return $user->hasRole('Super Admin');
+        if ($role->name === 'Super Admin') {
+            return $user->hasRole('Super Admin');
+        }
+
         return $user->hasPermissionTo('users.update');
     }
 }

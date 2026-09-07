@@ -18,13 +18,13 @@ class UispPermissionSeeder extends Seeder
 
         // Assign to Super Admin role
         $superAdmin = Role::firstOrCreate(['name' => 'Super Admin', 'guard_name' => 'web']);
-        if (!$superAdmin->hasPermissionTo($permission)) {
+        if (! $superAdmin->hasPermissionTo($permission)) {
             $superAdmin->givePermissionTo($permission);
         }
 
         // Assign to Admin role if it exists
         $admin = Role::firstOrCreate(['name' => 'Admin', 'guard_name' => 'web']);
-        if (!$admin->hasPermissionTo($permission)) {
+        if (! $admin->hasPermissionTo($permission)) {
             $admin->givePermissionTo($permission);
         }
 

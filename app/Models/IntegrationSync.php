@@ -31,6 +31,7 @@ class IntegrationSync extends Model
     ];
 
     public const OPERATIONS = ['full', 'incremental', 'manual', 'scheduled', 'webhook'];
+
     public const STATUSES = ['pending', 'running', 'completed', 'failed', 'cancelled'];
 
     public function integration(): BelongsTo

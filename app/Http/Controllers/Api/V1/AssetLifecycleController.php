@@ -23,7 +23,7 @@ class AssetLifecycleController extends Controller
 
     public function index(Asset $asset, Request $request)
     {
-        $this->authorize("viewLifecycle", $asset);
+        $this->authorize('viewLifecycle', $asset);
 
         $events = $this->lifecycleService->getHistory($asset);
 
@@ -32,15 +32,15 @@ class AssetLifecycleController extends Controller
 
     public function store(StoreAssetLifecycleEventRequest $request, Asset $asset)
     {
-        $this->authorize("createLifecycle", $asset);
+        $this->authorize('createLifecycle', $asset);
 
         $event = $this->lifecycleService->createEvent($asset, $request->event_type, [
-            "status_before" => $request->status_before,
-            "status_after" => $request->status_after,
-            "notes" => $request->notes,
-            "metadata" => $request->metadata,
-            "created_by" => $request->user()->id,
-            "event_date" => $request->event_date,
+            'status_before' => $request->status_before,
+            'status_after' => $request->status_after,
+            'notes' => $request->notes,
+            'metadata' => $request->metadata,
+            'created_by' => $request->user()->id,
+            'event_date' => $request->event_date,
         ]);
 
         return new AssetLifecycleEventResource($event);
@@ -48,60 +48,60 @@ class AssetLifecycleController extends Controller
 
     public function transfer(TransferAssetRequest $request, Asset $asset)
     {
-        $this->authorize("transfer", $asset);
+        $this->authorize('transfer', $asset);
 
         $toSite = Site::findOrFail($request->to_site_id);
-        $this->authorize("view", $toSite);
+        $this->authorize('view', $toSite);
 
         $event = $this->lifecycleService->transfer($asset, $toSite, $request->user(), $request->notes);
 
         return response()->json([
-            "message" => "Asset transferred successfully.",
-            "data" => new AssetLifecycleEventResource($event),
+            'message' => 'Asset transferred successfully.',
+            'data' => new AssetLifecycleEventResource($event),
         ]);
     }
 
     public function retire(Request $request, Asset $asset)
     {
-        $this->authorize("retire", $asset);
+        $this->authorize('retire', $asset);
 
         $request->validate([
-            "notes" => ["nullable", "string", "max:1000"],
+            'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
         try {
             $event = $this->lifecycleService->retire($asset, $request->user(), $request->notes);
         } catch (\InvalidArgumentException $e) {
             throw ValidationException::withMessages([
-                "status" => [$e->getMessage()],
+                'status' => [$e->getMessage()],
             ]);
         }
 
         return response()->json([
-            "message" => "Asset retired successfully.",
-            "data" => new AssetLifecycleEventResource($event),
+            'message' => 'Asset retired successfully.',
+            'data' => new AssetLifecycleEventResource($event),
         ]);
     }
 
     public function dispose(Request $request, Asset $asset)
     {
-        $this->authorize("dispose", $asset);
+        $this->authorize('dispose', $asset);
 
         $request->validate([
-            "notes" => ["nullable", "string", "max:1000"],
+            'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
         try {
             $event = $this->lifecycleService->dispose($asset, $request->user(), $request->notes);
         } catch (\InvalidArgumentException $e) {
             throw ValidationException::withMessages([
-                "status" => [$e->getMessage()],
+                'status' => [$e->getMessage()],
             ]);
         }
 
         return response()->json([
-            "message" => "Asset disposed successfully.",
-            "data" => new AssetLifecycleEventResource($event),
+            'message' => 'Asset disposed successfully.',
+            'data' => new AssetLifecycleEventResource($event),
         ]);
     }
 }

@@ -2,12 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use App\Models\AuditLog;
-use App\Models\SystemSetting;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
 use Spatie\Permission\Models\Role;
+use Tests\TestCase;
 
 class SystemConfigAuditTest extends TestCase
 {
@@ -26,7 +25,7 @@ class SystemConfigAuditTest extends TestCase
         $user->assignRole($role);
 
         $response = $this->actingAs($user)->putJson('/api/v1/system/configuration', [
-            'branding' => ['app_name' => 'EWNET AUDIT TEST']
+            'branding' => ['app_name' => 'EWNET AUDIT TEST'],
         ]);
 
         $response->assertStatus(200);
@@ -50,7 +49,7 @@ class SystemConfigAuditTest extends TestCase
 
         $response = $this->actingAs($user)->putJson('/api/v1/system/configuration', [
             'branding' => ['app_name' => 'EWNET METADATA TEST'],
-            'theme' => ['compactness' => 'comfortable']
+            'theme' => ['compactness' => 'comfortable'],
         ]);
 
         $response->assertStatus(200);
@@ -73,7 +72,7 @@ class SystemConfigAuditTest extends TestCase
         $user->assignRole($role);
 
         $response = $this->actingAs($user)->putJson('/api/v1/system/configuration', [
-            'branding' => ['app_name' => 'EWNET SECURE TEST']
+            'branding' => ['app_name' => 'EWNET SECURE TEST'],
         ]);
 
         $response->assertStatus(200);
@@ -92,7 +91,7 @@ class SystemConfigAuditTest extends TestCase
             'token',
             'secret',
             'credential',
-            'private_key'
+            'private_key',
         ];
 
         foreach ($sensitivePatterns as $pattern) {
@@ -109,7 +108,7 @@ class SystemConfigAuditTest extends TestCase
 
         // User does NOT have system.config.manage permission
         $response = $this->actingAs($user)->putJson('/api/v1/system/configuration', [
-            'branding' => ['app_name' => 'UNAUTHORIZED TEST']
+            'branding' => ['app_name' => 'UNAUTHORIZED TEST'],
         ]);
 
         $response->assertStatus(403);

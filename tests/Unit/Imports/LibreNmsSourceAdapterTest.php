@@ -2,22 +2,23 @@
 
 namespace Tests\Unit\Imports;
 
-use Tests\TestCase;
-use App\Services\Imports\LibreNmsSourceAdapter;
 use App\Models\Integration;
+use App\Services\Imports\LibreNmsSourceAdapter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
 
 class LibreNmsSourceAdapterTest extends TestCase
 {
     use RefreshDatabase;
 
     protected LibreNmsSourceAdapter $adapter;
+
     protected Integration $integration;
 
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->integration = Integration::create([
             'name' => 'Test LibreNMS',
             'provider' => 'librenms',

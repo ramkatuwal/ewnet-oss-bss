@@ -36,13 +36,13 @@ class UispProvider implements IntegrationProviderInterface
 
         if (empty($config['api_url'])) {
             $errors[] = 'The api_url field is required.';
-        } elseif (!filter_var($config['api_url'], FILTER_VALIDATE_URL)) {
+        } elseif (! filter_var($config['api_url'], FILTER_VALIDATE_URL)) {
             $errors[] = 'The api_url must be a valid URL.';
-        } elseif (!str_starts_with(strtolower($config['api_url']), 'https://') && !app()->environment('local', 'testing')) {
+        } elseif (! str_starts_with(strtolower($config['api_url']), 'https://') && ! app()->environment('local', 'testing')) {
             $errors[] = 'The api_url must use HTTPS in production environments.';
         }
 
-        if (!isset($config['tls_verify'])) {
+        if (! isset($config['tls_verify'])) {
             $config['tls_verify'] = true;
         }
 
@@ -70,7 +70,7 @@ class UispProvider implements IntegrationProviderInterface
 
             return [
                 'success' => false,
-                'error' => 'Connection failed: ' . $e->getMessage(),
+                'error' => 'Connection failed: '.$e->getMessage(),
             ];
         }
     }
@@ -96,7 +96,7 @@ class UispProvider implements IntegrationProviderInterface
 
             return [
                 'status' => 'error',
-                'error' => 'Health check failed: ' . $e->getMessage(),
+                'error' => 'Health check failed: '.$e->getMessage(),
             ];
         }
     }
@@ -125,6 +125,7 @@ class UispProvider implements IntegrationProviderInterface
             ];
 
             Log::info('UISP Provider synchronization completed', $combined);
+
             return $combined;
         } catch (\Throwable $e) {
             Log::error('UISP Provider synchronization failed', [

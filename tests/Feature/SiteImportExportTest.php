@@ -3,8 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Company;
-use App\Models\Region;
-use App\Models\Branch;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\UserManagementScope;
@@ -29,7 +27,7 @@ class SiteImportExportTest extends TestCase
         $company = Company::factory()->create(['name' => 'Test Company']);
         $user = User::factory()->create(['company_id' => $company->id]);
         $user->givePermissionTo('sites.import');
-        
+
         UserManagementScope::create([
             'user_id' => $user->id,
             'scope_type' => 'company',
@@ -65,7 +63,7 @@ class SiteImportExportTest extends TestCase
         $company = Company::factory()->create();
         $user = User::factory()->create(['company_id' => $company->id]);
         $user->givePermissionTo('sites.export');
-        
+
         UserManagementScope::create([
             'user_id' => $user->id,
             'scope_type' => 'company',
@@ -95,10 +93,10 @@ class SiteImportExportTest extends TestCase
     {
         $company1 = Company::factory()->create();
         $company2 = Company::factory()->create();
-        
+
         $user = User::factory()->create(['company_id' => $company1->id]);
         $user->givePermissionTo('sites.export');
-        
+
         UserManagementScope::create([
             'user_id' => $user->id,
             'scope_type' => 'company',
@@ -110,7 +108,7 @@ class SiteImportExportTest extends TestCase
         Site::factory()->create(['company_id' => $company2->id, 'site_code' => 'HIDDEN-001']);
 
         $response = $this->actingAs($user)->get('/api/v1/sites/export?format=csv');
-        
+
         $content = $response->streamedContent();
         $this->assertStringContainsString('VISIBLE-001', $content);
         $this->assertStringNotContainsString('HIDDEN-001', $content);

@@ -31,7 +31,7 @@ class UserController extends Controller
             $search = $request->get('search');
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'ilike', "%{$search}%")
-                  ->orWhere('email', 'ilike', "%{$search}%");
+                    ->orWhere('email', 'ilike', "%{$search}%");
             });
         }
 
@@ -48,7 +48,7 @@ class UserController extends Controller
         }
 
         if ($request->filled('role')) {
-            $query->whereHas('roles', fn($q) => $q->where('name', $request->get('role')));
+            $query->whereHas('roles', fn ($q) => $q->where('name', $request->get('role')));
         }
 
         $users = $query->orderBy('name')->paginate($request->get('per_page', 15));
@@ -68,9 +68,9 @@ class UserController extends Controller
         $data['department_id'] = $data['department_id'] ?? $authUser->department_id;
 
         // Scope validation via centralized service
-        if (!ManagementScopeService::hasGlobalScope($authUser)) {
+        if (! ManagementScopeService::hasGlobalScope($authUser)) {
             $tempUser = new User($data);
-            if (!ManagementScopeService::isInScope($authUser, $tempUser)) {
+            if (! ManagementScopeService::isInScope($authUser, $tempUser)) {
                 AuditService::log('user.create.attempt', 'failure', null, ['reason' => 'scope_violation']);
                 abort(403, 'Cannot create user outside your management scope.');
             }
@@ -82,10 +82,10 @@ class UserController extends Controller
 
         $user = User::create($data);
 
-        if (!empty($roles)) {
+        if (! empty($roles)) {
             $roleModels = Role::whereIn('id', $roles)->get();
             foreach ($roleModels as $role) {
-                if (!$this->canAssignRole($authUser, $role)) {
+                if (! $this->canAssignRole($authUser, $role)) {
                     AuditService::log('user.role.assign.attempt', 'failure', $user, ['role_name' => $role->name, 'reason' => 'insufficient_privileges']);
                     abort(403, "Cannot assign role: {$role->name}");
                 }
@@ -121,20 +121,19 @@ class UserController extends Controller
             }
         }
 
-
-
         return new UserResource($user->load(['roles', 'company', 'branch.region', 'department']));
     }
 
     public function show(Request $request, User $user)
     {
         $this->authorize('view', $user);
+
         return new UserResource($user->load(['roles', 'company', 'branch.region', 'department', 'managementScopes']));
     }
 
     public function update(UserRequest $request, User $user)
     {
-        if (!Gate::allows('update', $user)) {
+        if (! Gate::allows('update', $user)) {
             AuditService::log('user.update.attempt', 'failure', $user, ['reason' => 'boundary_violation']);
             abort(403, 'Forbidden');
         }
@@ -147,11 +146,11 @@ class UserController extends Controller
         }
 
         // Scope validation for org changes
-        if (!ManagementScopeService::hasGlobalScope($authUser)) {
+        if (! ManagementScopeService::hasGlobalScope($authUser)) {
             if (isset($data['company_id']) || isset($data['branch_id']) || isset($data['department_id'])) {
                 $tempUser = clone $user;
                 $tempUser->fill(array_intersect_key($data, array_flip(['company_id', 'branch_id', 'department_id'])));
-                if (!ManagementScopeService::isInScope($authUser, $tempUser)) {
+                if (! ManagementScopeService::isInScope($authUser, $tempUser)) {
                     AuditService::log('user.update.attempt', 'failure', $user, ['reason' => 'scope_violation']);
                     abort(403, 'Cannot move user outside your management scope.');
                 }
@@ -169,14 +168,14 @@ class UserController extends Controller
             if ($user->id === $authUser->id) {
                 $currentRoles = $authUser->getRoleNames()->toArray();
                 $newRoles = $roleModels->pluck('name')->toArray();
-                if (in_array('Super Admin', $newRoles) && !in_array('Super Admin', $currentRoles)) {
+                if (in_array('Super Admin', $newRoles) && ! in_array('Super Admin', $currentRoles)) {
                     AuditService::log('user.role.assign.attempt', 'failure', $user, ['role_name' => 'Super Admin', 'reason' => 'self_escalation']);
                     abort(403, 'Cannot escalate yourself to Super Admin');
                 }
             }
 
             foreach ($roleModels as $role) {
-                if (!$this->canAssignRole($authUser, $role)) {
+                if (! $this->canAssignRole($authUser, $role)) {
                     AuditService::log('user.role.assign.attempt', 'failure', $user, ['role_name' => $role->name, 'reason' => 'insufficient_privileges']);
                     abort(403, "Cannot assign role: {$role->name}");
                 }
@@ -185,18 +184,17 @@ class UserController extends Controller
             AuditService::log('user.role.assign', 'success', $user, ['roles' => $roleModels->pluck('name')->toArray()]);
         }
 
-        
         // Handle management scopes if provided
         if ($request->has('management_scopes')) {
             $scopes = $request->input('management_scopes', []);
-            
+
             // Remove scopes not in the new list
             $existingScopes = $user->managementScopes;
             foreach ($existingScopes as $existing) {
                 $stillExists = collect($scopes)->contains(function ($s) use ($existing) {
                     return $s['scope_type'] === $existing->scope_type && $s['scope_id'] == $existing->scope_id;
                 });
-                if (!$stillExists) {
+                if (! $stillExists) {
                     $existing->delete();
                     AuditService::log('scope.revoke', 'success', $user, [
                         'scope_type' => $existing->scope_type,
@@ -205,7 +203,7 @@ class UserController extends Controller
                     ]);
                 }
             }
-            
+
             // Add new scopes
             foreach ($scopes as $scopeData) {
                 if (isset($scopeData['scope_type'], $scopeData['scope_id'])) {
@@ -238,7 +236,7 @@ class UserController extends Controller
     {
         $this->authorize('delete', $user);
 
-        if ($user->hasRole('Super Admin') && !$request->user()->hasRole('Super Admin')) {
+        if ($user->hasRole('Super Admin') && ! $request->user()->hasRole('Super Admin')) {
             AuditService::log('user.delete.attempt', 'failure', $user, ['reason' => 'super_admin_protection']);
             abort(403, 'Cannot delete Super Admin users');
         }
@@ -258,6 +256,7 @@ class UserController extends Controller
         if ($targetRole->name === 'Super Admin') {
             return $currentUser->hasRole('Super Admin');
         }
+
         return $currentUser->hasPermissionTo('users.update');
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Services\AuditService;
+use App\Services\ManagementScopeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -16,18 +17,20 @@ class AuthController extends Controller
             'password' => 'required|string',
         ]);
 
-        if (!Auth::attempt($credentials)) {
+        if (! Auth::attempt($credentials)) {
             AuditService::log('auth.login.failure', 'failure', null, [
                 'email' => $credentials['email'],
             ]);
+
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
         $user = Auth::user();
 
-        if (!$user->is_active) {
+        if (! $user->is_active) {
             Auth::logout();
             AuditService::log('auth.login.failure', 'failure', $user, ['reason' => 'account_inactive']);
+
             return response()->json(['message' => 'Account is deactivated'], 403);
         }
 
@@ -38,7 +41,7 @@ class AuthController extends Controller
         ]);
 
         // Force session start and save
-        if (!$request->hasSession()) {
+        if (! $request->hasSession()) {
             $request->session()->start();
         }
         $request->session()->regenerate();
@@ -81,7 +84,7 @@ class AuthController extends Controller
     public function user(Request $request)
     {
         $user = $request->user();
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
@@ -105,9 +108,9 @@ class AuthController extends Controller
                 'department' => $user->department ? ['id' => $user->department->id, 'name' => $user->department->name] : null,
                 'roles' => $roles,
                 'permissions' => $permissions,
-                'management_scopes' => \App\Services\ManagementScopeService::hasGlobalScope($user)
+                'management_scopes' => ManagementScopeService::hasGlobalScope($user)
                     ? [['scope_type' => 'global', 'scope_id' => 0, 'scope_name' => 'Global']]
-                    : $user->managementScopes->map(fn($s) => [
+                    : $user->managementScopes->map(fn ($s) => [
                         'scope_type' => $s->scope_type,
                         'scope_id' => $s->scope_id,
                         'scope_name' => $s->scope_name,

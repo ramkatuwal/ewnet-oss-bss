@@ -1,9 +1,15 @@
 <?php
 
+use App\Providers\AppServiceProvider;
+use App\Providers\AuthServiceProvider;
+use App\Providers\HorizonServiceProvider;
+use App\Providers\IntegrationServiceProvider;
+use Illuminate\Foundation\Providers\ViteServiceProvider;
+
 return [
-    App\Providers\AppServiceProvider::class,
-    App\Providers\AuthServiceProvider::class,
-    App\Providers\HorizonServiceProvider::class,
-    App\Providers\IntegrationServiceProvider::class,
-    Illuminate\Foundation\Providers\ViteServiceProvider::class,
+    AppServiceProvider::class,
+    AuthServiceProvider::class,
+    HorizonServiceProvider::class,
+    IntegrationServiceProvider::class,
+    ViteServiceProvider::class,
 ];

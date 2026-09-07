@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\V1\AuditLogResource;
 use App\Models\AuditLog;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -13,9 +14,9 @@ class AuditLogController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        
+
         // Authorization check
-        if (!$user || !$user->can('system.debug.view')) {
+        if (! $user || ! $user->can('system.debug.view')) {
             abort(403, 'Unauthorized to view audit logs');
         }
 
@@ -26,7 +27,7 @@ class AuditLogController extends Controller
             ->orderBy('created_at', 'desc');
 
         // Management scope filtering for non-Super Admin users
-        if (!$isSuperAdmin) {
+        if (! $isSuperAdmin) {
             $query = $this->applyManagementScopeFilter($query, $user);
         }
 
@@ -51,16 +52,16 @@ class AuditLogController extends Controller
     public function show(Request $request, AuditLog $auditLog)
     {
         $user = Auth::user();
-        
+
         // Authorization check
-        if (!$user || !$user->can('system.debug.view')) {
+        if (! $user || ! $user->can('system.debug.view')) {
             abort(403, 'Unauthorized to view audit logs');
         }
 
         $isSuperAdmin = $this->isSuperAdmin($user);
 
         // Management scope check for non-Super Admin
-        if (!$isSuperAdmin && !$this->isLogInScope($auditLog, $user)) {
+        if (! $isSuperAdmin && ! $this->isLogInScope($auditLog, $user)) {
             abort(404, 'Audit log not found');
         }
 
@@ -75,12 +76,12 @@ class AuditLogController extends Controller
         if (method_exists($user, 'hasRole')) {
             return $user->hasRole('Super Admin');
         }
-        
+
         // Fallback: check roles relationship
         if (method_exists($user, 'roles')) {
             return $user->roles()->where('name', 'Super Admin')->exists();
         }
-        
+
         return false;
     }
 
@@ -91,13 +92,13 @@ class AuditLogController extends Controller
         $departmentId = $user->department_id;
 
         // If user has no scope, return empty result
-        if (!$companyId && !$branchId && !$departmentId) {
+        if (! $companyId && ! $branchId && ! $departmentId) {
             return $query->whereRaw('1 = 0');
         }
 
         return $query->where(function ($q) use ($companyId, $branchId, $departmentId) {
             $hasCondition = false;
-            
+
             // Include logs where actor is in user's scope
             if ($companyId) {
                 $q->orWhere(function ($subQ) use ($companyId) {
@@ -146,30 +147,48 @@ class AuditLogController extends Controller
 
         // Check actor scope
         if ($log->actor_type === 'App\\Models\\User' && $log->actor_id) {
-            $actor = \App\Models\User::find($log->actor_id);
+            $actor = User::find($log->actor_id);
             if ($actor) {
-                if ($departmentId && $actor->department_id == $departmentId) return true;
-                if ($branchId && $actor->branch_id == $branchId) return true;
-                if ($companyId && $actor->company_id == $companyId) return true;
+                if ($departmentId && $actor->department_id == $departmentId) {
+                    return true;
+                }
+                if ($branchId && $actor->branch_id == $branchId) {
+                    return true;
+                }
+                if ($companyId && $actor->company_id == $companyId) {
+                    return true;
+                }
             }
         }
 
         // Check target scope
         if ($log->target_type === 'App\\Models\\User' && $log->target_id) {
-            $target = \App\Models\User::find($log->target_id);
+            $target = User::find($log->target_id);
             if ($target) {
-                if ($departmentId && $target->department_id == $departmentId) return true;
-                if ($branchId && $target->branch_id == $branchId) return true;
-                if ($companyId && $target->company_id == $companyId) return true;
+                if ($departmentId && $target->department_id == $departmentId) {
+                    return true;
+                }
+                if ($branchId && $target->branch_id == $branchId) {
+                    return true;
+                }
+                if ($companyId && $target->company_id == $companyId) {
+                    return true;
+                }
             }
         }
 
         // Check organization_context
         if ($log->organization_context) {
             $ctx = $log->organization_context;
-            if ($departmentId && isset($ctx['department_id']) && $ctx['department_id'] == $departmentId) return true;
-            if ($branchId && isset($ctx['branch_id']) && $ctx['branch_id'] == $branchId) return true;
-            if ($companyId && isset($ctx['company_id']) && $ctx['company_id'] == $companyId) return true;
+            if ($departmentId && isset($ctx['department_id']) && $ctx['department_id'] == $departmentId) {
+                return true;
+            }
+            if ($branchId && isset($ctx['branch_id']) && $ctx['branch_id'] == $branchId) {
+                return true;
+            }
+            if ($companyId && isset($ctx['company_id']) && $ctx['company_id'] == $companyId) {
+                return true;
+            }
         }
 
         return false;

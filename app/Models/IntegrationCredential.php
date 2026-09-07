@@ -61,6 +61,7 @@ class IntegrationCredential extends Model
         if ($len <= 4) {
             return str_repeat('*', $len);
         }
-        return str_repeat('*', max(8, $len - 4)) . substr($value, -4);
+
+        return str_repeat('*', max(8, $len - 4)).substr($value, -4);
     }
 }

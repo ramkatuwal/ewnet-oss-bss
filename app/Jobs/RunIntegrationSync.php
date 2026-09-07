@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\IntegrationSync;
+use App\Services\AuditService;
 use App\Services\Integrations\IntegrationManager;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -16,7 +17,9 @@ class RunIntegrationSync implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 3;
+
     public int $timeout = 300;
+
     public int $backoff = 60;
 
     public function __construct(
@@ -28,15 +31,17 @@ class RunIntegrationSync implements ShouldQueue
         $this->sync->refresh();
         $this->sync->load('integration');
 
-        if (!$this->sync->integration) {
+        if (! $this->sync->integration) {
             Log::error("RunIntegrationSync: Integration not found for sync ID {$this->sync->id}");
             $this->sync->markFailed('Integration not found');
+
             return;
         }
 
-        if (!$this->sync->integration->enabled) {
+        if (! $this->sync->integration->enabled) {
             Log::warning("RunIntegrationSync: Integration disabled for sync ID {$this->sync->id}");
             $this->sync->markFailed('Integration is disabled');
+
             return;
         }
 
@@ -69,7 +74,7 @@ class RunIntegrationSync implements ShouldQueue
 
             $this->sync->integration->update(['last_sync_at' => now()]);
 
-            \App\Services\AuditService::log('integration.sync_completed', 'success', $this->sync->integration, [
+            AuditService::log('integration.sync_completed', 'success', $this->sync->integration, [
                 'sync_id' => $this->sync->id,
                 'processed' => $result['processed'] ?? 0,
                 'created' => $result['created'] ?? 0,
@@ -92,7 +97,7 @@ class RunIntegrationSync implements ShouldQueue
 
             $this->sync->markFailed(mb_substr($safeMessage, 0, 500));
 
-            \App\Services\AuditService::log('integration.sync_failed', 'failure', $this->sync->integration, [
+            AuditService::log('integration.sync_failed', 'failure', $this->sync->integration, [
                 'sync_id' => $this->sync->id,
                 'error' => mb_substr($safeMessage, 0, 500),
             ]);

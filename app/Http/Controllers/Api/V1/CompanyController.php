@@ -20,15 +20,15 @@ class CompanyController extends Controller
         $query = Company::query();
 
         // Apply centralized scope filtering
-        $query = ManagementScopeService::applyScopeToQuery($query, $request->user(), \App\Models\Company::class);
+        $query = ManagementScopeService::applyScopeToQuery($query, $request->user(), Company::class);
 
         if ($request->filled('search')) {
             $search = $request->get('search');
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'ilike', "%{$search}%")
-                  ->orWhere('registration_number', 'ilike', "%{$search}%")
-                  ->orWhere('pan_number', 'ilike', "%{$search}%")
-                  ->orWhere('email', 'ilike', "%{$search}%");
+                    ->orWhere('registration_number', 'ilike', "%{$search}%")
+                    ->orWhere('pan_number', 'ilike', "%{$search}%")
+                    ->orWhere('email', 'ilike', "%{$search}%");
             });
         }
 

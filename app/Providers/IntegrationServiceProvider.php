@@ -2,9 +2,9 @@
 
 namespace App\Providers;
 
-use App\Services\Integrations\IntegrationManager;
 use App\Integrations\Providers\LibreNMS\LibreNMSProvider;
 use App\Integrations\Providers\Uisp\UispProvider;
+use App\Services\Integrations\IntegrationManager;
 use Illuminate\Support\ServiceProvider;
 
 class IntegrationServiceProvider extends ServiceProvider

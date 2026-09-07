@@ -16,8 +16,12 @@ class UserPolicy
 
     public function view(User $authUser, User $targetUser): bool
     {
-        if ($authUser->hasRole('Super Admin')) return true;
-        if ($targetUser->hasRole('Super Admin')) return false;
+        if ($authUser->hasRole('Super Admin')) {
+            return true;
+        }
+        if ($targetUser->hasRole('Super Admin')) {
+            return false;
+        }
 
         return $this->hasPermissionAndInScope($authUser, 'users.view', $targetUser);
     }
@@ -29,16 +33,24 @@ class UserPolicy
 
     public function update(User $authUser, User $targetUser): bool
     {
-        if ($authUser->hasRole('Super Admin')) return true;
-        if ($targetUser->hasRole('Super Admin')) return false;
+        if ($authUser->hasRole('Super Admin')) {
+            return true;
+        }
+        if ($targetUser->hasRole('Super Admin')) {
+            return false;
+        }
 
         return $this->hasPermissionAndInScope($authUser, 'users.update', $targetUser);
     }
 
     public function delete(User $authUser, User $targetUser): bool
     {
-        if ($authUser->hasRole('Super Admin')) return true;
-        if ($targetUser->hasRole('Super Admin')) return false;
+        if ($authUser->hasRole('Super Admin')) {
+            return true;
+        }
+        if ($targetUser->hasRole('Super Admin')) {
+            return false;
+        }
 
         return $this->hasPermissionAndInScope($authUser, 'users.delete', $targetUser);
     }

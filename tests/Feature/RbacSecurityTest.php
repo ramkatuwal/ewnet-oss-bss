@@ -13,7 +13,9 @@ class RbacSecurityTest extends TestCase
     use RefreshDatabase;
 
     protected $superAdmin;
+
     protected $orgAdmin;
+
     protected $regularUser;
 
     protected function setUp(): void
@@ -26,7 +28,7 @@ class RbacSecurityTest extends TestCase
             'roles.view', 'roles.create', 'roles.update', 'roles.delete',
             'permissions.view', 'permissions.create', 'permissions.update', 'permissions.delete',
             'companies.view', 'companies.create', 'companies.update', 'companies.delete',
-            'system.debug.view'
+            'system.debug.view',
         ];
 
         foreach ($permissions as $perm) {
@@ -42,7 +44,7 @@ class RbacSecurityTest extends TestCase
         $orgAdminRole->givePermissionTo([
             'users.view', 'users.create', 'users.update',
             'roles.view', 'roles.create', 'roles.update',
-            'companies.view'
+            'companies.view',
         ]);
 
         // Create users
@@ -106,20 +108,20 @@ class RbacSecurityTest extends TestCase
     public function test_non_super_admin_cannot_update_super_admin_role()
     {
         $superAdminRole = Role::where('name', 'Super Admin')->first();
-        
+
         $response = $this->actingAs($this->orgAdmin)->putJson("/api/v1/security/roles/{$superAdminRole->id}", [
-            'name' => 'Modified Super Admin'
+            'name' => 'Modified Super Admin',
         ]);
-        
+
         $response->assertStatus(403);
     }
 
     public function test_non_super_admin_cannot_delete_super_admin_role()
     {
         $superAdminRole = Role::where('name', 'Super Admin')->first();
-        
+
         $response = $this->actingAs($this->orgAdmin)->deleteJson("/api/v1/security/roles/{$superAdminRole->id}");
-        
+
         $response->assertStatus(403);
     }
 
@@ -127,11 +129,11 @@ class RbacSecurityTest extends TestCase
     {
         $superAdminRole = Role::where('name', 'Super Admin')->first();
         $targetUser = User::factory()->create();
-        
+
         $response = $this->actingAs($this->orgAdmin)->putJson("/api/v1/organization/users/{$targetUser->id}", [
-            'roles' => [$superAdminRole->id]
+            'roles' => [$superAdminRole->id],
         ]);
-        
+
         $response->assertStatus(403);
     }
 
@@ -140,11 +142,11 @@ class RbacSecurityTest extends TestCase
         // Delete existing Super Admin role to bypass unique validation (422)
         // so we can test the controller's custom 403 protection
         Role::where('name', 'Super Admin')->delete();
-        
+
         $response = $this->actingAs($this->orgAdmin)->postJson('/api/v1/security/roles', [
-            'name' => 'Super Admin'
+            'name' => 'Super Admin',
         ]);
-        
+
         $response->assertStatus(403);
     }
 
@@ -152,13 +154,13 @@ class RbacSecurityTest extends TestCase
     {
         // Delete existing Super Admin role to bypass unique validation (422)
         Role::where('name', 'Super Admin')->delete();
-        
+
         $role = Role::firstOrCreate(['name' => 'Test Role To Rename']);
-        
+
         $response = $this->actingAs($this->orgAdmin)->putJson("/api/v1/security/roles/{$role->id}", [
-            'name' => 'Super Admin'
+            'name' => 'Super Admin',
         ]);
-        
+
         $response->assertStatus(403);
     }
 
@@ -169,13 +171,13 @@ class RbacSecurityTest extends TestCase
     public function test_user_cannot_escalate_themselves_to_super_admin()
     {
         $superAdminRole = Role::where('name', 'Super Admin')->first();
-        
+
         $response = $this->actingAs($this->orgAdmin)->putJson("/api/v1/organization/users/{$this->orgAdmin->id}", [
-            'roles' => [$superAdminRole->id]
+            'roles' => [$superAdminRole->id],
         ]);
-        
+
         $response->assertStatus(403);
-        
+
         // Verify role was not changed
         $this->assertTrue($this->orgAdmin->fresh()->hasRole('Organization Admin'));
         $this->assertFalse($this->orgAdmin->fresh()->hasRole('Super Admin'));
@@ -184,12 +186,12 @@ class RbacSecurityTest extends TestCase
     public function test_user_cannot_assign_roles_they_dont_have()
     {
         $orgAdminRole = Role::where('name', 'Organization Admin')->first();
-        
+
         // Regular user tries to assign Organization Admin role to themselves
         $response = $this->actingAs($this->regularUser)->putJson("/api/v1/organization/users/{$this->regularUser->id}", [
-            'roles' => [$orgAdminRole->id]
+            'roles' => [$orgAdminRole->id],
         ]);
-        
+
         $response->assertStatus(403);
     }
 
@@ -200,42 +202,42 @@ class RbacSecurityTest extends TestCase
     public function test_user_cannot_assign_permissions_they_dont_have()
     {
         $debugPermission = Permission::where('name', 'system.debug.view')->first();
-        
+
         // Org Admin doesn't have system.debug.view permission
         $response = $this->actingAs($this->orgAdmin)->postJson('/api/v1/security/roles', [
             'name' => 'Test Role',
-            'permissions' => [$debugPermission->id]
+            'permissions' => [$debugPermission->id],
         ]);
-        
+
         $response->assertStatus(403);
     }
 
     public function test_only_super_admin_can_create_permissions()
     {
         $response = $this->actingAs($this->orgAdmin)->postJson('/api/v1/security/permissions', [
-            'name' => 'test.permission'
+            'name' => 'test.permission',
         ]);
-        
+
         $response->assertStatus(403);
     }
 
     public function test_only_super_admin_can_update_permissions()
     {
         $permission = Permission::first();
-        
+
         $response = $this->actingAs($this->orgAdmin)->putJson("/api/v1/security/permissions/{$permission->id}", [
-            'name' => 'modified.permission'
+            'name' => 'modified.permission',
         ]);
-        
+
         $response->assertStatus(403);
     }
 
     public function test_only_super_admin_can_delete_permissions()
     {
         $permission = Permission::first();
-        
+
         $response = $this->actingAs($this->orgAdmin)->deleteJson("/api/v1/security/permissions/{$permission->id}");
-        
+
         $response->assertStatus(403);
     }
 
@@ -249,7 +251,7 @@ class RbacSecurityTest extends TestCase
         $response->assertStatus(200);
 
         $response = $this->actingAs($this->superAdmin)->postJson('/api/v1/security/roles', [
-            'name' => 'Test Role'
+            'name' => 'Test Role',
         ]);
         $response->assertStatus(201);
     }
@@ -258,11 +260,11 @@ class RbacSecurityTest extends TestCase
     {
         $superAdminRole = Role::where('name', 'Super Admin')->first();
         $targetUser = User::factory()->create();
-        
+
         $response = $this->actingAs($this->superAdmin)->putJson("/api/v1/organization/users/{$targetUser->id}", [
-            'roles' => [$superAdminRole->id]
+            'roles' => [$superAdminRole->id],
         ]);
-        
+
         $response->assertStatus(200);
         $this->assertTrue($targetUser->fresh()->hasRole('Super Admin'));
     }
@@ -276,7 +278,7 @@ class RbacSecurityTest extends TestCase
     public function test_org_admin_can_create_non_super_admin_roles()
     {
         $response = $this->actingAs($this->orgAdmin)->postJson('/api/v1/security/roles', [
-            'name' => 'New Role'
+            'name' => 'New Role',
         ]);
         $response->assertStatus(201);
     }
@@ -288,7 +290,7 @@ class RbacSecurityTest extends TestCase
     public function test_user_cannot_view_role_by_id_without_permission()
     {
         $role = Role::first();
-        
+
         $response = $this->actingAs($this->regularUser)->getJson("/api/v1/security/roles/{$role->id}");
         $response->assertStatus(403);
     }
@@ -296,9 +298,9 @@ class RbacSecurityTest extends TestCase
     public function test_user_cannot_update_role_by_id_without_permission()
     {
         $role = Role::first();
-        
+
         $response = $this->actingAs($this->regularUser)->putJson("/api/v1/security/roles/{$role->id}", [
-            'name' => 'Hacked Role'
+            'name' => 'Hacked Role',
         ]);
         $response->assertStatus(403);
     }
@@ -306,7 +308,7 @@ class RbacSecurityTest extends TestCase
     public function test_user_cannot_delete_user_by_id_without_permission()
     {
         $targetUser = User::factory()->create();
-        
+
         $response = $this->actingAs($this->regularUser)->deleteJson("/api/v1/organization/users/{$targetUser->id}");
         $response->assertStatus(403);
     }

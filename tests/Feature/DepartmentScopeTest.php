@@ -8,6 +8,7 @@ use App\Models\Department;
 use App\Models\Region;
 use App\Models\User;
 use App\Models\UserManagementScope;
+use Faker\Factory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -18,26 +19,39 @@ class DepartmentScopeTest extends TestCase
     use RefreshDatabase;
 
     protected Company $companyA;
+
     protected Company $companyB;
+
     protected Region $regionWest;
+
     protected Branch $branchSurkhet;
+
     protected Branch $branchDailekh;
+
     protected Department $deptTech;
+
     protected Department $deptSales;
+
     protected User $superAdmin;
+
     protected User $companyManager;
+
     protected User $regionManager;
+
     protected User $branchManager;
+
     protected User $deptManager;
 
     protected function setUp(): void
     {
         parent::setUp();
         // Reset Faker unique history to prevent collisions in parallel/repeated runs
-        \Faker\Factory::create()->unique(true);
+        Factory::create()->unique(true);
 
         $perms = ['departments.view', 'departments.create', 'departments.update', 'departments.delete'];
-        foreach ($perms as $p) Permission::firstOrCreate(['name' => $p]);
+        foreach ($perms as $p) {
+            Permission::firstOrCreate(['name' => $p]);
+        }
 
         $managerRole = Role::firstOrCreate(['name' => 'DeptManager']);
         $managerRole->syncPermissions($perms);

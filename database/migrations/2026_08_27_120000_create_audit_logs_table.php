@@ -20,7 +20,7 @@ return new class extends Migration
             $table->uuid('correlation_id')->nullable();
             $table->json('metadata')->nullable();
             $table->timestamps();
-            
+
             $table->index(['action', 'created_at']);
         });
     }

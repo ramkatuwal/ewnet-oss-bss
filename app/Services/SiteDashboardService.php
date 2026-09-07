@@ -35,7 +35,7 @@ class SiteDashboardService
 
         // 2. Asset Metrics (using whereHas for scope integrity)
         $sitesWithAssets = (clone $scopedQuery)->has('assets')->count();
-        
+
         $totalAssets = Asset::whereHas('site', function ($q) use ($user) {
             $this->scopeService->applyScopeToQuery($q, $user, Site::class);
         })->count();
@@ -47,12 +47,12 @@ class SiteDashboardService
 
         // 3. Top Site by Assets (Separate query to avoid GROUP BY conflicts)
         $topSiteData = null;
-        
+
         // Get allowed site IDs first to avoid complex subqueries in withCount if needed
         // But withCount on a scoped query is usually safe if we don't group by status
         $topSiteQuery = Site::query();
         $this->scopeService->applyScopeToQuery($topSiteQuery, $user, Site::class);
-        
+
         $topSite = $topSiteQuery->withCount('assets')
             ->orderBy('assets_count', 'desc')
             ->orderBy('name', 'asc')

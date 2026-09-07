@@ -13,22 +13,25 @@ class RolePermissionSecurityTest extends TestCase
     use RefreshDatabase;
 
     protected User $superAdmin;
+
     protected User $manager;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $perms = ['roles.view','roles.create','roles.update','roles.delete',
-                   'permissions.view','permissions.create','permissions.update','permissions.delete',
-                   'users.view','users.update','companies.view'];
-        foreach ($perms as $p) Permission::firstOrCreate(['name' => $p, 'guard_name' => 'web']);
+        $perms = ['roles.view', 'roles.create', 'roles.update', 'roles.delete',
+            'permissions.view', 'permissions.create', 'permissions.update', 'permissions.delete',
+            'users.view', 'users.update', 'companies.view'];
+        foreach ($perms as $p) {
+            Permission::firstOrCreate(['name' => $p, 'guard_name' => 'web']);
+        }
 
         $superRole = Role::firstOrCreate(['name' => 'Super Admin', 'guard_name' => 'web']);
         $superRole->syncPermissions(Permission::all());
 
         $managerRole = Role::firstOrCreate(['name' => 'Manager', 'guard_name' => 'web']);
-        $managerRole->syncPermissions(['roles.view','roles.create','roles.update','users.view','companies.view']);
+        $managerRole->syncPermissions(['roles.view', 'roles.create', 'roles.update', 'users.view', 'companies.view']);
 
         $this->superAdmin = User::factory()->create();
         $this->superAdmin->assignRole('Super Admin');

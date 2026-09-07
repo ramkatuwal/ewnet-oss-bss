@@ -4,6 +4,7 @@ namespace App\Http\Resources\V1;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 class RegionResource extends JsonResource
 {
@@ -12,11 +13,11 @@ class RegionResource extends JsonResource
         return [
             'id' => $this->id,
             'company_id' => $this->company_id,
-            'company' => $this->whenLoaded('company', fn() => [
+            'company' => $this->whenLoaded('company', fn () => [
                 'id' => $this->company->id,
                 'name' => $this->company->name,
                 'logo_url' => $this->company->logo_path
-                    ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->company->logo_path)
+                    ? Storage::disk('public')->url($this->company->logo_path)
                     : null,
             ]),
             'name' => $this->name,
