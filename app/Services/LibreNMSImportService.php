@@ -120,6 +120,12 @@ class LibreNMSImportService
             'action' => $action,
             'asset_id' => $existingAsset?->id,
             'evidence' => $existingAsset ? [['field' => 'hostname', 'value' => $hostname, 'strength' => 'strong']] : [],
+            // Include fields needed for site mapping in execute()
+            'location' => $device['location'] ?? null,
+            'lat' => $device['lat'] ?? null,
+            'lng' => $device['lng'] ?? null,
+            'serial' => $serial,
+            'mac' => $mac,
         ];
     }
 
