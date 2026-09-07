@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreFiberSegmentRequest;
 use App\Http\Requests\Api\V1\UpdateFiberSegmentRequest;
 use App\Http\Resources\V1\FiberSegmentResource;
+use App\Models\FiberCore;
 use App\Models\FiberSegment;
 use App\Services\AuditService;
 use App\Services\Fim\FiberCableService;
@@ -85,6 +86,9 @@ class FiberSegmentController extends Controller
     public function destroy(FiberSegment $fiberSegment)
     {
         $this->authorize('delete', $fiberSegment);
+        if (FiberCore::where('fiber_segment_id', $fiberSegment->id)->exists()) {
+            return response()->json(['message' => 'Fiber segment cannot be deleted while it has live fiber cores.'], 422);
+        }
         $geometry = $this->geometrySummary($fiberSegment->id);
         $this->segments->delete($fiberSegment);
         $parentRoute = DB::selectOne(

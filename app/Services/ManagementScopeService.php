@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Department;
 use App\Models\FiberCable;
+use App\Models\FiberCore;
 use App\Models\FiberSegment;
 use App\Models\Integration;
 use App\Models\IntegrationCredential;
@@ -121,6 +122,9 @@ class ManagementScopeService
         if ($resource instanceof FiberSegment) {
             return static::isFiberSegmentInScope($resource, $scopeType, $scopeId);
         }
+        if ($resource instanceof FiberCore) {
+            return static::isFiberCoreInScope($resource, $scopeType, $scopeId);
+        }
         if ($resource instanceof Integration) {
             // Global (system-level) integrations are only reachable via the global scope
             if ($resource->company_id === null) {
@@ -208,6 +212,8 @@ class ManagementScopeService
                 $ids = array_merge($ids, static::getNetworkConnectionPointIdsForScope($type, $id));
             } elseif ($modelClass === FiberSegment::class) {
                 $ids = array_merge($ids, static::getFiberSegmentIdsForScope($type, $id));
+            } elseif ($modelClass === FiberCore::class) {
+                $ids = array_merge($ids, static::getFiberCoreIdsForScope($type, $id));
             } elseif ($modelClass === User::class) {
                 $ids = array_merge($ids, static::getUserIdsForScope($type, $id));
             }
@@ -447,5 +453,19 @@ class ManagementScopeService
         }
 
         return FiberSegment::where('company_id', $id)->pluck('id')->toArray();
+    }
+
+    protected static function isFiberCoreInScope(FiberCore $core, string $scopeType, int $scopeId): bool
+    {
+        return $scopeType === 'company' && (int) $core->company_id === $scopeId;
+    }
+
+    protected static function getFiberCoreIdsForScope(string $type, int $id): array
+    {
+        if ($type !== 'company') {
+            return [];
+        }
+
+        return FiberCore::where('company_id', $id)->pluck('id')->toArray();
     }
 }

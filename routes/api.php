@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DebugController;
 use App\Http\Controllers\Api\V1\DepartmentController;
 use App\Http\Controllers\Api\V1\FiberCableController;
+use App\Http\Controllers\Api\V1\FiberCoreController;
 use App\Http\Controllers\Api\V1\FiberSegmentController;
 use App\Http\Controllers\Api\V1\ImportHistoryController;
 use App\Http\Controllers\Api\V1\IntegrationController;
@@ -98,6 +99,11 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     ]);
     Route::apiResource('/fim/fiber-segments', FiberSegmentController::class)->parameters([
         'fiber-segments' => 'fiberSegment',
+    ]);
+    Route::get('/fim/fiber-segments/{fiberSegment}/cores', [FiberCoreController::class, 'segmentCores']);
+    Route::post('/fim/fiber-segments/{fiberSegment}/cores/generate', [FiberCoreController::class, 'generate']);
+    Route::apiResource('/fim/fiber-cores', FiberCoreController::class)->parameters([
+        'fiber-cores' => 'fiberCore',
     ]);
 
     // Asset Lifecycle

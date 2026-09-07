@@ -85,6 +85,10 @@ class SystemPermissionSeeder extends Seeder
             'fim.fiber-segments.create',
             'fim.fiber-segments.update',
             'fim.fiber-segments.delete',
+            'fim.fiber-cores.view',
+            'fim.fiber-cores.create',
+            'fim.fiber-cores.update',
+            'fim.fiber-cores.delete',
         ];
 
         foreach ($permissions as $permission) {
