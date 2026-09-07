@@ -90,6 +90,12 @@ const NMSDeviceTab: React.FC = () => {
         model: item.model,
         site_name: item.site_name,
         action: item.action,
+        // Pass location/serial/mac fields for site mapping in execute()
+        location: item.location,
+        lat: item.lat,
+        lng: item.lng,
+        serial: item.serial,
+        mac: item.mac,
       },
       analysis: { 
         decision: item.action === 'create' ? 'CREATE' : item.action === 'update' ? 'UPDATE' : 'REVIEW', 
