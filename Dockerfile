@@ -21,7 +21,8 @@ RUN apk add --no-cache \
     libjpeg-turbo-dev \
     freetype-dev \
     supervisor \
-    linux-headers
+    linux-headers \
+    icu-dev
 
 # Install PHP extensions
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg
@@ -32,7 +33,8 @@ RUN docker-php-ext-install -j$(nproc) \
     gd \
     bcmath \
     opcache \
-    pcntl
+    pcntl \
+    intl
 
 # Install Redis extension
 RUN pecl install redis && docker-php-ext-enable redis

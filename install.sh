@@ -167,10 +167,25 @@ ensure_env() {
     fi
 
     # --- APP_URL / session / sanctum ----------------------------------
+    # Normalize APP_URL: enforce https:// scheme
+    if [ -n "${APP_URL:-}" ]; then
+        local normalized_url
+        normalized_url=$(printf '%s' "$APP_URL" | sed -E 's|^[a-z][a-z0-9+.-]*://|https://|')
+        if [ "$normalized_url" != "$APP_URL" ]; then
+            info "Normalizing APP_URL scheme to https://"
+            _maybe_set APP_URL "$normalized_url"
+            set -a; . ./.env; set +a
+        fi
+    fi
     [ "$domain" = "localhost" ] && warn "APP_DOMAIN is localhost — serving at https://localhost (browsers will see a cert warning)."
     [ -z "${APP_URL:-}" ] && _maybe_set APP_URL "https://${domain}"
     [ -z "${SESSION_DOMAIN:-}" ] && [ "$domain" != "localhost" ] && _maybe_set SESSION_DOMAIN ".${domain}"
-    [ -z "${SANCTUM_STATEFUL_DOMAINS:-}" ] && _maybe_set SANCTUM_STATEFUL_DOMAINS "${domain},localhost,127.0.0.1"
+    # Always ensure SANCTUM_STATEFUL_DOMAINS includes the domain
+    local sanctum_domains="${SANCTUM_STATEFUL_DOMAINS:-localhost}"
+    case ",${sanctum_domains}," in
+        *,"${domain}",*) ;;
+        *) _maybe_set SANCTUM_STATEFUL_DOMAINS "${sanctum_domains},${domain},localhost,127.0.0.1" ;;
+    esac
     set -a; . ./.env; set +a
 
     # --- DB_PASSWORD ---------------------------------------------------
@@ -275,6 +290,9 @@ _wait_for_condition() {
         if [ "$i" -ge "$max_attempts" ]; then
             fatal_and_logs "Timed out waiting for ${name} to become ready."
         fi
+        if [ $((i % 6)) -eq 0 ]; then
+            info "Still waiting for ${name}... (attempt ${i}/${max_attempts})"
+        fi
         sleep 5
     done
     ok "${name} is ready."
@@ -296,8 +314,8 @@ fatal_and_logs() {
 wait_for_stack() {
     info "Waiting for container healthchecks to pass..."
 
-    _wait_for_condition "PostgreSQL" 24 sh -c \
-        "docker compose exec -T postgres pg_isready -U ${DB_USERNAME:-ewnet} -d ${DB_DATABASE:-ewnet} >/dev/null 2>&1"
+    _wait_for_condition "PostgreSQL" 60 sh -c \
+        "docker compose exec -T postgres pg_isready -q -U ${DB_USERNAME:-ewnet} -d ${DB_DATABASE:-ewnet} >/dev/null 2>&1"
 
     if [ -n "${REDIS_PASSWORD:-}" ]; then
         _wait_for_condition "Redis" 12 sh -c \
@@ -312,6 +330,38 @@ wait_for_stack() {
         "docker compose exec -T app php artisan about --no-interaction >/dev/null 2>&1"
 
     ok "All services are running."
+}
+
+# -------------------------------------------------------------------------
+# Database password alignment for pre-existing Postgres volumes
+# -------------------------------------------------------------------------
+align_db_password() {
+    info "Verifying database connectivity and aligning password if needed..."
+    local db_user="${DB_USERNAME:-ewnet}"
+    local db_name="${DB_DATABASE:-ewnet}"
+    local db_pass="${DB_PASSWORD:-}"
+
+    # Test the exact path the app uses: TCP across the compose network with
+    # .env credentials (local/127.0.0.1 connections inside postgres use
+    # `trust` auth, so a socket-level check would never catch a mismatch).
+    if docker compose exec -T app php -r 'try { new PDO("pgsql:host=postgres;dbname=" . (getenv("DB_DATABASE") ?: "ewnet"), getenv("DB_USERNAME") ?: "ewnet", getenv("DB_PASSWORD")); echo "ok"; } catch (Throwable $e) { exit(1); }' >/dev/null 2>&1; then
+        ok "Database connectivity verified (TCP + password auth)."
+        return 0
+    fi
+    warn "Database connection over TCP/password failed — attempting to align the role password..."
+
+    # ALTER ROLE via the postgres superuser (trusted on local socket inside
+    # the container) to match the .env value, then re-test.
+    if docker compose exec -T postgres psql -U postgres -d "$db_name" \
+        -c "ALTER ROLE \"$db_user\" WITH PASSWORD '$db_pass';" >/dev/null 2>&1 \
+       && docker compose exec -T app php -r 'try { new PDO("pgsql:host=postgres;dbname=" . (getenv("DB_DATABASE") ?: "ewnet"), getenv("DB_USERNAME") ?: "ewnet", getenv("DB_PASSWORD")); echo "ok"; } catch (Throwable $e) { exit(1); }' >/dev/null 2>&1; then
+        ok "PostgreSQL role password aligned to .env value."
+    else
+        fatal "Failed to align PostgreSQL password. If using a pre-existing volume, either:
+  1. Set DB_PASSWORD in .env to match the existing PostgreSQL role password, OR
+  2. Remove the postgres_data volume (docker compose down -v) for a fresh database, OR
+  3. Manually run: docker compose exec postgres psql -U postgres -d \"$db_name\" -c \"ALTER ROLE \\\"$db_user\\\" WITH PASSWORD '<password>'\""
+    fi
 }
 
 # -------------------------------------------------------------------------
@@ -387,6 +437,7 @@ main() {
     provision_tls
     up_stack
     wait_for_stack
+    align_db_password
     install_deps
     migrate_and_seed
     optimize

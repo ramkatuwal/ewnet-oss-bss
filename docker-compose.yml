@@ -60,6 +60,7 @@ services:
       - ./docker/nginx/logs:/var/log/nginx
       - /var/www/html/vendor
       - /var/www/html/node_modules
+      - /var/www/html/public/build
     networks:
       - ewnet-network
 
@@ -80,6 +81,7 @@ services:
       - ./:/var/www/html
       - ./docker/nginx/logs:/var/log/nginx
       - /var/www/html/vendor
+      - /var/www/html/public/build
     networks:
       - ewnet-network
 
@@ -153,6 +155,7 @@ services:
       - ./docker/nginx/logs:/var/log/nginx
       - ${NGINX_CERTS_SOURCE:-certs_data}:/etc/nginx/certs:rw
       - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/html/public/build
     networks:
       - ewnet-network
 
