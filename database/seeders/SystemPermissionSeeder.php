@@ -73,6 +73,10 @@ class SystemPermissionSeeder extends Seeder
             'permissions.delete',
             'audit.view',
             'logs.view',
+            'fim.cables.view',
+            'fim.cables.create',
+            'fim.cables.update',
+            'fim.cables.delete',
         ];
 
         foreach ($permissions as $permission) {

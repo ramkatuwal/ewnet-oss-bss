@@ -6,6 +6,7 @@ use App\Models\Asset;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Department;
+use App\Models\FiberCable;
 use App\Models\Integration;
 use App\Models\IntegrationCredential;
 use App\Models\Region;
@@ -109,6 +110,9 @@ class ManagementScopeService
         if ($resource instanceof Site) {
             return static::isSiteInScope($resource, $scopeType, $scopeId);
         }
+        if ($resource instanceof FiberCable) {
+            return static::isFiberCableInScope($resource, $scopeType, $scopeId);
+        }
         if ($resource instanceof Integration) {
             // Global (system-level) integrations are only reachable via the global scope
             if ($resource->company_id === null) {
@@ -190,6 +194,8 @@ class ManagementScopeService
                     $assetIds = Asset::whereIn('site_id', $siteIds)->pluck('id')->toArray();
                     $ids = array_merge($ids, $assetIds);
                 }
+            } elseif ($modelClass === FiberCable::class) {
+                $ids = array_merge($ids, static::getFiberCableIdsForScope($type, $id));
             } elseif ($modelClass === User::class) {
                 $ids = array_merge($ids, static::getUserIdsForScope($type, $id));
             }
@@ -359,5 +365,31 @@ class ManagementScopeService
             'department' => [], // Sites are not scoped to departments in this foundation
             default => [],
         };
+    }
+
+    /**
+     * FiberCable scope is intentionally company-restrictive in FIM-002.
+     *
+     * A cable carries only company_id plus optional coarse site anchors and can
+     * span regions/branches, so region/branch/department scopes cannot be derived
+     * safely from current data. Those scopes grant no cable access rather than
+     * broadening existing authorization.
+     */
+    protected static function isFiberCableInScope(FiberCable $resource, string $scopeType, int $scopeId): bool
+    {
+        if ($scopeType === 'company') {
+            return (int) $resource->company_id === $scopeId;
+        }
+
+        return false;
+    }
+
+    protected static function getFiberCableIdsForScope(string $type, int $id): array
+    {
+        if ($type === 'company') {
+            return FiberCable::where('company_id', $id)->pluck('id')->toArray();
+        }
+
+        return [];
     }
 }

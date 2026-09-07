@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DebugController;
 use App\Http\Controllers\Api\V1\DepartmentController;
+use App\Http\Controllers\Api\V1\FiberCableController;
 use App\Http\Controllers\Api\V1\ImportHistoryController;
 use App\Http\Controllers\Api\V1\IntegrationController;
 use App\Http\Controllers\Api\V1\IntegrationCredentialController;
@@ -84,6 +85,11 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::get('/assets/{asset}/photos', [PhotoController::class, 'assetPhotos']);
     Route::post('/assets/{asset}/photos', [PhotoController::class, 'storeAssetPhoto']);
     Route::delete('/assets/{asset}/photos/{photo}', [PhotoController::class, 'deleteAssetPhoto']);
+    // FIM — Fiber Cables (backend-only spatial foundation)
+    Route::apiResource('/fim/fiber-cables', FiberCableController::class)->parameters([
+        'fiber-cables' => 'fiberCable',
+    ]);
+
     // Asset Lifecycle
     Route::get('/assets/{asset}/lifecycle', [AssetLifecycleController::class, 'index']);
     Route::post('/assets/{asset}/lifecycle', [AssetLifecycleController::class, 'store']);
