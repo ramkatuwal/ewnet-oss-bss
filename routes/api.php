@@ -112,6 +112,7 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::apiResource('/fim/fiber-cores', FiberCoreController::class)->parameters([
         'fiber-cores' => 'fiberCore',
     ]);
+    Route::get('/fim/fiber-cores/{fiberCore}/strand-path', [FiberCoreController::class, 'strandPath']);
     Route::get('/fim/fiber-cores/{fiberCore}/terminations', [FiberTerminationController::class, 'index']);
     Route::post('/fim/fiber-cores/{fiberCore}/terminations', [FiberTerminationController::class, 'store']);
     Route::apiResource('/fim/fiber-terminations', FiberTerminationController::class)->only(['show', 'update', 'destroy'])->parameters([

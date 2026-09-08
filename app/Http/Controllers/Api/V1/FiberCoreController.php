@@ -5,19 +5,25 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\GenerateFiberCoresRequest;
 use App\Http\Requests\Api\V1\StoreFiberCoreRequest;
+use App\Http\Requests\Api\V1\StrandPathRequest;
 use App\Http\Requests\Api\V1\UpdateFiberCoreRequest;
 use App\Http\Resources\V1\FiberCoreResource;
+use App\Http\Resources\V1\StrandPathResource;
 use App\Models\FiberCore;
 use App\Models\FiberSegment;
 use App\Models\FiberTermination;
 use App\Services\AuditService;
 use App\Services\Fim\FiberCoreService;
+use App\Services\Fim\StrandContinuityService;
 use App\Services\ManagementScopeService;
 use Illuminate\Http\Request;
 
 class FiberCoreController extends Controller
 {
-    public function __construct(protected FiberCoreService $cores) {}
+    public function __construct(
+        protected FiberCoreService $cores,
+        protected StrandContinuityService $strandContinuity,
+    ) {}
 
     public function index(Request $request)
     {
@@ -107,6 +113,20 @@ class FiberCoreController extends Controller
                 'skipped_existing_count' => $result['skipped_existing_count'],
             ],
         ], 201);
+    }
+
+    public function strandPath(FiberCore $fiberCore, StrandPathRequest $request)
+    {
+        $this->authorize('view', $fiberCore);
+
+        $path = $this->strandContinuity->traceFromCore(
+            $fiberCore,
+            $request->user(),
+            $request->validated('mode', 'physical-strand'),
+            $request->validated('max_depth', 20),
+        );
+
+        return new StrandPathResource($path);
     }
 
     protected function ensureSegmentInScope(Request $request, FiberSegment $segment): void
