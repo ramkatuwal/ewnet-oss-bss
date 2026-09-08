@@ -10,7 +10,14 @@ class HorizonServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Horizon::auth(function ($request) {
-            return true; // TODO: Replace with proper authorization
+            $user = $request->user();
+
+            if (! $user) {
+                return false;
+            }
+
+            return $user->hasRole('Super Admin')
+                || $user->can('system.debug.view');
         });
     }
 }
