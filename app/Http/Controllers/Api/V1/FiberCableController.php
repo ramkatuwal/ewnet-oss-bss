@@ -5,16 +5,28 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreFiberCableRequest;
 use App\Http\Requests\Api\V1\UpdateFiberCableRequest;
+use App\Http\Resources\V1\FiberCableCapacityResource;
 use App\Http\Resources\V1\FiberCableResource;
 use App\Models\FiberCable;
 use App\Services\AuditService;
 use App\Services\Fim\FiberCableService;
+use App\Services\Fim\FiberCapacityService;
 use App\Services\ManagementScopeService;
 use Illuminate\Http\Request;
 
 class FiberCableController extends Controller
 {
     public function __construct(protected FiberCableService $cables) {}
+
+    public function capacity(FiberCable $fiberCable)
+    {
+        $this->authorize('view', $fiberCable);
+
+        $service = new FiberCapacityService;
+        $data = $service->cableCapacity($fiberCable);
+
+        return new FiberCableCapacityResource($data);
+    }
 
     public function index(Request $request)
     {

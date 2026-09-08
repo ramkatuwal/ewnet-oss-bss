@@ -5,12 +5,14 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreFiberSegmentRequest;
 use App\Http\Requests\Api\V1\UpdateFiberSegmentRequest;
+use App\Http\Resources\V1\FiberSegmentCapacityResource;
 use App\Http\Resources\V1\FiberSegmentResource;
 use App\Models\FiberCore;
 use App\Models\FiberSegment;
 use App\Models\FiberTermination;
 use App\Services\AuditService;
 use App\Services\Fim\FiberCableService;
+use App\Services\Fim\FiberCapacityService;
 use App\Services\Fim\FiberSegmentService;
 use App\Services\ManagementScopeService;
 use Illuminate\Http\Request;
@@ -19,6 +21,16 @@ use Illuminate\Support\Facades\DB;
 class FiberSegmentController extends Controller
 {
     public function __construct(protected FiberSegmentService $segments) {}
+
+    public function capacity(FiberSegment $fiberSegment)
+    {
+        $this->authorize('view', $fiberSegment);
+
+        $service = new FiberCapacityService;
+        $data = $service->segmentCapacity($fiberSegment);
+
+        return new FiberSegmentCapacityResource($data);
+    }
 
     public function index(Request $request)
     {

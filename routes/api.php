@@ -139,6 +139,11 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::get('/fim/topology/terminations/{fiberTermination}', [TopologyTraversalController::class, 'fromTermination']);
     Route::get('/fim/topology/ports/{passiveOpticalPort}', [TopologyTraversalController::class, 'fromPort']);
 
+    // FIM — Capacity (read-only)
+    Route::get('/fim/cables/{fiberCable}/capacity', [FiberCableController::class, 'capacity']);
+    Route::get('/fim/fiber-segments/{fiberSegment}/capacity', [FiberSegmentController::class, 'capacity']);
+    Route::get('/fim/splitter-profiles/{splitterProfile}/capacity', [SplitterProfileController::class, 'capacity']);
+
     // Asset Lifecycle
     Route::get('/assets/{asset}/lifecycle', [AssetLifecycleController::class, 'index']);
     Route::post('/assets/{asset}/lifecycle', [AssetLifecycleController::class, 'store']);

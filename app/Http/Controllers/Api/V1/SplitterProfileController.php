@@ -7,16 +7,28 @@ use App\Http\Requests\Api\V1\GenerateSplitterPortsRequest;
 use App\Http\Requests\Api\V1\StoreSplitterProfileRequest;
 use App\Http\Requests\Api\V1\UpdateSplitterProfileRequest;
 use App\Http\Resources\V1\PassiveOpticalPortResource;
+use App\Http\Resources\V1\SplitterProfileCapacityResource;
 use App\Http\Resources\V1\SplitterProfileResource;
 use App\Models\Asset;
 use App\Models\SplitterProfile;
 use App\Services\AuditService;
+use App\Services\Fim\SplitterCapacityService;
 use App\Services\Fim\SplitterProfileService;
 use Illuminate\Http\Request;
 
 class SplitterProfileController extends Controller
 {
     public function __construct(protected SplitterProfileService $profiles) {}
+
+    public function capacity(SplitterProfile $splitterProfile)
+    {
+        $this->authorize('view', $splitterProfile);
+
+        $service = new SplitterCapacityService;
+        $data = $service->capacity($splitterProfile);
+
+        return new SplitterProfileCapacityResource($data);
+    }
 
     public function show(Asset $asset)
     {
