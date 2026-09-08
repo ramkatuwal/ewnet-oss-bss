@@ -141,6 +141,11 @@ class Asset extends Model
         return $this->hasOne(SplitterProfile::class);
     }
 
+    public function splitterBranches(): HasMany
+    {
+        return $this->hasMany(SplitterBranch::class);
+    }
+
     public function ipAddresses(): HasManyThrough
     {
         return $this->hasManyThrough(

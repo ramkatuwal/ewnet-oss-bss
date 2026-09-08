@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\V1\PublicBrandingController;
 use App\Http\Controllers\Api\V1\RegionController;
 use App\Http\Controllers\Api\V1\RoleController;
 use App\Http\Controllers\Api\V1\SiteController;
+use App\Http\Controllers\Api\V1\SplitterBranchController;
 use App\Http\Controllers\Api\V1\SplitterProfileController;
 use App\Http\Controllers\Api\V1\SystemConfigController;
 use App\Http\Controllers\Api\V1\SystemInfoController;
@@ -129,6 +130,9 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::patch('/fim/splitter-profiles/{splitterProfile}', [SplitterProfileController::class, 'update']);
     Route::delete('/fim/splitter-profiles/{splitterProfile}', [SplitterProfileController::class, 'destroy']);
     Route::post('/fim/splitter-profiles/{splitterProfile}/ports/generate', [SplitterProfileController::class, 'generate']);
+    Route::get('/fim/splitter-profiles/{splitterProfile}/branches', [SplitterBranchController::class, 'index']);
+    Route::post('/fim/splitter-profiles/{splitterProfile}/branches', [SplitterBranchController::class, 'store']);
+    Route::delete('/fim/splitter-branches/{splitterBranch}', [SplitterBranchController::class, 'destroy']);
 
     // Asset Lifecycle
     Route::get('/assets/{asset}/lifecycle', [AssetLifecycleController::class, 'index']);
