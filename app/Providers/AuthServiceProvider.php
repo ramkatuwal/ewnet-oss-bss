@@ -6,6 +6,7 @@ use App\Models\FiberCable;
 use App\Models\FiberCore;
 use App\Models\FiberSegment;
 use App\Models\FiberTermination;
+use App\Models\FiberTerminationPortAttachment;
 use App\Models\NetworkConnectionPoint;
 use App\Models\PassiveOpticalPort;
 use App\Models\PhysicalConnection;
@@ -14,6 +15,7 @@ use App\Policies\FiberCablePolicy;
 use App\Policies\FiberCorePolicy;
 use App\Policies\FiberSegmentPolicy;
 use App\Policies\FiberTerminationPolicy;
+use App\Policies\FiberTerminationPortAttachmentPolicy;
 use App\Policies\NetworkConnectionPointPolicy;
 use App\Policies\PassiveOpticalPortPolicy;
 use App\Policies\PermissionPolicy;
@@ -41,6 +43,7 @@ class AuthServiceProvider extends ServiceProvider
         FiberCore::class => FiberCorePolicy::class,
         FiberSegment::class => FiberSegmentPolicy::class,
         FiberTermination::class => FiberTerminationPolicy::class,
+        FiberTerminationPortAttachment::class => FiberTerminationPortAttachmentPolicy::class,
         PhysicalConnection::class => PhysicalConnectionPolicy::class,
         PassiveOpticalPort::class => PassiveOpticalPortPolicy::class,
         NetworkConnectionPoint::class => NetworkConnectionPointPolicy::class,
@@ -61,6 +64,7 @@ class AuthServiceProvider extends ServiceProvider
         Gate::policy(FiberCore::class, FiberCorePolicy::class);
         Gate::policy(FiberSegment::class, FiberSegmentPolicy::class);
         Gate::policy(FiberTermination::class, FiberTerminationPolicy::class);
+        Gate::policy(FiberTerminationPortAttachment::class, FiberTerminationPortAttachmentPolicy::class);
         Gate::policy(PhysicalConnection::class, PhysicalConnectionPolicy::class);
         Gate::policy(PassiveOpticalPort::class, PassiveOpticalPortPolicy::class);
         Gate::policy(NetworkConnectionPoint::class, NetworkConnectionPointPolicy::class);

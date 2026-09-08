@@ -40,6 +40,11 @@ class FiberTermination extends Model
         return $this->hasMany(PhysicalConnection::class, 'termination_b_id');
     }
 
+    public function portAttachments(): HasMany
+    {
+        return $this->hasMany(FiberTerminationPortAttachment::class);
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

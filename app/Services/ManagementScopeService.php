@@ -10,6 +10,7 @@ use App\Models\FiberCable;
 use App\Models\FiberCore;
 use App\Models\FiberSegment;
 use App\Models\FiberTermination;
+use App\Models\FiberTerminationPortAttachment;
 use App\Models\Integration;
 use App\Models\IntegrationCredential;
 use App\Models\NetworkConnectionPoint;
@@ -131,6 +132,9 @@ class ManagementScopeService
         if ($resource instanceof FiberTermination) {
             return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
         }
+        if ($resource instanceof FiberTerminationPortAttachment) {
+            return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
+        }
         if ($resource instanceof PhysicalConnection) {
             return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
         }
@@ -229,6 +233,10 @@ class ManagementScopeService
             } elseif ($modelClass === FiberTermination::class) {
                 if ($type === 'company') {
                     $ids = array_merge($ids, FiberTermination::where('company_id', $id)->pluck('id')->toArray());
+                }
+            } elseif ($modelClass === FiberTerminationPortAttachment::class) {
+                if ($type === 'company') {
+                    $ids = array_merge($ids, FiberTerminationPortAttachment::where('company_id', $id)->pluck('id')->toArray());
                 }
             } elseif ($modelClass === PhysicalConnection::class) {
                 if ($type === 'company') {

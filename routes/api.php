@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\FiberCableController;
 use App\Http\Controllers\Api\V1\FiberCoreController;
 use App\Http\Controllers\Api\V1\FiberSegmentController;
 use App\Http\Controllers\Api\V1\FiberTerminationController;
+use App\Http\Controllers\Api\V1\FiberTerminationPortAttachmentController;
 use App\Http\Controllers\Api\V1\ImportHistoryController;
 use App\Http\Controllers\Api\V1\IntegrationController;
 use App\Http\Controllers\Api\V1\IntegrationCredentialController;
@@ -113,6 +114,9 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::apiResource('/fim/fiber-terminations', FiberTerminationController::class)->only(['show', 'update', 'destroy'])->parameters([
         'fiber-terminations' => 'fiberTermination',
     ]);
+    Route::get('/fim/fiber-terminations/{fiberTermination}/port-attachments', [FiberTerminationPortAttachmentController::class, 'index']);
+    Route::post('/fim/fiber-terminations/{fiberTermination}/port-attachments', [FiberTerminationPortAttachmentController::class, 'store']);
+    Route::delete('/fim/termination-port-attachments/{fiberTerminationPortAttachment}', [FiberTerminationPortAttachmentController::class, 'destroy']);
     Route::apiResource('/fim/physical-connections', PhysicalConnectionController::class)->parameters(['physical-connections' => 'physicalConnection']);
     Route::get('/assets/{asset}/passive-optical-ports', [PassiveOpticalPortController::class, 'index']);
     Route::post('/assets/{asset}/passive-optical-ports', [PassiveOpticalPortController::class, 'store']);
