@@ -34,6 +34,7 @@ use App\Http\Controllers\Api\V1\SplitterBranchController;
 use App\Http\Controllers\Api\V1\SplitterProfileController;
 use App\Http\Controllers\Api\V1\SystemConfigController;
 use App\Http\Controllers\Api\V1\SystemInfoController;
+use App\Http\Controllers\Api\V1\TopologyTraversalController;
 use App\Http\Controllers\Api\V1\UispImportController;
 use App\Http\Controllers\Api\V1\UserController;
 use Illuminate\Support\Facades\Route;
@@ -133,6 +134,10 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::get('/fim/splitter-profiles/{splitterProfile}/branches', [SplitterBranchController::class, 'index']);
     Route::post('/fim/splitter-profiles/{splitterProfile}/branches', [SplitterBranchController::class, 'store']);
     Route::delete('/fim/splitter-branches/{splitterBranch}', [SplitterBranchController::class, 'destroy']);
+
+    // FIM — Physical Topology Traversal (read-only)
+    Route::get('/fim/topology/terminations/{fiberTermination}', [TopologyTraversalController::class, 'fromTermination']);
+    Route::get('/fim/topology/ports/{passiveOpticalPort}', [TopologyTraversalController::class, 'fromPort']);
 
     // Asset Lifecycle
     Route::get('/assets/{asset}/lifecycle', [AssetLifecycleController::class, 'index']);
