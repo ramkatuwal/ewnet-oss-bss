@@ -9,6 +9,7 @@ use App\Http\Requests\Api\V1\UpdateFiberCoreRequest;
 use App\Http\Resources\V1\FiberCoreResource;
 use App\Models\FiberCore;
 use App\Models\FiberSegment;
+use App\Models\FiberTermination;
 use App\Services\AuditService;
 use App\Services\Fim\FiberCoreService;
 use App\Services\ManagementScopeService;
@@ -77,6 +78,9 @@ class FiberCoreController extends Controller
     public function destroy(FiberCore $fiberCore)
     {
         $this->authorize('delete', $fiberCore);
+        if (FiberTermination::where('fiber_core_id', $fiberCore->id)->exists()) {
+            return response()->json(['message' => 'Fiber core cannot be deleted while it has live fiber terminations.'], 422);
+        }
         $metadata = $this->safeAuditMetadata($fiberCore->only(['fiber_segment_id', 'core_number', 'status', 'color_code']));
         $this->cores->delete($fiberCore);
         AuditService::log('fim.fiber-core.deleted', 'success', $fiberCore, $metadata);

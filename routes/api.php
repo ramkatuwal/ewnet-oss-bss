@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\DepartmentController;
 use App\Http\Controllers\Api\V1\FiberCableController;
 use App\Http\Controllers\Api\V1\FiberCoreController;
 use App\Http\Controllers\Api\V1\FiberSegmentController;
+use App\Http\Controllers\Api\V1\FiberTerminationController;
 use App\Http\Controllers\Api\V1\ImportHistoryController;
 use App\Http\Controllers\Api\V1\IntegrationController;
 use App\Http\Controllers\Api\V1\IntegrationCredentialController;
@@ -104,6 +105,11 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::post('/fim/fiber-segments/{fiberSegment}/cores/generate', [FiberCoreController::class, 'generate']);
     Route::apiResource('/fim/fiber-cores', FiberCoreController::class)->parameters([
         'fiber-cores' => 'fiberCore',
+    ]);
+    Route::get('/fim/fiber-cores/{fiberCore}/terminations', [FiberTerminationController::class, 'index']);
+    Route::post('/fim/fiber-cores/{fiberCore}/terminations', [FiberTerminationController::class, 'store']);
+    Route::apiResource('/fim/fiber-terminations', FiberTerminationController::class)->only(['show', 'update', 'destroy'])->parameters([
+        'fiber-terminations' => 'fiberTermination',
     ]);
 
     // Asset Lifecycle

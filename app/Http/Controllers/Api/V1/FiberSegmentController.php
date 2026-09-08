@@ -8,6 +8,7 @@ use App\Http\Requests\Api\V1\UpdateFiberSegmentRequest;
 use App\Http\Resources\V1\FiberSegmentResource;
 use App\Models\FiberCore;
 use App\Models\FiberSegment;
+use App\Models\FiberTermination;
 use App\Services\AuditService;
 use App\Services\Fim\FiberCableService;
 use App\Services\Fim\FiberSegmentService;
@@ -69,6 +70,12 @@ class FiberSegmentController extends Controller
     public function update(UpdateFiberSegmentRequest $request, FiberSegment $fiberSegment)
     {
         $this->authorize('update', $fiberSegment);
+        foreach (['A' => 'endpoint_a_id', 'B' => 'endpoint_b_id'] as $end => $field) {
+            if ($request->filled($field) && (int) $request->input($field) !== (int) $fiberSegment->{$field}
+                && FiberTermination::where('segment_end', $end)->whereHas('fiberCore', fn ($query) => $query->where('fiber_segment_id', $fiberSegment->id))->exists()) {
+                return response()->json(['message' => "Fiber segment endpoint {$end} cannot change while it has live fiber terminations."], 422);
+            }
+        }
         $oldGeometry = $this->geometrySummary($fiberSegment->id);
         $segment = $this->segments->update($fiberSegment, $request->validated(), $request->user());
         $metadata = $this->safeAuditMetadata($request->validated());

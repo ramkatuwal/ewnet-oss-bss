@@ -6,6 +6,7 @@ use Database\Factories\FiberCoreFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class FiberCore extends Model
@@ -38,6 +39,11 @@ class FiberCore extends Model
     public function fiberSegment(): BelongsTo
     {
         return $this->belongsTo(FiberSegment::class);
+    }
+
+    public function terminations(): HasMany
+    {
+        return $this->hasMany(FiberTermination::class);
     }
 
     public function company(): BelongsTo

@@ -9,6 +9,7 @@ use App\Models\Department;
 use App\Models\FiberCable;
 use App\Models\FiberCore;
 use App\Models\FiberSegment;
+use App\Models\FiberTermination;
 use App\Models\Integration;
 use App\Models\IntegrationCredential;
 use App\Models\NetworkConnectionPoint;
@@ -125,6 +126,9 @@ class ManagementScopeService
         if ($resource instanceof FiberCore) {
             return static::isFiberCoreInScope($resource, $scopeType, $scopeId);
         }
+        if ($resource instanceof FiberTermination) {
+            return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
+        }
         if ($resource instanceof Integration) {
             // Global (system-level) integrations are only reachable via the global scope
             if ($resource->company_id === null) {
@@ -214,6 +218,10 @@ class ManagementScopeService
                 $ids = array_merge($ids, static::getFiberSegmentIdsForScope($type, $id));
             } elseif ($modelClass === FiberCore::class) {
                 $ids = array_merge($ids, static::getFiberCoreIdsForScope($type, $id));
+            } elseif ($modelClass === FiberTermination::class) {
+                if ($type === 'company') {
+                    $ids = array_merge($ids, FiberTermination::where('company_id', $id)->pluck('id')->toArray());
+                }
             } elseif ($modelClass === User::class) {
                 $ids = array_merge($ids, static::getUserIdsForScope($type, $id));
             }
