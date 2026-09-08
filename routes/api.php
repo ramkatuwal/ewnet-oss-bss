@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\LibreNMSImportController;
 use App\Http\Controllers\Api\V1\LibreNMSSiteController;
 use App\Http\Controllers\Api\V1\ManagementScopeController;
 use App\Http\Controllers\Api\V1\NetworkConnectionPointController;
+use App\Http\Controllers\Api\V1\PassiveOpticalPortController;
 use App\Http\Controllers\Api\V1\PermissionController;
 use App\Http\Controllers\Api\V1\PhotoController;
 use App\Http\Controllers\Api\V1\PhysicalConnectionController;
@@ -113,6 +114,11 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
         'fiber-terminations' => 'fiberTermination',
     ]);
     Route::apiResource('/fim/physical-connections', PhysicalConnectionController::class)->parameters(['physical-connections' => 'physicalConnection']);
+    Route::get('/assets/{asset}/passive-optical-ports', [PassiveOpticalPortController::class, 'index']);
+    Route::post('/assets/{asset}/passive-optical-ports', [PassiveOpticalPortController::class, 'store']);
+    Route::apiResource('/fim/passive-optical-ports', PassiveOpticalPortController::class)->only(['show', 'update', 'destroy'])->parameters([
+        'passive-optical-ports' => 'passiveOpticalPort',
+    ]);
 
     // Asset Lifecycle
     Route::get('/assets/{asset}/lifecycle', [AssetLifecycleController::class, 'index']);

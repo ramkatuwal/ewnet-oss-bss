@@ -13,6 +13,7 @@ use App\Models\FiberTermination;
 use App\Models\Integration;
 use App\Models\IntegrationCredential;
 use App\Models\NetworkConnectionPoint;
+use App\Models\PassiveOpticalPort;
 use App\Models\PhysicalConnection;
 use App\Models\Region;
 use App\Models\Site;
@@ -133,6 +134,9 @@ class ManagementScopeService
         if ($resource instanceof PhysicalConnection) {
             return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
         }
+        if ($resource instanceof PassiveOpticalPort) {
+            return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
+        }
         if ($resource instanceof Integration) {
             // Global (system-level) integrations are only reachable via the global scope
             if ($resource->company_id === null) {
@@ -229,6 +233,10 @@ class ManagementScopeService
             } elseif ($modelClass === PhysicalConnection::class) {
                 if ($type === 'company') {
                     $ids = array_merge($ids, PhysicalConnection::where('company_id', $id)->pluck('id')->toArray());
+                }
+            } elseif ($modelClass === PassiveOpticalPort::class) {
+                if ($type === 'company') {
+                    $ids = array_merge($ids, PassiveOpticalPort::where('company_id', $id)->pluck('id')->toArray());
                 }
             } elseif ($modelClass === User::class) {
                 $ids = array_merge($ids, static::getUserIdsForScope($type, $id));

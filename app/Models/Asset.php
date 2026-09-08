@@ -57,6 +57,18 @@ class Asset extends Model
         'OTHER',
     ];
 
+    // Passive FIM inventory types. Existing free-form asset types remain valid.
+    public const PASSIVE_TYPES = [
+        'CABINET',
+        'CLOSURE',
+        'FAT',
+        'FDT',
+        'FDH',
+        'ODF',
+        'PATCH_PANEL',
+        'SPLITTER',
+    ];
+
     // Statuses
     const STATUSES = [
         'OPERATIONAL',
@@ -116,6 +128,11 @@ class Asset extends Model
     public function interfaces(): HasMany
     {
         return $this->hasMany(AssetInterface::class);
+    }
+
+    public function passiveOpticalPorts(): HasMany
+    {
+        return $this->hasMany(PassiveOpticalPort::class);
     }
 
     public function ipAddresses(): HasManyThrough
