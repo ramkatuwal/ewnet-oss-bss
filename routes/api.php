@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\V1\PublicBrandingController;
 use App\Http\Controllers\Api\V1\RegionController;
 use App\Http\Controllers\Api\V1\RoleController;
 use App\Http\Controllers\Api\V1\SiteController;
+use App\Http\Controllers\Api\V1\SplitterProfileController;
 use App\Http\Controllers\Api\V1\SystemConfigController;
 use App\Http\Controllers\Api\V1\SystemInfoController;
 use App\Http\Controllers\Api\V1\UispImportController;
@@ -123,6 +124,11 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::apiResource('/fim/passive-optical-ports', PassiveOpticalPortController::class)->only(['show', 'update', 'destroy'])->parameters([
         'passive-optical-ports' => 'passiveOpticalPort',
     ]);
+    Route::get('/assets/{asset}/splitter-profile', [SplitterProfileController::class, 'show']);
+    Route::post('/assets/{asset}/splitter-profile', [SplitterProfileController::class, 'store']);
+    Route::patch('/fim/splitter-profiles/{splitterProfile}', [SplitterProfileController::class, 'update']);
+    Route::delete('/fim/splitter-profiles/{splitterProfile}', [SplitterProfileController::class, 'destroy']);
+    Route::post('/fim/splitter-profiles/{splitterProfile}/ports/generate', [SplitterProfileController::class, 'generate']);
 
     // Asset Lifecycle
     Route::get('/assets/{asset}/lifecycle', [AssetLifecycleController::class, 'index']);

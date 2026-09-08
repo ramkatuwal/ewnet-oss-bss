@@ -18,6 +18,7 @@ use App\Models\PassiveOpticalPort;
 use App\Models\PhysicalConnection;
 use App\Models\Region;
 use App\Models\Site;
+use App\Models\SplitterProfile;
 use App\Models\User;
 use App\Models\UserManagementScope;
 use Illuminate\Database\Eloquent\Builder;
@@ -141,6 +142,9 @@ class ManagementScopeService
         if ($resource instanceof PassiveOpticalPort) {
             return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
         }
+        if ($resource instanceof SplitterProfile) {
+            return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
+        }
         if ($resource instanceof Integration) {
             // Global (system-level) integrations are only reachable via the global scope
             if ($resource->company_id === null) {
@@ -245,6 +249,10 @@ class ManagementScopeService
             } elseif ($modelClass === PassiveOpticalPort::class) {
                 if ($type === 'company') {
                     $ids = array_merge($ids, PassiveOpticalPort::where('company_id', $id)->pluck('id')->toArray());
+                }
+            } elseif ($modelClass === SplitterProfile::class) {
+                if ($type === 'company') {
+                    $ids = array_merge($ids, SplitterProfile::where('company_id', $id)->pluck('id')->toArray());
                 }
             } elseif ($modelClass === User::class) {
                 $ids = array_merge($ids, static::getUserIdsForScope($type, $id));

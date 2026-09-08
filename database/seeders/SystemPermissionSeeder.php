@@ -98,6 +98,7 @@ class SystemPermissionSeeder extends Seeder
             'fim.termination-port-attachments.delete',
             'fim.physical-connections.view', 'fim.physical-connections.create', 'fim.physical-connections.update', 'fim.physical-connections.delete',
             'fim.passive-optical-ports.view', 'fim.passive-optical-ports.create', 'fim.passive-optical-ports.update', 'fim.passive-optical-ports.delete',
+            'fim.splitter-profiles.view', 'fim.splitter-profiles.create', 'fim.splitter-profiles.update', 'fim.splitter-profiles.delete', 'fim.splitter-profiles.generate-ports',
         ];
 
         foreach ($permissions as $permission) {

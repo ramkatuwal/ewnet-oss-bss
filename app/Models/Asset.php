@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Asset extends Model
@@ -133,6 +134,11 @@ class Asset extends Model
     public function passiveOpticalPorts(): HasMany
     {
         return $this->hasMany(PassiveOpticalPort::class);
+    }
+
+    public function splitterProfile(): HasOne
+    {
+        return $this->hasOne(SplitterProfile::class);
     }
 
     public function ipAddresses(): HasManyThrough
