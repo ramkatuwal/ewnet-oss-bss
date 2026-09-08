@@ -9,6 +9,7 @@ use App\Http\Resources\V1\FiberTerminationResource;
 use App\Models\FiberCore;
 use App\Models\FiberTermination;
 use App\Models\NetworkConnectionPoint;
+use App\Models\PhysicalConnection;
 use App\Services\AuditService;
 use App\Services\Fim\FiberTerminationService;
 use App\Services\ManagementScopeService;
@@ -67,6 +68,9 @@ class FiberTerminationController extends Controller
     public function destroy(FiberTermination $fiberTermination)
     {
         $this->authorize('delete', $fiberTermination);
+        if (PhysicalConnection::withTrashed()->where('termination_a_id', $fiberTermination->id)->orWhere('termination_b_id', $fiberTermination->id)->exists()) {
+            return response()->json(['message' => 'Fiber termination cannot be deleted while it has physical connection history.'], 422);
+        }
         $metadata = $this->auditMetadata($fiberTermination);
         $this->terminations->delete($fiberTermination);
         AuditService::log('fim.fiber-termination.deleted', 'success', $fiberTermination, $metadata);

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class FiberTermination extends Model
@@ -27,6 +28,16 @@ class FiberTermination extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function connectionsA(): HasMany
+    {
+        return $this->hasMany(PhysicalConnection::class, 'termination_a_id');
+    }
+
+    public function connectionsB(): HasMany
+    {
+        return $this->hasMany(PhysicalConnection::class, 'termination_b_id');
     }
 
     public function createdBy(): BelongsTo

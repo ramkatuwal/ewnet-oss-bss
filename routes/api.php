@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\V1\ManagementScopeController;
 use App\Http\Controllers\Api\V1\NetworkConnectionPointController;
 use App\Http\Controllers\Api\V1\PermissionController;
 use App\Http\Controllers\Api\V1\PhotoController;
+use App\Http\Controllers\Api\V1\PhysicalConnectionController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\PublicBrandingController;
 use App\Http\Controllers\Api\V1\RegionController;
@@ -111,6 +112,7 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::apiResource('/fim/fiber-terminations', FiberTerminationController::class)->only(['show', 'update', 'destroy'])->parameters([
         'fiber-terminations' => 'fiberTermination',
     ]);
+    Route::apiResource('/fim/physical-connections', PhysicalConnectionController::class)->parameters(['physical-connections' => 'physicalConnection']);
 
     // Asset Lifecycle
     Route::get('/assets/{asset}/lifecycle', [AssetLifecycleController::class, 'index']);
