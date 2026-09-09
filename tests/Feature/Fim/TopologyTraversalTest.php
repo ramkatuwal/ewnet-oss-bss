@@ -280,6 +280,7 @@ class TopologyTraversalTest extends TestCase
 
         $t1 = $this->terminationAt($company, $ncp);
         $t2 = $this->terminationAt($company, $ncp);
+        $t3 = $this->terminationAt($company, $ncp);
         $port1 = PassiveOpticalPort::factory()->create([
             'asset_id' => $asset->id,
             'network_connection_point_id' => $ncp->id,
@@ -292,7 +293,7 @@ class TopologyTraversalTest extends TestCase
             'connection_type' => 'fusion_splice',
             'company_id' => $company->id,
         ]);
-        $this->insertAttachment($t2, $port1, $company);
+        $this->insertAttachment($t3, $port1, $company);
 
         $user = $this->user($company, $this->permissions());
 
@@ -496,7 +497,10 @@ class TopologyTraversalTest extends TestCase
         $company = Company::factory()->create();
         [$ncp, $site, $asset] = $this->endpoint($company);
 
-        // Build: T1 →splice→ T2 →attachment→ portOut →splitter→ portIn →attachment→ T3
+        // Build a valid mixed-edge graph (no termination has both splice and attachment):
+        // Splice path:  T1 →splice→ T2
+        // Attachment path: T3 →attachment→ portOut →splitter→ portIn →attachment→ T4
+        // Both subgraphs exist in the same NCP scope.
         $t1 = $this->terminationAt($company, $ncp);
         $t2 = $this->terminationAt($company, $ncp);
 
@@ -521,16 +525,13 @@ class TopologyTraversalTest extends TestCase
             'company_id' => $company->id,
         ]);
 
-        // portOut: on splitter asset, at ODF NCP (so T2 can attach to it)
         $portOut = PassiveOpticalPort::factory()->create([
             'asset_id' => $splitterAsset->id,
             'network_connection_point_id' => $ncp->id,
             'company_id' => $company->id,
             'port_role' => 'splitter_output',
         ]);
-        $this->insertAttachment($t2, $portOut, $company);
 
-        // portIn: on splitter asset, at splitter NCP
         $portIn = PassiveOpticalPort::factory()->create([
             'asset_id' => $splitterAsset->id,
             'company_id' => $company->id,
@@ -538,8 +539,8 @@ class TopologyTraversalTest extends TestCase
             'port_role' => 'splitter_input',
         ]);
 
-        // T3 must be at splitterNcp to attach to portIn
-        $t3 = $this->terminationAt($company, $splitterNcp);
+        $t3 = $this->terminationAt($company, $ncp);
+        $t4 = $this->terminationAt($company, $splitterNcp);
 
         $profile = SplitterProfile::create([
             'asset_id' => $splitterAsset->id,
@@ -555,20 +556,33 @@ class TopologyTraversalTest extends TestCase
             'output_port_id' => $portOut->id,
         ]);
 
-        $this->insertAttachment($t3, $portIn, $company);
+        $this->insertAttachment($t3, $portOut, $company);
+        $this->insertAttachment($t4, $portIn, $company);
 
         $user = $this->user($company, $this->permissions());
 
+        // Verify splice path from T1
         $response = $this->actingAs($user, 'sanctum')
             ->getJson("/api/v1/fim/topology/terminations/{$t1->id}");
 
         $response->assertOk()
-            ->assertJsonPath('data.depth', 4)
-            ->assertJsonCount(5, 'data.nodes')
-            ->assertJsonCount(4, 'data.edges');
+            ->assertJsonPath('data.depth', 1)
+            ->assertJsonCount(2, 'data.nodes')
+            ->assertJsonCount(1, 'data.edges');
 
         $edgeTypes = array_column($response->json('data.edges'), 'type');
         $this->assertContains('PhysicalConnection', $edgeTypes);
+
+        // Verify attachment+splitter path from T3
+        $response = $this->actingAs($user, 'sanctum')
+            ->getJson("/api/v1/fim/topology/terminations/{$t3->id}");
+
+        $response->assertOk()
+            ->assertJsonPath('data.depth', 3)
+            ->assertJsonCount(4, 'data.nodes')
+            ->assertJsonCount(3, 'data.edges');
+
+        $edgeTypes = array_column($response->json('data.edges'), 'type');
         $this->assertContains('FiberTerminationPortAttachment', $edgeTypes);
         $this->assertContains('SplitterBranch', $edgeTypes);
 

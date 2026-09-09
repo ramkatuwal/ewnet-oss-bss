@@ -15,6 +15,7 @@ use App\Models\PhysicalConnection;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\UserManagementScope;
+use App\Services\Fim\StrandContinuityService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -367,73 +368,101 @@ class StrandContinuityTest extends TestCase
 
     // ── Splice + attachment conflict ─────────────────────────────
 
-    public function test_splice_plus_attachment_conflict(): void
+    public function test_detect_conflict_returns_topology_conflict_when_both_edges_exist(): void
     {
         $company = Company::factory()->create();
         $user = $this->user($company);
 
-        $site = Site::factory()->create(['company_id' => $company->id]);
-        $ncp = NetworkConnectionPoint::factory()->create(['site_id' => $site->id, 'company_id' => $company->id]);
-        $pointA = NetworkConnectionPoint::factory()->create(['site_id' => $site->id, 'company_id' => $company->id]);
-        $pointB = NetworkConnectionPoint::factory()->create(['site_id' => $site->id, 'company_id' => $company->id]);
+        $splice = new PhysicalConnection([
+            'connection_type' => 'fusion_splice',
+            'company_id' => $company->id,
+        ]);
+        $splice->id = 9001;
+        $attachment = new FiberTerminationPortAttachment([
+            'passive_optical_port_id' => 9999,
+            'company_id' => $company->id,
+        ]);
+        $attachment->id = 9002;
 
-        $cable = $this->cable($company);
-        $seg1 = $this->segment($cable, $pointA, $ncp, ['sequence' => 1]);
-        $seg2 = $this->segment($cable, $ncp, $pointB, ['sequence' => 2]);
-        $core1 = $this->core($seg1, 1);
-        $core2 = $this->core($seg2, 2);
+        $result = StrandContinuityService::detectConflict($splice, $attachment, $user);
 
-        $termA = $this->termination($core1, 'B', $ncp);
-        $termB = $this->termination($core2, 'A', $ncp);
-        $this->splice($termA, $termB);
-
-        $port = $this->passivePort($company, $ncp);
-        $this->attachment($termA, $port);
-
-        $response = $this->actingAs($user)
-            ->getJson("/api/v1/fim/fiber-cores/{$core1->id}/strand-path");
-
-        $response->assertOk()
-            ->assertJsonPath('data.terminal_b.type', 'topology_conflict')
-            ->assertJsonCount(1, 'data.cores')
-            ->assertJsonCount(0, 'data.connections');
-
-        $conflictData = $response->json('data.terminal_b.data');
-        $this->assertArrayHasKey('splice', $conflictData);
-        $this->assertArrayHasKey('attachment', $conflictData);
+        $this->assertIsArray($result);
+        $this->assertSame('topology_conflict', $result['type']);
+        $this->assertNull($result['id']);
+        $this->assertArrayHasKey('splice', $result['data']);
+        $this->assertArrayHasKey('attachment', $result['data']);
+        $this->assertSame(9001, $result['data']['splice']['id']);
+        $this->assertSame('fusion_splice', $result['data']['splice']['connection_type']);
+        $this->assertSame(9002, $result['data']['attachment']['id']);
+        $this->assertSame(9999, $result['data']['attachment']['passive_optical_port_id']);
     }
 
-    public function test_conflict_does_not_prefer_splice(): void
+    public function test_detect_conflict_returns_null_when_only_splice_exists(): void
     {
         $company = Company::factory()->create();
         $user = $this->user($company);
 
-        $site = Site::factory()->create(['company_id' => $company->id]);
-        $ncp = NetworkConnectionPoint::factory()->create(['site_id' => $site->id, 'company_id' => $company->id]);
-        $pointA = NetworkConnectionPoint::factory()->create(['site_id' => $site->id, 'company_id' => $company->id]);
-        $pointB = NetworkConnectionPoint::factory()->create(['site_id' => $site->id, 'company_id' => $company->id]);
+        $splice = new PhysicalConnection([
+            'id' => 9001,
+            'connection_type' => 'fusion_splice',
+            'company_id' => $company->id,
+        ]);
 
-        $cable = $this->cable($company);
-        $seg1 = $this->segment($cable, $pointA, $ncp, ['sequence' => 1]);
-        $seg2 = $this->segment($cable, $ncp, $pointB, ['sequence' => 2]);
-        $core1 = $this->core($seg1, 1);
-        $core2 = $this->core($seg2, 2);
+        $result = StrandContinuityService::detectConflict($splice, null, $user);
 
-        $termA = $this->termination($core1, 'B', $ncp);
-        $termB = $this->termination($core2, 'A', $ncp);
-        $this->splice($termA, $termB);
+        $this->assertNull($result);
+    }
 
-        $port = $this->passivePort($company, $ncp);
-        $this->attachment($termA, $port);
+    public function test_detect_conflict_returns_null_when_only_attachment_exists(): void
+    {
+        $company = Company::factory()->create();
+        $user = $this->user($company);
 
-        $response = $this->actingAs($user)
-            ->getJson("/api/v1/fim/fiber-cores/{$core1->id}/strand-path");
+        $attachment = new FiberTerminationPortAttachment([
+            'id' => 9002,
+            'passive_optical_port_id' => 9999,
+            'company_id' => $company->id,
+        ]);
 
-        $response->assertOk();
+        $result = StrandContinuityService::detectConflict(null, $attachment, $user);
 
-        $coreIds = array_column($response->json('data.cores'), 'fiber_core_id');
-        $this->assertContains($core1->id, $coreIds);
-        $this->assertNotContains($core2->id, $coreIds, 'Conflict must not silently follow the splice');
+        $this->assertNull($result);
+    }
+
+    public function test_detect_conflict_returns_null_when_neither_exists(): void
+    {
+        $company = Company::factory()->create();
+        $user = $this->user($company);
+
+        $result = StrandContinuityService::detectConflict(null, null, $user);
+
+        $this->assertNull($result);
+    }
+
+    public function test_detect_conflict_excludes_unscopedsplice_from_data(): void
+    {
+        $company = Company::factory()->create();
+        $otherCompany = Company::factory()->create();
+        $user = $this->user($company);
+
+        // Splice belongs to other company — not in user's scope
+        $splice = new PhysicalConnection([
+            'id' => 9001,
+            'connection_type' => 'fusion_splice',
+            'company_id' => $otherCompany->id,
+        ]);
+        $attachment = new FiberTerminationPortAttachment([
+            'id' => 9002,
+            'passive_optical_port_id' => 9999,
+            'company_id' => $company->id,
+        ]);
+
+        $result = StrandContinuityService::detectConflict($splice, $attachment, $user);
+
+        $this->assertIsArray($result);
+        $this->assertSame('topology_conflict', $result['type']);
+        $this->assertArrayNotHasKey('splice', $result['data'], 'Unscoped splice must not appear in conflict data');
+        $this->assertArrayHasKey('attachment', $result['data']);
     }
 
     // ── Damaged/unknown cores ────────────────────────────────────

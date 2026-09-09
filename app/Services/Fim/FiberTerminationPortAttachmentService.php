@@ -5,6 +5,7 @@ namespace App\Services\Fim;
 use App\Models\FiberTermination;
 use App\Models\FiberTerminationPortAttachment;
 use App\Models\PassiveOpticalPort;
+use App\Models\PhysicalConnection;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -31,6 +32,9 @@ class FiberTerminationPortAttachmentService
             }
             if (FiberTerminationPortAttachment::where('passive_optical_port_id', $port->id)->exists()) {
                 throw ValidationException::withMessages(['passive_optical_port_id' => 'The passive optical port already has a live fiber termination attachment.']);
+            }
+            if (PhysicalConnection::whereNull('deleted_at')->where(fn ($q) => $q->where('termination_a_id', $termination->id)->orWhere('termination_b_id', $termination->id))->exists()) {
+                throw ValidationException::withMessages(['fiber_termination_id' => 'The fiber termination already has a live physical connection.']);
             }
 
             return FiberTerminationPortAttachment::create([

@@ -15,6 +15,41 @@ class StrandContinuityService
 {
     private const MAX_DEPTH = 50;
 
+    /**
+     * Detect splice+attachment conflict on a termination.
+     *
+     * Returns the terminal array if both edges exist, null otherwise.
+     * Extracted for unit testing without database state.
+     */
+    public static function detectConflict(
+        ?PhysicalConnection $splice,
+        ?FiberTerminationPortAttachment $attachment,
+        User $user,
+    ): ?array {
+        if ($splice === null || $attachment === null) {
+            return null;
+        }
+
+        $spliceInScope = ManagementScopeService::isInScope($user, $splice);
+        $attachmentInScope = ManagementScopeService::isInScope($user, $attachment);
+
+        $conflictData = [];
+        if ($spliceInScope) {
+            $conflictData['splice'] = [
+                'id' => $splice->id,
+                'connection_type' => $splice->connection_type,
+            ];
+        }
+        if ($attachmentInScope) {
+            $conflictData['attachment'] = [
+                'id' => $attachment->id,
+                'passive_optical_port_id' => $attachment->passive_optical_port_id,
+            ];
+        }
+
+        return ['type' => 'topology_conflict', 'id' => null, 'data' => $conflictData];
+    }
+
     public function traceFromCore(
         FiberCore $startCore,
         User $user,
@@ -156,24 +191,7 @@ class StrandContinuityService
                 ->first();
 
             if ($splice !== null && $attachment !== null) {
-                $spliceInScope = ManagementScopeService::isInScope($user, $splice);
-                $attachmentInScope = ManagementScopeService::isInScope($user, $attachment);
-
-                $conflictData = [];
-                if ($spliceInScope) {
-                    $conflictData['splice'] = [
-                        'id' => $splice->id,
-                        'connection_type' => $splice->connection_type,
-                    ];
-                }
-                if ($attachmentInScope) {
-                    $conflictData['attachment'] = [
-                        'id' => $attachment->id,
-                        'passive_optical_port_id' => $attachment->passive_optical_port_id,
-                    ];
-                }
-
-                $terminal = ['type' => 'topology_conflict', 'id' => null, 'data' => $conflictData];
+                $terminal = self::detectConflict($splice, $attachment, $user);
 
                 return;
             }
