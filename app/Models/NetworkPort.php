@@ -74,4 +74,9 @@ class NetworkPort extends Model
     {
         return $this->hasOne(PonDomain::class, 'olt_port_id');
     }
+
+    public function switchingConfiguration(): HasOne
+    {
+        return $this->hasOne(NetworkPortSwitchingConfig::class);
+    }
 }

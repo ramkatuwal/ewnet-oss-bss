@@ -119,6 +119,9 @@ class SystemPermissionSeeder extends Seeder
             'net.vlans.create',
             'net.vlans.update',
             'net.vlans.delete',
+            'net.port-switching-configs.view',
+            'net.port-switching-configs.configure',
+            'net.port-switching-configs.delete',
         ];
 
         foreach ($permissions as $permission) {

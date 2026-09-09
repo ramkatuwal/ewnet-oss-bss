@@ -16,6 +16,8 @@ use App\Models\IntegrationCredential;
 use App\Models\NetworkConnectionPoint;
 use App\Models\NetworkPort;
 use App\Models\NetworkPortFiberTerminationAttachment;
+use App\Models\NetworkPortSwitchingConfig;
+use App\Models\NetworkPortVlanMembership;
 use App\Models\PassiveOpticalPort;
 use App\Models\PhysicalConnection;
 use App\Models\PonDomain;
@@ -157,6 +159,9 @@ class ManagementScopeService
         if ($resource instanceof NetworkPort || $resource instanceof NetworkPortFiberTerminationAttachment) {
             return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
         }
+        if ($resource instanceof NetworkPortSwitchingConfig || $resource instanceof NetworkPortVlanMembership) {
+            return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
+        }
         if ($resource instanceof PonDomain) {
             return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
         }
@@ -282,6 +287,14 @@ class ManagementScopeService
             } elseif ($modelClass === NetworkPort::class) {
                 if ($type === 'company') {
                     $ids = array_merge($ids, NetworkPort::where('company_id', $id)->pluck('id')->toArray());
+                }
+            } elseif ($modelClass === NetworkPortSwitchingConfig::class) {
+                if ($type === 'company') {
+                    $ids = array_merge($ids, NetworkPortSwitchingConfig::where('company_id', $id)->pluck('id')->toArray());
+                }
+            } elseif ($modelClass === NetworkPortVlanMembership::class) {
+                if ($type === 'company') {
+                    $ids = array_merge($ids, NetworkPortVlanMembership::where('company_id', $id)->pluck('id')->toArray());
                 }
             } elseif ($modelClass === PonDomain::class) {
                 if ($type === 'company') {

@@ -2,35 +2,34 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Vlan extends Model
+class NetworkPortSwitchingConfig extends Model
 {
-    use HasFactory, SoftDeletes;
+    use SoftDeletes;
 
-    protected $fillable = [
-        'company_id',
-        'vid',
-        'name',
-        'description',
-        'reserved',
-        'metadata',
-        'created_by',
-        'updated_by',
-    ];
+    public const MODES = ['access', 'trunk'];
 
-    protected $casts = [
-        'reserved' => 'boolean',
-        'metadata' => 'array',
-    ];
+    protected $fillable = ['network_port_id', 'company_id', 'mode', 'metadata', 'created_by', 'updated_by'];
+
+    protected $casts = ['metadata' => 'array'];
+
+    public function networkPort(): BelongsTo
+    {
+        return $this->belongsTo(NetworkPort::class);
+    }
 
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function memberships(): HasMany
+    {
+        return $this->hasMany(NetworkPortVlanMembership::class);
     }
 
     public function createdBy(): BelongsTo
@@ -41,10 +40,5 @@ class Vlan extends Model
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
-    }
-
-    public function networkPortVlanMemberships(): HasMany
-    {
-        return $this->hasMany(NetworkPortVlanMembership::class);
     }
 }

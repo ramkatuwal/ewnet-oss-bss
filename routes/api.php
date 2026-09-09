@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\V1\ManagementScopeController;
 use App\Http\Controllers\Api\V1\NetworkConnectionPointController;
 use App\Http\Controllers\Api\V1\NetworkPortController;
 use App\Http\Controllers\Api\V1\NetworkPortFiberTerminationAttachmentController;
+use App\Http\Controllers\Api\V1\NetworkPortSwitchingConfigController;
 use App\Http\Controllers\Api\V1\PassiveOpticalPortController;
 use App\Http\Controllers\Api\V1\PermissionController;
 use App\Http\Controllers\Api\V1\PhotoController;
@@ -105,6 +106,9 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::get('/fim/network-ports/{networkPort}', [NetworkPortController::class, 'show']);
     Route::patch('/fim/network-ports/{networkPort}', [NetworkPortController::class, 'update']);
     Route::delete('/fim/network-ports/{networkPort}', [NetworkPortController::class, 'destroy']);
+    Route::get('/network-ports/{networkPort}/switching-configuration', [NetworkPortSwitchingConfigController::class, 'show']);
+    Route::put('/network-ports/{networkPort}/switching-configuration', [NetworkPortSwitchingConfigController::class, 'replace']);
+    Route::delete('/network-ports/{networkPort}/switching-configuration', [NetworkPortSwitchingConfigController::class, 'destroy']);
 
     // PON Domains (logical PON identity)
     Route::get('/network-ports/{networkPort}/pon-domains', [PonDomainController::class, 'index']);
