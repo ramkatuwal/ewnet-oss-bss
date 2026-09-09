@@ -17,6 +17,7 @@ class UpdateNetworkPortRequest extends FormRequest
             'port_number' => ['sometimes', 'nullable', 'string', 'max:50'],
             'connector_type' => ['sometimes', 'nullable', 'string', 'max:50'],
             'port_direction' => ['sometimes', 'nullable', 'string', Rule::in(NetworkPort::PORT_DIRECTIONS)],
+            'technology' => ['sometimes', 'nullable', 'string', Rule::in(NetworkPort::TECHNOLOGIES)],
             'metadata' => ['sometimes', 'nullable', 'array'],
         ];
     }

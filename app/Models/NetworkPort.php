@@ -17,6 +17,8 @@ class NetworkPort extends Model
 
     public const STATUSES = ['active', 'inactive', 'maintenance', 'faulty'];
 
+    public const TECHNOLOGIES = ['gpon', 'epon', 'xgs-pon', '10g-epon'];
+
     protected $fillable = [
         'asset_id',
         'company_id',
@@ -27,6 +29,7 @@ class NetworkPort extends Model
         'port_number',
         'connector_type',
         'port_direction',
+        'technology',
         'metadata',
         'created_by',
         'updated_by',

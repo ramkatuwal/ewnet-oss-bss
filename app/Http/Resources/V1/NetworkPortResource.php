@@ -20,6 +20,7 @@ class NetworkPortResource extends JsonResource
             'port_number' => $this->port_number,
             'connector_type' => $this->connector_type,
             'port_direction' => $this->port_direction,
+            'technology' => $this->technology,
             'metadata' => $this->metadata,
             'created_by' => $this->created_by,
             'updated_by' => $this->updated_by,

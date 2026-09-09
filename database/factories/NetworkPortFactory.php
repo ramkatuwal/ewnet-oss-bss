@@ -33,6 +33,7 @@ class NetworkPortFactory extends Factory
             'port_number' => $this->faker->optional()->numberBetween(1, 48),
             'connector_type' => $this->faker->optional()->randomElement(['SC/APC', 'LC/APC', 'RJ45', 'SFP']),
             'port_direction' => $this->faker->optional()->randomElement(NetworkPort::PORT_DIRECTIONS),
+            'technology' => $this->faker->optional()->randomElement(NetworkPort::TECHNOLOGIES),
             'metadata' => null,
             'created_by' => User::factory(),
             'updated_by' => User::factory(),

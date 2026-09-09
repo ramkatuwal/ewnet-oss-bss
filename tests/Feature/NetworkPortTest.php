@@ -13,8 +13,10 @@ use App\Models\NetworkPort;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\UserManagementScope;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class NetworkPortTest extends TestCase
@@ -715,5 +717,199 @@ class NetworkPortTest extends TestCase
         $asset->update(['type' => 'SWITCH']);
 
         $this->assertDatabaseHas('assets', ['id' => $asset->id, 'type' => 'SWITCH']);
+    }
+
+    // --- PON Technology Classification Tests (NED-005a) ---
+
+    public function test_null_technology_accepted(): void
+    {
+        $company = Company::factory()->create();
+        $user = $this->user($company, ['net.network-ports.view', 'net.network-ports.create', 'assets.view']);
+        $asset = $this->networkAsset($company);
+
+        $response = $this->actingAs($user)->postJson("/api/v1/assets/{$asset->id}/network-ports", [
+            'port_key' => 'ETH1',
+            'technology' => null,
+        ]);
+
+        $response->assertCreated();
+        $this->assertDatabaseHas('network_ports', ['asset_id' => $asset->id, 'port_key' => 'ETH1', 'technology' => null]);
+    }
+
+    public function test_technology_omitted_defaults_to_null(): void
+    {
+        $company = Company::factory()->create();
+        $user = $this->user($company, ['net.network-ports.view', 'net.network-ports.create', 'assets.view']);
+        $asset = $this->networkAsset($company);
+
+        $response = $this->actingAs($user)->postJson("/api/v1/assets/{$asset->id}/network-ports", [
+            'port_key' => 'ETH2',
+        ]);
+
+        $response->assertCreated();
+        $this->assertDatabaseHas('network_ports', ['asset_id' => $asset->id, 'port_key' => 'ETH2', 'technology' => null]);
+    }
+
+    #[DataProvider('allowedTechnologies')]
+    public function test_each_allowed_technology_accepted(string $technology): void
+    {
+        $company = Company::factory()->create();
+        $user = $this->user($company, ['net.network-ports.view', 'net.network-ports.create', 'assets.view']);
+        $asset = $this->networkAsset($company);
+
+        $response = $this->actingAs($user)->postJson("/api/v1/assets/{$asset->id}/network-ports", [
+            'port_key' => "PON-{$technology}",
+            'technology' => $technology,
+        ]);
+
+        $response->assertCreated();
+        $this->assertDatabaseHas('network_ports', ['asset_id' => $asset->id, 'port_key' => "PON-{$technology}", 'technology' => $technology]);
+    }
+
+    public static function allowedTechnologies(): array
+    {
+        return array_map(fn ($t) => [$t], NetworkPort::TECHNOLOGIES);
+    }
+
+    public function test_invalid_technology_rejected_by_api(): void
+    {
+        $company = Company::factory()->create();
+        $user = $this->user($company, ['net.network-ports.view', 'net.network-ports.create', 'assets.view']);
+        $asset = $this->networkAsset($company);
+
+        $this->actingAs($user)->postJson("/api/v1/assets/{$asset->id}/network-ports", [
+            'port_key' => 'BAD1',
+            'technology' => 'invalid-tech',
+        ])->assertUnprocessable();
+    }
+
+    public function test_invalid_technology_rejected_by_raw_db(): void
+    {
+        $company = Company::factory()->create();
+        $asset = $this->networkAsset($company);
+
+        try {
+            DB::table('network_ports')->insert([
+                'asset_id' => $asset->id,
+                'company_id' => $company->id,
+                'port_key' => 'BAD-RAW',
+                'technology' => 'bad_value',
+            ]);
+            $this->fail('Raw DB insert with invalid technology should fail.');
+        } catch (QueryException $e) {
+            $this->assertStringContainsString('network_ports_technology_check', $e->getMessage());
+        }
+    }
+
+    public function test_technology_update_via_api(): void
+    {
+        $company = Company::factory()->create();
+        $user = $this->user($company, ['net.network-ports.view', 'net.network-ports.create', 'net.network-ports.update', 'assets.view']);
+        $asset = $this->networkAsset($company);
+        $port = NetworkPort::factory()->create(['asset_id' => $asset->id, 'company_id' => $company->id, 'technology' => null]);
+
+        $this->actingAs($user)->patchJson("/api/v1/fim/network-ports/{$port->id}", [
+            'technology' => 'xgs-pon',
+        ])->assertOk();
+
+        $this->assertDatabaseHas('network_ports', ['id' => $port->id, 'technology' => 'xgs-pon']);
+    }
+
+    public function test_technology_clear_via_api(): void
+    {
+        $company = Company::factory()->create();
+        $user = $this->user($company, ['net.network-ports.view', 'net.network-ports.create', 'net.network-ports.update', 'assets.view']);
+        $asset = $this->networkAsset($company);
+        $port = NetworkPort::factory()->create(['asset_id' => $asset->id, 'company_id' => $company->id, 'technology' => 'gpon']);
+
+        $this->actingAs($user)->patchJson("/api/v1/fim/network-ports/{$port->id}", [
+            'technology' => null,
+        ])->assertOk();
+
+        $this->assertDatabaseHas('network_ports', ['id' => $port->id, 'technology' => null]);
+    }
+
+    public function test_invalid_technology_update_rejected_by_api(): void
+    {
+        $company = Company::factory()->create();
+        $user = $this->user($company, ['net.network-ports.view', 'net.network-ports.update', 'assets.view']);
+        $asset = $this->networkAsset($company);
+        $port = NetworkPort::factory()->create(['asset_id' => $asset->id, 'company_id' => $company->id]);
+
+        $this->actingAs($user)->patchJson("/api/v1/fim/network-ports/{$port->id}", [
+            'technology' => 'bad_value',
+        ])->assertUnprocessable();
+    }
+
+    public function test_existing_non_pon_port_crud_unaffected(): void
+    {
+        $company = Company::factory()->create();
+        $user = $this->user($company, ['net.network-ports.view', 'net.network-ports.create', 'net.network-ports.update', 'net.network-ports.delete', 'assets.view']);
+        $asset = $this->networkAsset($company, 'SWITCH');
+
+        // Create without technology
+        $response = $this->actingAs($user)->postJson("/api/v1/assets/{$asset->id}/network-ports", [
+            'port_key' => 'ETH0',
+            'connector_type' => 'RJ45',
+            'port_direction' => 'access',
+        ]);
+        $response->assertCreated();
+        $portId = $response->json('data.id');
+
+        // Read
+        $this->actingAs($user)->getJson("/api/v1/fim/network-ports/{$portId}")->assertOk();
+
+        // Update (non-technology field)
+        $this->actingAs($user)->patchJson("/api/v1/fim/network-ports/{$portId}", [
+            'name' => 'Updated Ethernet',
+        ])->assertOk();
+        $this->assertDatabaseHas('network_ports', ['id' => $portId, 'name' => 'Updated Ethernet', 'technology' => null]);
+
+        // Delete
+        $this->actingAs($user)->deleteJson("/api/v1/fim/network-ports/{$portId}")->assertOk();
+    }
+
+    public function test_soft_deleted_port_technology_preserved(): void
+    {
+        $company = Company::factory()->create();
+        $asset = $this->networkAsset($company);
+        $port = NetworkPort::factory()->create(['asset_id' => $asset->id, 'company_id' => $company->id, 'technology' => 'gpon']);
+
+        $port->delete();
+
+        $this->assertDatabaseHas('network_ports', ['id' => $port->id, 'technology' => 'gpon']);
+        $this->assertSoftDeleted('network_ports', ['id' => $port->id]);
+    }
+
+    public function test_technology_in_resource_response(): void
+    {
+        $company = Company::factory()->create();
+        $user = $this->user($company, ['net.network-ports.view', 'assets.view']);
+        $asset = $this->networkAsset($company);
+        $port = NetworkPort::factory()->create(['asset_id' => $asset->id, 'company_id' => $company->id, 'technology' => 'gpon']);
+
+        $response = $this->actingAs($user)->getJson("/api/v1/fim/network-ports/{$port->id}");
+        $response->assertOk()->assertJsonPath('data.technology', 'gpon');
+    }
+
+    public function test_company_scope_rbac_unchanged_with_technology(): void
+    {
+        $company = Company::factory()->create();
+        $otherCompany = Company::factory()->create();
+        $user = $this->user($company, ['net.network-ports.view', 'net.network-ports.create', 'assets.view']);
+        $asset = $this->networkAsset($company);
+        $otherAsset = $this->networkAsset($otherCompany);
+
+        // Create on own company
+        $this->actingAs($user)->postJson("/api/v1/assets/{$asset->id}/network-ports", [
+            'port_key' => 'PON-OWN',
+            'technology' => 'gpon',
+        ])->assertCreated();
+
+        // Create on other company should fail
+        $this->actingAs($user)->postJson("/api/v1/assets/{$otherAsset->id}/network-ports", [
+            'port_key' => 'PON-OTHER',
+            'technology' => 'gpon',
+        ])->assertForbidden();
     }
 }

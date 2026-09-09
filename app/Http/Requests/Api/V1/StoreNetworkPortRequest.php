@@ -18,6 +18,7 @@ class StoreNetworkPortRequest extends FormRequest
             'port_number' => ['nullable', 'string', 'max:50'],
             'connector_type' => ['nullable', 'string', 'max:50'],
             'port_direction' => ['nullable', 'string', Rule::in(NetworkPort::PORT_DIRECTIONS)],
+            'technology' => ['nullable', 'string', Rule::in(NetworkPort::TECHNOLOGIES)],
             'metadata' => ['nullable', 'array'],
         ];
     }
