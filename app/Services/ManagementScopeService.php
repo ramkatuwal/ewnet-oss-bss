@@ -26,6 +26,7 @@ use App\Models\SplitterBranch;
 use App\Models\SplitterProfile;
 use App\Models\User;
 use App\Models\UserManagementScope;
+use App\Models\Vlan;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -162,6 +163,9 @@ class ManagementScopeService
         if ($resource instanceof PonMembership) {
             return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
         }
+        if ($resource instanceof Vlan) {
+            return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
+        }
         if ($resource instanceof Integration) {
             // Global (system-level) integrations are only reachable via the global scope
             if ($resource->company_id === null) {
@@ -286,6 +290,10 @@ class ManagementScopeService
             } elseif ($modelClass === PonMembership::class) {
                 if ($type === 'company') {
                     $ids = array_merge($ids, PonMembership::where('company_id', $id)->pluck('id')->toArray());
+                }
+            } elseif ($modelClass === Vlan::class) {
+                if ($type === 'company') {
+                    $ids = array_merge($ids, Vlan::where('company_id', $id)->pluck('id')->toArray());
                 }
             } elseif ($modelClass === User::class) {
                 $ids = array_merge($ids, static::getUserIdsForScope($type, $id));

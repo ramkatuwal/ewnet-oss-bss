@@ -41,6 +41,7 @@ use App\Http\Controllers\Api\V1\SystemInfoController;
 use App\Http\Controllers\Api\V1\TopologyTraversalController;
 use App\Http\Controllers\Api\V1\UispImportController;
 use App\Http\Controllers\Api\V1\UserController;
+use App\Http\Controllers\Api\V1\VlanController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -116,6 +117,9 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::post('/pon-domains/{ponDomain}/memberships', [PonMembershipController::class, 'store']);
     Route::get('/pon-memberships/{ponMembership}', [PonMembershipController::class, 'show']);
     Route::delete('/pon-memberships/{ponMembership}', [PonMembershipController::class, 'destroy']);
+
+    // VLAN inventory identities (no port membership or topology semantics)
+    Route::apiResource('/vlans', VlanController::class);
 
     // Asset Photos
     Route::get('/assets/{asset}/photos', [PhotoController::class, 'assetPhotos']);

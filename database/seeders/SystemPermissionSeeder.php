@@ -115,6 +115,10 @@ class SystemPermissionSeeder extends Seeder
             'net.pon-memberships.view',
             'net.pon-memberships.create',
             'net.pon-memberships.delete',
+            'net.vlans.view',
+            'net.vlans.create',
+            'net.vlans.update',
+            'net.vlans.delete',
         ];
 
         foreach ($permissions as $permission) {
