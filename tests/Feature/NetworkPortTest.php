@@ -575,4 +575,145 @@ class NetworkPortTest extends TestCase
         $response = $this->actingAs($user)->patchJson("/api/v1/fim/network-ports/{$port->id}", ['name' => 'X']);
         $response->assertNotFound();
     }
+
+    // --- Integrity: port_key historical identity ---
+
+    public function test_soft_deleted_port_key_not_reusable_via_raw_db(): void
+    {
+        $company = Company::factory()->create();
+        $asset = $this->networkAsset($company);
+
+        // Create and soft-delete a port.
+        $port = NetworkPort::factory()->create(['asset_id' => $asset->id, 'company_id' => $company->id, 'port_key' => 'PON-1']);
+        $port->delete();
+
+        // Raw INSERT another port with the same port_key on the same Asset.
+        try {
+            DB::table('network_ports')->insert([
+                'asset_id' => $asset->id,
+                'company_id' => $company->id,
+                'port_key' => 'PON-1',
+                'name' => 'Duplicate',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $this->fail('Expected QueryException for port_key uniqueness violation');
+        } catch (\Exception $e) {
+            $this->assertStringContainsString('network_ports_asset_port_key_unique', $e->getMessage());
+        }
+    }
+
+    public function test_same_port_key_on_different_asset_allowed(): void
+    {
+        $company = Company::factory()->create();
+        $assetA = $this->networkAsset($company);
+        $assetB = $this->networkAsset($company);
+
+        NetworkPort::factory()->create(['asset_id' => $assetA->id, 'company_id' => $company->id, 'port_key' => 'PON-1']);
+
+        // Same port_key on a different Asset should succeed.
+        $port = NetworkPort::factory()->create(['asset_id' => $assetB->id, 'company_id' => $company->id, 'port_key' => 'PON-1']);
+
+        $this->assertDatabaseHas('network_ports', ['id' => $port->id, 'asset_id' => $assetB->id, 'port_key' => 'PON-1']);
+    }
+
+    // --- Integrity: Asset parent-history protection ---
+
+    public function test_asset_category_cannot_change_away_from_network_with_port_history(): void
+    {
+        $company = Company::factory()->create();
+        $asset = $this->networkAsset($company);
+        NetworkPort::factory()->create(['asset_id' => $asset->id, 'company_id' => $company->id]);
+
+        try {
+            $asset->update(['category' => 'INFRASTRUCTURE']);
+            $this->fail('Expected QueryException for category protection');
+        } catch (\Exception $e) {
+            $this->assertStringContainsString('network port history', $e->getMessage());
+        }
+    }
+
+    public function test_asset_category_cannot_change_away_from_network_even_when_all_ports_soft_deleted(): void
+    {
+        $company = Company::factory()->create();
+        $asset = $this->networkAsset($company);
+        $port = NetworkPort::factory()->create(['asset_id' => $asset->id, 'company_id' => $company->id]);
+        $port->delete();
+
+        try {
+            $asset->update(['category' => 'INFRASTRUCTURE']);
+            $this->fail('Expected QueryException for category protection');
+        } catch (\Exception $e) {
+            $this->assertStringContainsString('network port history', $e->getMessage());
+        }
+    }
+
+    public function test_asset_company_reassignment_blocked_with_port_history(): void
+    {
+        $company = Company::factory()->create();
+        $otherCompany = Company::factory()->create();
+        $asset = $this->networkAsset($company);
+        NetworkPort::factory()->create(['asset_id' => $asset->id, 'company_id' => $company->id]);
+
+        try {
+            $asset->update(['company_id' => $otherCompany->id]);
+            $this->fail('Expected QueryException for company protection');
+        } catch (\Exception $e) {
+            $this->assertStringContainsString('network port history', $e->getMessage());
+        }
+    }
+
+    public function test_asset_soft_delete_blocked_with_port_history(): void
+    {
+        $company = Company::factory()->create();
+        $asset = $this->networkAsset($company);
+        NetworkPort::factory()->create(['asset_id' => $asset->id, 'company_id' => $company->id]);
+
+        try {
+            $asset->delete();
+            $this->fail('Expected QueryException for asset deletion protection');
+        } catch (\Exception $e) {
+            $this->assertStringContainsString('network port history', $e->getMessage());
+        }
+    }
+
+    public function test_asset_soft_delete_blocked_even_when_all_ports_soft_deleted(): void
+    {
+        $company = Company::factory()->create();
+        $asset = $this->networkAsset($company);
+        $port = NetworkPort::factory()->create(['asset_id' => $asset->id, 'company_id' => $company->id]);
+        $port->delete();
+
+        try {
+            $asset->delete();
+            $this->fail('Expected QueryException for asset deletion protection');
+        } catch (\Exception $e) {
+            $this->assertStringContainsString('network port history', $e->getMessage());
+        }
+    }
+
+    public function test_unrelated_asset_updates_still_allowed(): void
+    {
+        $company = Company::factory()->create();
+        $asset = $this->networkAsset($company);
+        NetworkPort::factory()->create(['asset_id' => $asset->id, 'company_id' => $company->id]);
+
+        // These should succeed — they do not affect NetworkPort history integrity.
+        $asset->update(['description' => 'Updated OLT', 'status' => 'MAINTENANCE']);
+        $asset->update(['specifications' => ['chassis_slots' => 10]]);
+
+        $this->assertDatabaseHas('assets', ['id' => $asset->id, 'description' => 'Updated OLT', 'status' => 'MAINTENANCE']);
+    }
+
+    public function test_asset_category_change_within_network_allowed(): void
+    {
+        $company = Company::factory()->create();
+        $asset = $this->networkAsset($company, 'OLT');
+        NetworkPort::factory()->create(['asset_id' => $asset->id, 'company_id' => $company->id]);
+
+        // Changing within NETWORK category (e.g., OLT -> SWITCH) should be allowed.
+        $asset->update(['type' => 'SWITCH']);
+
+        $this->assertDatabaseHas('assets', ['id' => $asset->id, 'type' => 'SWITCH']);
+    }
 }
