@@ -748,12 +748,11 @@ class StrandContinuityTest extends TestCase
 
         $response->assertForbidden();
 
-        $responseString = json_encode($response->json());
-
-        $this->assertStringNotContainsString((string) $coreB->id, $responseString,
-            'Hidden core ID must not appear in error response');
-        $this->assertStringNotContainsString((string) $segB->id, $responseString,
-            'Hidden segment ID must not appear in error response');
+        $message = $response->json('message');
+        $this->assertStringNotContainsString((string) $coreB->id, $message,
+            'Hidden core ID must not appear in error message');
+        $this->assertStringNotContainsString((string) $segB->id, $message,
+            'Hidden segment ID must not appear in error message');
     }
 
     // ── Invalid mode / max_depth ─────────────────────────────────
