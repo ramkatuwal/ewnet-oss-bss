@@ -25,6 +25,7 @@ class UpdateNetworkConnectionPointRequest extends FormRequest
             'site_id' => ['sometimes', 'nullable', 'integer', 'exists:sites,id'],
             'asset_id' => ['sometimes', 'nullable', 'integer', 'exists:assets,id'],
             'asset_interface_id' => ['sometimes', 'nullable', 'integer', 'exists:asset_interfaces,id'],
+            'network_port_id' => ['sometimes', 'nullable', 'integer', 'exists:network_ports,id'],
             'geometry' => ['sometimes', 'nullable', 'array'],
             'company_id' => ['sometimes', 'nullable', 'integer', 'exists:companies,id'],
             'status' => ['sometimes', Rule::in(['active', 'inactive', 'planned'])],
@@ -60,6 +61,14 @@ class UpdateNetworkConnectionPointRequest extends FormRequest
                         $validator->errors()->add('asset_id', 'The asset site must belong to the same company.');
                     }
                 }
+            }
+
+            // XOR: asset_interface_id and network_port_id cannot both be set.
+            $ncp = $this->route('networkConnectionPoint');
+            $effectiveAssetInterfaceId = $data['asset_interface_id'] ?? $ncp->asset_interface_id;
+            $effectiveNetworkPortId = $data['network_port_id'] ?? $ncp->network_port_id;
+            if ($effectiveAssetInterfaceId && $effectiveNetworkPortId) {
+                $validator->errors()->add('network_port_id', 'An NCP may reference an asset interface or a network port, but not both.');
             }
         });
     }

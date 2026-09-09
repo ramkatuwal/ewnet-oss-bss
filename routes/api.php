@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\V1\LibreNMSImportController;
 use App\Http\Controllers\Api\V1\LibreNMSSiteController;
 use App\Http\Controllers\Api\V1\ManagementScopeController;
 use App\Http\Controllers\Api\V1\NetworkConnectionPointController;
+use App\Http\Controllers\Api\V1\NetworkPortController;
 use App\Http\Controllers\Api\V1\PassiveOpticalPortController;
 use App\Http\Controllers\Api\V1\PermissionController;
 use App\Http\Controllers\Api\V1\PhotoController;
@@ -90,6 +91,13 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::post('/assets/import', [AssetController::class, 'import']);
     Route::get('/assets/export', [AssetController::class, 'export']);
     Route::apiResource('/assets', AssetController::class);
+
+    // Network Ports (active equipment physical ports)
+    Route::get('/assets/{asset}/network-ports', [NetworkPortController::class, 'index']);
+    Route::post('/assets/{asset}/network-ports', [NetworkPortController::class, 'store']);
+    Route::get('/fim/network-ports/{networkPort}', [NetworkPortController::class, 'show']);
+    Route::patch('/fim/network-ports/{networkPort}', [NetworkPortController::class, 'update']);
+    Route::delete('/fim/network-ports/{networkPort}', [NetworkPortController::class, 'destroy']);
 
     // Asset Photos
     Route::get('/assets/{asset}/photos', [PhotoController::class, 'assetPhotos']);

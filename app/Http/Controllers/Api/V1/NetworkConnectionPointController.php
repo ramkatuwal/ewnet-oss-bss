@@ -124,6 +124,7 @@ class NetworkConnectionPointController extends Controller
             'site_id',
             'asset_id',
             'asset_interface_id',
+            'network_port_id',
             'company_id',
             'status',
             'metadata',

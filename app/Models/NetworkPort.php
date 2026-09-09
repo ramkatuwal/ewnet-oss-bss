@@ -2,27 +2,31 @@
 
 namespace App\Models;
 
-use Database\Factories\NetworkConnectionPointFactory;
+use Database\Factories\NetworkPortFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class NetworkConnectionPoint extends Model
+class NetworkPort extends Model
 {
     use HasFactory, SoftDeletes;
 
+    public const PORT_DIRECTIONS = ['access', 'uplink', 'downstream', 'upstream'];
+
+    public const STATUSES = ['active', 'inactive', 'maintenance', 'faulty'];
+
     protected $fillable = [
-        'point_type',
-        'name',
-        'description',
-        'site_id',
         'asset_id',
-        'asset_interface_id',
-        'network_port_id',
         'company_id',
-        'status',
+        'port_key',
+        'name',
+        'slot',
+        'card',
+        'port_number',
+        'connector_type',
+        'port_direction',
         'metadata',
         'created_by',
         'updated_by',
@@ -32,29 +36,14 @@ class NetworkConnectionPoint extends Model
         'metadata' => 'array',
     ];
 
-    protected static function newFactory(): NetworkConnectionPointFactory
+    protected static function newFactory(): NetworkPortFactory
     {
-        return NetworkConnectionPointFactory::new();
-    }
-
-    public function site(): BelongsTo
-    {
-        return $this->belongsTo(Site::class);
+        return NetworkPortFactory::new();
     }
 
     public function asset(): BelongsTo
     {
         return $this->belongsTo(Asset::class);
-    }
-
-    public function assetInterface(): BelongsTo
-    {
-        return $this->belongsTo(AssetInterface::class, 'asset_interface_id');
-    }
-
-    public function networkPort(): BelongsTo
-    {
-        return $this->belongsTo(NetworkPort::class);
     }
 
     public function company(): BelongsTo
@@ -72,8 +61,8 @@ class NetworkConnectionPoint extends Model
         return $this->belongsTo(User::class, 'updated_by');
     }
 
-    public function passiveOpticalPorts(): HasMany
+    public function networkConnectionPoints(): HasMany
     {
-        return $this->hasMany(PassiveOpticalPort::class);
+        return $this->hasMany(NetworkConnectionPoint::class);
     }
 }

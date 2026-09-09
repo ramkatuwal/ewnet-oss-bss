@@ -14,6 +14,7 @@ use App\Models\FiberTerminationPortAttachment;
 use App\Models\Integration;
 use App\Models\IntegrationCredential;
 use App\Models\NetworkConnectionPoint;
+use App\Models\NetworkPort;
 use App\Models\PassiveOpticalPort;
 use App\Models\PhysicalConnection;
 use App\Models\Region;
@@ -149,6 +150,9 @@ class ManagementScopeService
         if ($resource instanceof SplitterBranch) {
             return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
         }
+        if ($resource instanceof NetworkPort) {
+            return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
+        }
         if ($resource instanceof Integration) {
             // Global (system-level) integrations are only reachable via the global scope
             if ($resource->company_id === null) {
@@ -261,6 +265,10 @@ class ManagementScopeService
             } elseif ($modelClass === SplitterBranch::class) {
                 if ($type === 'company') {
                     $ids = array_merge($ids, SplitterBranch::where('company_id', $id)->pluck('id')->toArray());
+                }
+            } elseif ($modelClass === NetworkPort::class) {
+                if ($type === 'company') {
+                    $ids = array_merge($ids, NetworkPort::where('company_id', $id)->pluck('id')->toArray());
                 }
             } elseif ($modelClass === User::class) {
                 $ids = array_merge($ids, static::getUserIdsForScope($type, $id));

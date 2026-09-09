@@ -58,6 +58,17 @@ class Asset extends Model
         'OTHER',
     ];
 
+    // Active network equipment types.
+    public const ACTIVE_TYPES = [
+        'OLT',
+        'ONU',
+        'SWITCH',
+        'ROUTER',
+        'AP',
+        'CONTROLLER',
+        'OTHER',
+    ];
+
     // Passive FIM inventory types. Existing free-form asset types remain valid.
     public const PASSIVE_TYPES = [
         'CABINET',
@@ -144,6 +155,11 @@ class Asset extends Model
     public function splitterBranches(): HasMany
     {
         return $this->hasMany(SplitterBranch::class);
+    }
+
+    public function networkPorts(): HasMany
+    {
+        return $this->hasMany(NetworkPort::class);
     }
 
     public function ipAddresses(): HasManyThrough
