@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\V1\PassiveOpticalPortController;
 use App\Http\Controllers\Api\V1\PermissionController;
 use App\Http\Controllers\Api\V1\PhotoController;
 use App\Http\Controllers\Api\V1\PhysicalConnectionController;
+use App\Http\Controllers\Api\V1\PonDomainController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\PublicBrandingController;
 use App\Http\Controllers\Api\V1\RegionController;
@@ -102,6 +103,12 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::get('/fim/network-ports/{networkPort}', [NetworkPortController::class, 'show']);
     Route::patch('/fim/network-ports/{networkPort}', [NetworkPortController::class, 'update']);
     Route::delete('/fim/network-ports/{networkPort}', [NetworkPortController::class, 'destroy']);
+
+    // PON Domains (logical PON identity)
+    Route::get('/network-ports/{networkPort}/pon-domains', [PonDomainController::class, 'index']);
+    Route::post('/network-ports/{networkPort}/pon-domains', [PonDomainController::class, 'store']);
+    Route::get('/pon-domains/{ponDomain}', [PonDomainController::class, 'show']);
+    Route::delete('/pon-domains/{ponDomain}', [PonDomainController::class, 'destroy']);
 
     // Asset Photos
     Route::get('/assets/{asset}/photos', [PhotoController::class, 'assetPhotos']);

@@ -18,6 +18,7 @@ use App\Models\NetworkPort;
 use App\Models\NetworkPortFiberTerminationAttachment;
 use App\Models\PassiveOpticalPort;
 use App\Models\PhysicalConnection;
+use App\Models\PonDomain;
 use App\Models\Region;
 use App\Models\Site;
 use App\Models\SplitterBranch;
@@ -152,6 +153,9 @@ class ManagementScopeService
             return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
         }
         if ($resource instanceof NetworkPort || $resource instanceof NetworkPortFiberTerminationAttachment) {
+            return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
+        }
+        if ($resource instanceof PonDomain) {
             return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
         }
         if ($resource instanceof Integration) {

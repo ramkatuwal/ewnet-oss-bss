@@ -6,6 +6,7 @@ use App\Models\Asset;
 use App\Models\NetworkPort;
 use App\Models\NetworkPortFiberTerminationAttachment;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -44,38 +45,46 @@ class NetworkPortService
 
     public function update(NetworkPort $port, array $attributes, User $user): NetworkPort
     {
-        return DB::transaction(function () use ($port, $attributes, $user) {
-            $port = NetworkPort::lockForUpdate()->findOrFail($port->id);
+        try {
+            return DB::transaction(function () use ($port, $attributes, $user) {
+                $port = NetworkPort::lockForUpdate()->findOrFail($port->id);
 
-            if ($port->trashed()) {
-                throw ValidationException::withMessages(['network_port' => 'Cannot update a deleted network port.']);
-            }
+                if ($port->trashed()) {
+                    throw ValidationException::withMessages(['network_port' => 'Cannot update a deleted network port.']);
+                }
 
-            if (NetworkPortFiberTerminationAttachment::withTrashed()->where('network_port_id', $port->id)->exists()
-                && collect(['asset_id', 'company_id', 'port_key'])->contains(fn ($key) => array_key_exists($key, $attributes) && (string) $attributes[$key] !== (string) $port->$key)) {
-                throw ValidationException::withMessages(['network_port' => 'Network port identity has fiber attachment history.']);
-            }
+                if (NetworkPortFiberTerminationAttachment::withTrashed()->where('network_port_id', $port->id)->exists()
+                    && collect(['asset_id', 'company_id', 'port_key'])->contains(fn ($key) => array_key_exists($key, $attributes) && (string) $attributes[$key] !== (string) $port->$key)) {
+                    throw ValidationException::withMessages(['network_port' => 'Network port identity has fiber attachment history.']);
+                }
 
-            $port->update([...$attributes, 'updated_by' => $user->id]);
+                $port->update([...$attributes, 'updated_by' => $user->id]);
 
-            return $port->fresh();
-        });
+                return $port->fresh();
+            });
+        } catch (QueryException $e) {
+            throw ValidationException::withMessages(['network_port' => 'Cannot modify this network port due to data integrity constraints.']);
+        }
     }
 
     public function delete(NetworkPort $port): void
     {
-        DB::transaction(function () use ($port) {
-            $port = NetworkPort::lockForUpdate()->findOrFail($port->id);
+        try {
+            DB::transaction(function () use ($port) {
+                $port = NetworkPort::lockForUpdate()->findOrFail($port->id);
 
-            // Protect port history: if any NCP references this port, prevent deletion.
-            if (NetworkPortFiberTerminationAttachment::withTrashed()->where('network_port_id', $port->id)->exists()) {
-                throw ValidationException::withMessages(['network_port' => 'Cannot delete a network port with fiber attachment history.']);
-            }
-            if ($port->networkConnectionPoints()->exists()) {
-                throw ValidationException::withMessages(['network_port' => 'Cannot delete a network port that is referenced by connection points.']);
-            }
+                // Protect port history: if any NCP references this port, prevent deletion.
+                if (NetworkPortFiberTerminationAttachment::withTrashed()->where('network_port_id', $port->id)->exists()) {
+                    throw ValidationException::withMessages(['network_port' => 'Cannot delete a network port with fiber attachment history.']);
+                }
+                if ($port->networkConnectionPoints()->exists()) {
+                    throw ValidationException::withMessages(['network_port' => 'Cannot delete a network port that is referenced by connection points.']);
+                }
 
-            $port->delete();
-        });
+                $port->delete();
+            });
+        } catch (QueryException $e) {
+            throw ValidationException::withMessages(['network_port' => 'Cannot modify or delete this network port due to data integrity constraints.']);
+        }
     }
 }

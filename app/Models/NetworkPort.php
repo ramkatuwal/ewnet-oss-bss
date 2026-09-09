@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class NetworkPort extends Model
@@ -67,5 +68,10 @@ class NetworkPort extends Model
     public function networkConnectionPoints(): HasMany
     {
         return $this->hasMany(NetworkConnectionPoint::class);
+    }
+
+    public function ponDomain(): HasOne
+    {
+        return $this->hasOne(PonDomain::class, 'olt_port_id');
     }
 }
