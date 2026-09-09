@@ -4,25 +4,24 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class PonDomain extends Model
+class PonMembership extends Model
 {
     use SoftDeletes;
 
-    protected $fillable = ['olt_port_id', 'company_id', 'metadata', 'created_by', 'updated_by'];
+    protected $fillable = ['pon_domain_id', 'onu_asset_id', 'onu_id', 'company_id', 'metadata', 'created_by', 'updated_by'];
 
     protected $casts = ['metadata' => 'array'];
 
-    public function oltPort(): BelongsTo
+    public function ponDomain(): BelongsTo
     {
-        return $this->belongsTo(NetworkPort::class, 'olt_port_id');
+        return $this->belongsTo(PonDomain::class);
     }
 
-    public function memberships(): HasMany
+    public function onuAsset(): BelongsTo
     {
-        return $this->hasMany(PonMembership::class);
+        return $this->belongsTo(Asset::class, 'onu_asset_id');
     }
 
     public function company(): BelongsTo

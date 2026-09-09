@@ -5,6 +5,7 @@ namespace App\Services\Network;
 use App\Models\Asset;
 use App\Models\NetworkPort;
 use App\Models\PonDomain;
+use App\Models\PonMembership;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -43,6 +44,9 @@ class PonDomainService
     {
         DB::transaction(function () use ($domain, $user) {
             $domain = PonDomain::lockForUpdate()->findOrFail($domain->id);
+            if (PonMembership::where('pon_domain_id', $domain->id)->exists()) {
+                throw ValidationException::withMessages(['pon_domain' => 'Cannot retire a PON domain with live memberships.']);
+            }
             $domain->update(['updated_by' => $user->id]);
             $domain->delete();
         });

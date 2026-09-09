@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\V1\PermissionController;
 use App\Http\Controllers\Api\V1\PhotoController;
 use App\Http\Controllers\Api\V1\PhysicalConnectionController;
 use App\Http\Controllers\Api\V1\PonDomainController;
+use App\Http\Controllers\Api\V1\PonMembershipController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\PublicBrandingController;
 use App\Http\Controllers\Api\V1\RegionController;
@@ -109,6 +110,12 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::post('/network-ports/{networkPort}/pon-domains', [PonDomainController::class, 'store']);
     Route::get('/pon-domains/{ponDomain}', [PonDomainController::class, 'show']);
     Route::delete('/pon-domains/{ponDomain}', [PonDomainController::class, 'destroy']);
+
+    // PON Memberships (ONU logical membership in PON domain)
+    Route::get('/pon-domains/{ponDomain}/memberships', [PonMembershipController::class, 'index']);
+    Route::post('/pon-domains/{ponDomain}/memberships', [PonMembershipController::class, 'store']);
+    Route::get('/pon-memberships/{ponMembership}', [PonMembershipController::class, 'show']);
+    Route::delete('/pon-memberships/{ponMembership}', [PonMembershipController::class, 'destroy']);
 
     // Asset Photos
     Route::get('/assets/{asset}/photos', [PhotoController::class, 'assetPhotos']);

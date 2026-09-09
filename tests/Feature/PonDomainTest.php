@@ -490,6 +490,9 @@ class PonDomainTest extends TestCase
     public function test_new_migration_rollback_reapply(): void
     {
         $migration = require database_path('migrations/2026_09_09_140000_create_pon_domains_table.php');
+        DB::statement('DROP TRIGGER IF EXISTS ned005c_validate_pon_membership ON pon_memberships');
+        DB::statement('DROP FUNCTION IF EXISTS ned005c_validate_pon_membership()');
+        Schema::dropIfExists('pon_memberships');
         $migration->down();
         $this->assertFalse(Schema::hasTable('pon_domains'));
         $migration->up();

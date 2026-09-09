@@ -19,6 +19,7 @@ use App\Models\NetworkPortFiberTerminationAttachment;
 use App\Models\PassiveOpticalPort;
 use App\Models\PhysicalConnection;
 use App\Models\PonDomain;
+use App\Models\PonMembership;
 use App\Models\Region;
 use App\Models\Site;
 use App\Models\SplitterBranch;
@@ -158,6 +159,9 @@ class ManagementScopeService
         if ($resource instanceof PonDomain) {
             return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
         }
+        if ($resource instanceof PonMembership) {
+            return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
+        }
         if ($resource instanceof Integration) {
             // Global (system-level) integrations are only reachable via the global scope
             if ($resource->company_id === null) {
@@ -274,6 +278,14 @@ class ManagementScopeService
             } elseif ($modelClass === NetworkPort::class) {
                 if ($type === 'company') {
                     $ids = array_merge($ids, NetworkPort::where('company_id', $id)->pluck('id')->toArray());
+                }
+            } elseif ($modelClass === PonDomain::class) {
+                if ($type === 'company') {
+                    $ids = array_merge($ids, PonDomain::where('company_id', $id)->pluck('id')->toArray());
+                }
+            } elseif ($modelClass === PonMembership::class) {
+                if ($type === 'company') {
+                    $ids = array_merge($ids, PonMembership::where('company_id', $id)->pluck('id')->toArray());
                 }
             } elseif ($modelClass === User::class) {
                 $ids = array_merge($ids, static::getUserIdsForScope($type, $id));
