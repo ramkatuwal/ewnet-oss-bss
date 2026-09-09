@@ -4,6 +4,7 @@ namespace App\Services\Fim;
 
 use App\Models\FiberTermination;
 use App\Models\FiberTerminationPortAttachment;
+use App\Models\NetworkPortFiberTerminationAttachment;
 use App\Models\PassiveOpticalPort;
 use App\Models\PhysicalConnection;
 use App\Models\User;
@@ -29,6 +30,9 @@ class FiberTerminationPortAttachmentService
             }
             if (FiberTerminationPortAttachment::where('fiber_termination_id', $termination->id)->exists()) {
                 throw ValidationException::withMessages(['fiber_termination_id' => 'The fiber termination already has a live passive optical port attachment.']);
+            }
+            if (NetworkPortFiberTerminationAttachment::where('fiber_termination_id', $termination->id)->exists()) {
+                throw ValidationException::withMessages(['fiber_termination_id' => 'The fiber termination already has a live network port attachment.']);
             }
             if (FiberTerminationPortAttachment::where('passive_optical_port_id', $port->id)->exists()) {
                 throw ValidationException::withMessages(['passive_optical_port_id' => 'The passive optical port already has a live fiber termination attachment.']);

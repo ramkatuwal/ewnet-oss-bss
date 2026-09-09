@@ -6,6 +6,7 @@ use App\Models\FiberCore;
 use App\Models\FiberTermination;
 use App\Models\FiberTerminationPortAttachment;
 use App\Models\NetworkConnectionPoint;
+use App\Models\NetworkPortFiberTerminationAttachment;
 use App\Models\PassiveOpticalPort;
 use App\Models\PhysicalConnection;
 use App\Models\User;
@@ -192,6 +193,19 @@ class StrandContinuityService
 
             if ($splice !== null && $attachment !== null) {
                 $terminal = self::detectConflict($splice, $attachment, $user);
+
+                return;
+            }
+
+            $networkAttachment = NetworkPortFiberTerminationAttachment::where('fiber_termination_id', $termination->id)->first();
+            if ($networkAttachment !== null) {
+                if ($splice !== null || $attachment !== null) {
+                    $terminal = ['type' => 'topology_conflict', 'id' => null, 'data' => null];
+                } elseif (! $user->can('view', $networkAttachment)) {
+                    $terminal = ['type' => 'scope_boundary', 'id' => null, 'data' => null];
+                } else {
+                    $terminal = ['type' => 'active_network_port', 'id' => $networkAttachment->network_port_id, 'data' => null];
+                }
 
                 return;
             }

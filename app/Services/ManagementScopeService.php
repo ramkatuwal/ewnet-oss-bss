@@ -15,6 +15,7 @@ use App\Models\Integration;
 use App\Models\IntegrationCredential;
 use App\Models\NetworkConnectionPoint;
 use App\Models\NetworkPort;
+use App\Models\NetworkPortFiberTerminationAttachment;
 use App\Models\PassiveOpticalPort;
 use App\Models\PhysicalConnection;
 use App\Models\Region;
@@ -150,7 +151,7 @@ class ManagementScopeService
         if ($resource instanceof SplitterBranch) {
             return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
         }
-        if ($resource instanceof NetworkPort) {
+        if ($resource instanceof NetworkPort || $resource instanceof NetworkPortFiberTerminationAttachment) {
             return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
         }
         if ($resource instanceof Integration) {

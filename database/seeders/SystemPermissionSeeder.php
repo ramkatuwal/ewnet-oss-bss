@@ -106,6 +106,9 @@ class SystemPermissionSeeder extends Seeder
             'net.network-ports.create',
             'net.network-ports.update',
             'net.network-ports.delete',
+            'net.network-port-fiber-attachments.view',
+            'net.network-port-fiber-attachments.create',
+            'net.network-port-fiber-attachments.delete',
         ];
 
         foreach ($permissions as $permission) {

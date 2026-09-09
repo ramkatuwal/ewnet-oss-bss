@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\V1\LibreNMSSiteController;
 use App\Http\Controllers\Api\V1\ManagementScopeController;
 use App\Http\Controllers\Api\V1\NetworkConnectionPointController;
 use App\Http\Controllers\Api\V1\NetworkPortController;
+use App\Http\Controllers\Api\V1\NetworkPortFiberTerminationAttachmentController;
 use App\Http\Controllers\Api\V1\PassiveOpticalPortController;
 use App\Http\Controllers\Api\V1\PermissionController;
 use App\Http\Controllers\Api\V1\PhotoController;
@@ -93,6 +94,9 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::apiResource('/assets', AssetController::class);
 
     // Network Ports (active equipment physical ports)
+    Route::get('/network-ports/{networkPort}/fiber-attachments', [NetworkPortFiberTerminationAttachmentController::class, 'index']);
+    Route::post('/network-ports/{networkPort}/fiber-attachments', [NetworkPortFiberTerminationAttachmentController::class, 'store']);
+    Route::delete('/network-port-fiber-attachments/{attachment}', [NetworkPortFiberTerminationAttachmentController::class, 'destroy']);
     Route::get('/assets/{asset}/network-ports', [NetworkPortController::class, 'index']);
     Route::post('/assets/{asset}/network-ports', [NetworkPortController::class, 'store']);
     Route::get('/fim/network-ports/{networkPort}', [NetworkPortController::class, 'show']);

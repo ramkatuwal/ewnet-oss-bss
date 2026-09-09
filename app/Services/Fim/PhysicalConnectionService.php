@@ -4,6 +4,7 @@ namespace App\Services\Fim;
 
 use App\Models\FiberTermination;
 use App\Models\FiberTerminationPortAttachment;
+use App\Models\NetworkPortFiberTerminationAttachment;
 use App\Models\PhysicalConnection;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +20,8 @@ class PhysicalConnectionService
             if ($terms->count() !== 2 || $terms[$a]->trashed() || $terms[$b]->trashed() || $terms[$a]->fiber_core_id === $terms[$b]->fiber_core_id || $terms[$a]->company_id !== $terms[$b]->company_id || $terms[$a]->network_connection_point_id !== $terms[$b]->network_connection_point_id || PhysicalConnection::whereNull('deleted_at')->where(fn ($q) => $q->whereIn('termination_a_id', [$a, $b])->orWhereIn('termination_b_id', [$a, $b]))->exists()) {
                 throw ValidationException::withMessages(['termination_a_id' => 'The selected terminations cannot form a live splice.']);
             }
-            if (FiberTerminationPortAttachment::whereNull('deleted_at')->whereIn('fiber_termination_id', [$a, $b])->exists()) {
+            if (FiberTerminationPortAttachment::whereNull('deleted_at')->whereIn('fiber_termination_id', [$a, $b])->exists()
+                || NetworkPortFiberTerminationAttachment::whereIn('fiber_termination_id', [$a, $b])->exists()) {
                 throw ValidationException::withMessages(['termination_a_id' => 'One or both terminations already have a live port attachment.']);
             }
 
