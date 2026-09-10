@@ -1,0 +1,42 @@
+import { useDeferredValue, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Autocomplete, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Tab, Tabs, TextField, Typography } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { SearchFilterBar } from '@/components/forms/SearchFilterBar';
+import { Can } from '@/components/auth/Can';
+import { PageEmptyState, PageErrorState, PageLoadingState } from '@/components/feedback/PageStates';
+import { getErrorMessage } from '@/utils';
+import { useToast } from '@/components/feedback/ToastProvider';
+import { bssKeys } from '@/api/queryKeys';
+import { bssApi, type Customer, type Service } from '../api/bss';
+import { CustomerFormDrawer } from '../components/CustomerFormDrawer';
+import { ServiceFormDrawer } from '../components/ServiceFormDrawer';
+
+const statusColor = (status: string): 'default' | 'success' | 'warning' | 'error' => status === 'active' ? 'success' : status === 'suspended' || status === 'pending' ? 'warning' : status === 'terminated' || status === 'retired' ? 'error' : 'default';
+
+export const BssOperationsPage = () => {
+    const queryClient = useQueryClient(); const { showToast } = useToast();
+    const [tab, setTab] = useState(0); const [search, setSearch] = useState(''); const deferredSearch = useDeferredValue(search);
+    const [customerForm, setCustomerForm] = useState<Customer | null>(null); const [serviceForm, setServiceForm] = useState<Service | null>(null); const [assignmentOpen, setAssignmentOpen] = useState(false); const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null); const [selectedService, setSelectedService] = useState<Service | null>(null);
+    const customers = useQuery({ queryKey: bssKeys.customers({ search: deferredSearch, per_page: 25 }), queryFn: () => bssApi.customers({ search: deferredSearch || undefined, per_page: 25 }), enabled: tab === 0 || assignmentOpen });
+    const services = useQuery({ queryKey: bssKeys.services({ search: deferredSearch, per_page: 100 }), queryFn: () => bssApi.services({ search: deferredSearch || undefined, per_page: 100 }), enabled: tab === 1 || assignmentOpen });
+    const createCustomer = useMutation({ mutationFn: bssApi.createCustomer, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['bss', 'customers'] }); showToast('Customer created.', 'success'); setCustomerForm(null); }, onError: error => showToast(getErrorMessage(error), 'error') });
+    const createService = useMutation({ mutationFn: bssApi.createService, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['bss', 'services'] }); showToast('Service created.', 'success'); setServiceForm(null); }, onError: error => showToast(getErrorMessage(error), 'error') });
+    const retireCustomer = useMutation({ mutationFn: bssApi.retireCustomer, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['bss', 'customers'] }); showToast('Customer retired.', 'success'); }, onError: error => showToast(getErrorMessage(error), 'error') });
+    const createAssignment = useMutation({ mutationFn: ({ customer, service }: { customer: Customer; service: Service }) => bssApi.createCustomerService(customer.id, { service_id: service.id }), onSuccess: () => { showToast('Customer service created as pending.', 'success'); setAssignmentOpen(false); setSelectedCustomer(null); setSelectedService(null); }, onError: error => showToast(getErrorMessage(error), 'error') });
+    const data = tab === 0 ? customers : services;
+    if (data.isLoading) return <PageLoadingState label="Loading BSS authority data..." />;
+    if (data.error) return <PageErrorState message="Unable to load BSS records." onRetry={() => data.refetch()} />;
+    return <Box><PageHeader title="Business Services" subtitle="Authoritative customers, service catalog, and customer service lifecycle" breadcrumbs={[{ label: 'BSS' }]} actions={tab === 0 ? <Can permission="bss.customers.create"><Button variant="contained" startIcon={<AddIcon />} onClick={() => setCustomerForm({} as Customer)}>Add customer</Button></Can> : <Can permission="bss.services.create"><Button variant="contained" startIcon={<AddIcon />} onClick={() => setServiceForm({} as Service)}>Add service</Button></Can>} />
+        <Tabs value={tab} onChange={(_, value) => setTab(value)} sx={{ mb: 2 }}><Tab label="Customers" /><Tab label="Services" /></Tabs>
+        <SearchFilterBar searchValue={search} onSearchChange={setSearch} placeholder={tab === 0 ? 'Search customer code, name, email, phone...' : 'Search service code or name...'}>{tab === 0 && <Can permission="bss.customer-services.create"><Button variant="outlined" onClick={() => setAssignmentOpen(true)}>Assign service</Button></Can>}</SearchFilterBar>
+        <Stack spacing={1}>{(data.data?.data || []).map((record: Customer | Service) => <Box key={record.id} sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1, display: 'flex', justifyContent: 'space-between', gap: 2, alignItems: 'center' }}><Box><Typography fontWeight={700}>{'customer_code' in record ? record.customer_code : record.service_code} · {record.name}</Typography><Typography variant="body2" color="text.secondary">Company #{record.company_id} · {record.type}{'email' in record && record.email ? ` · ${record.email}` : ''}</Typography></Box><Stack direction="row" spacing={1} alignItems="center"><Chip size="small" label={record.status} color={statusColor(record.status)} />{'customer_code' in record && <Can permission="bss.customers.retire"><Button color="error" size="small" onClick={() => retireCustomer.mutate(record.id)}>Retire</Button></Can>}</Stack></Box>)}</Stack>
+        {!data.data?.data.length && <PageEmptyState message={search ? 'No records match the current search.' : 'No BSS records are visible in your management scope.'} />}
+        {customerForm !== null && <CustomerFormDrawer customer={customerForm.id ? customerForm : undefined} onClose={() => setCustomerForm(null)} onSubmit={value => createCustomer.mutate(value)} />}
+        {serviceForm !== null && <ServiceFormDrawer service={serviceForm.id ? serviceForm : undefined} onClose={() => setServiceForm(null)} onSubmit={value => createService.mutate(value)} />}
+        <Dialog open={assignmentOpen} onClose={() => setAssignmentOpen(false)} fullWidth maxWidth="sm"><DialogTitle>Assign service</DialogTitle><DialogContent><Stack spacing={2} sx={{ pt: 1 }}><Autocomplete options={customers.data?.data || []} value={selectedCustomer} onChange={(_, value) => setSelectedCustomer(value)} getOptionLabel={option => `${option.customer_code} · ${option.name}`} renderInput={params => <TextField {...params} label="Customer" helperText="Limited to the first 25 customers matching the bounded search." />} /><Autocomplete options={services.data?.data.filter(service => service.status === 'active') || []} value={selectedService} onChange={(_, value) => setSelectedService(value)} getOptionLabel={option => `${option.service_code} · ${option.name}`} renderInput={params => <TextField {...params} label="Active service" />} /></Stack></DialogContent><DialogActions><Button onClick={() => setAssignmentOpen(false)}>Cancel</Button><Button disabled={!selectedCustomer || !selectedService || createAssignment.isPending} onClick={() => selectedCustomer && selectedService && createAssignment.mutate({ customer: selectedCustomer, service: selectedService })} variant="contained">Create pending service</Button></DialogActions></Dialog>
+    </Box>;
+};
+
+export default BssOperationsPage;

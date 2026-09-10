@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\Customer;
+use App\Models\CustomerService;
 use App\Models\FiberCable;
 use App\Models\FiberCore;
 use App\Models\FiberSegment;
@@ -13,8 +15,11 @@ use App\Models\PhysicalConnection;
 use App\Models\RoutingInstance;
 use App\Models\RoutingL3Interface;
 use App\Models\RoutingL3InterfaceAddress;
+use App\Models\Service;
 use App\Models\Site;
 use App\Models\StaticRoute;
+use App\Policies\CustomerPolicy;
+use App\Policies\CustomerServicePolicy;
 use App\Policies\FiberCablePolicy;
 use App\Policies\FiberCorePolicy;
 use App\Policies\FiberSegmentPolicy;
@@ -28,6 +33,7 @@ use App\Policies\RolePolicy;
 use App\Policies\RoutingInstancePolicy;
 use App\Policies\RoutingL3InterfaceAddressPolicy;
 use App\Policies\RoutingL3InterfacePolicy;
+use App\Policies\ServicePolicy;
 use App\Policies\SitePolicy;
 use App\Policies\StaticRoutePolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
@@ -47,6 +53,9 @@ class AuthServiceProvider extends ServiceProvider
         Role::class => RolePolicy::class,
         Permission::class => PermissionPolicy::class,
         Site::class => SitePolicy::class,
+        Customer::class => CustomerPolicy::class,
+        Service::class => ServicePolicy::class,
+        CustomerService::class => CustomerServicePolicy::class,
         FiberCable::class => FiberCablePolicy::class,
         FiberCore::class => FiberCorePolicy::class,
         FiberSegment::class => FiberSegmentPolicy::class,
@@ -72,6 +81,9 @@ class AuthServiceProvider extends ServiceProvider
         Gate::policy(Role::class, RolePolicy::class);
         Gate::policy(Permission::class, PermissionPolicy::class);
         Gate::policy(Site::class, SitePolicy::class);
+        Gate::policy(Customer::class, CustomerPolicy::class);
+        Gate::policy(Service::class, ServicePolicy::class);
+        Gate::policy(CustomerService::class, CustomerServicePolicy::class);
         Gate::policy(FiberCable::class, FiberCablePolicy::class);
         Gate::policy(FiberCore::class, FiberCorePolicy::class);
         Gate::policy(FiberSegment::class, FiberSegmentPolicy::class);

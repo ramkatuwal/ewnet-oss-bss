@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BranchController;
 use App\Http\Controllers\Api\V1\CompanyController;
+use App\Http\Controllers\Api\V1\CustomerController;
+use App\Http\Controllers\Api\V1\CustomerServiceController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DebugController;
 use App\Http\Controllers\Api\V1\DepartmentController;
@@ -38,6 +40,7 @@ use App\Http\Controllers\Api\V1\RoleController;
 use App\Http\Controllers\Api\V1\RoutingInstanceController;
 use App\Http\Controllers\Api\V1\RoutingL3InterfaceAddressController;
 use App\Http\Controllers\Api\V1\RoutingL3InterfaceController;
+use App\Http\Controllers\Api\V1\ServiceController;
 use App\Http\Controllers\Api\V1\SiteController;
 use App\Http\Controllers\Api\V1\SplitterBranchController;
 use App\Http\Controllers\Api\V1\SplitterProfileController;
@@ -84,6 +87,16 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::apiResource('/organization/branches', BranchController::class);
     Route::apiResource('/organization/departments', DepartmentController::class);
     Route::apiResource('/organization/users', UserController::class);
+
+    // BSS foundation: authoritative commercial identities only, no network bindings.
+    Route::apiResource('/bss/customers', CustomerController::class);
+    Route::apiResource('/bss/services', ServiceController::class);
+    Route::get('/bss/customers/{customer}/services', [CustomerServiceController::class, 'index']);
+    Route::post('/bss/customers/{customer}/services', [CustomerServiceController::class, 'store']);
+    Route::get('/bss/customer-services/{customerService}', [CustomerServiceController::class, 'show']);
+    Route::patch('/bss/customer-services/{customerService}', [CustomerServiceController::class, 'update']);
+    Route::post('/bss/customer-services/{customerService}/transition', [CustomerServiceController::class, 'transition']);
+    Route::delete('/bss/customer-services/{customerService}', [CustomerServiceController::class, 'destroy']);
     Route::post('/sites/import', [SiteController::class, 'import']);
 
     // Site Photos

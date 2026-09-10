@@ -16,6 +16,7 @@ import InventoryIcon from '@mui/icons-material/Inventory';
 import SyncIcon from '@mui/icons-material/Sync';
 import CableIcon from '@mui/icons-material/Cable';
 import LanIcon from '@mui/icons-material/Lan';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import type { NavItem } from '@/types';
 
 export const navigationItems: NavItem[] = [
@@ -53,6 +54,13 @@ export const navigationItems: NavItem[] = [
             { label: 'Sites', path: '/network/sites', icon: <LocationOnIcon />, permission: 'sites.view' },
             { label: 'Assets', path: '/network/assets', icon: <InventoryIcon />, permission: 'assets.view' },
             { label: 'Network Operations', path: '/network/operations', icon: <LanIcon />, permission: 'net.network-ports.view' },
+        ],
+    },
+    {
+        label: 'BSS',
+        icon: <ReceiptLongIcon />,
+        children: [
+            { label: 'Customers & Services', path: '/bss', icon: <ReceiptLongIcon />, permission: 'bss.customers.view' },
         ],
     },
     {

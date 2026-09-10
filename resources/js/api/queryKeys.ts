@@ -21,6 +21,14 @@ export const networkKeys = {
     staticRoutes: (instanceId: number) => ['network', 'routing-instances', instanceId, 'static-routes'] as const,
 };
 
+export const bssKeys = {
+    customers: (filters: Record<string, unknown> = {}) => ['bss', 'customers', filters] as const,
+    customer: (id: number) => ['bss', 'customer', id] as const,
+    services: (filters: Record<string, unknown> = {}) => ['bss', 'services', filters] as const,
+    service: (id: number) => ['bss', 'service', id] as const,
+    customerServices: (customerId: number, filters: Record<string, unknown> = {}) => ['bss', 'customer-services', customerId, filters] as const,
+};
+
 export const fimKeys = {
     map: (filters: Record<string, unknown>) => ['fim', 'map', filters] as const,
     cables: (filters: Record<string, unknown> = {}) => ['fim', 'cables', filters] as const,

@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
         $this->call(OrganizationPermissionsSeeder::class);
         $this->call(IntegrationPermissionSeeder::class);
         $this->call(UispPermissionSeeder::class);
+        $this->call(BssPermissionSeeder::class);
 
         // 2. Create Default Super Admin and assign ALL existing permissions
         $this->call(DefaultSuperAdminSeeder::class);

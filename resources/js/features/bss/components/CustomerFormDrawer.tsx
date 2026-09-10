@@ -1,0 +1,12 @@
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Button, Drawer, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import { Controller, useForm } from 'react-hook-form';
+import { z } from 'zod';
+import type { Customer, CustomerInput } from '../api/bss';
+
+const schema = z.object({ company_id: z.coerce.number().int().positive(), customer_code: z.string().min(1).max(64), name: z.string().min(1), type: z.enum(['individual', 'organization']), email: z.string().email().optional().or(z.literal('')), phone: z.string().max(64).optional(), address: z.string().optional() });
+type Form = z.infer<typeof schema>;
+export const CustomerFormDrawer = ({ customer, onSubmit, onClose }: { customer?: Customer; onSubmit: (value: CustomerInput) => void; onClose: () => void }) => {
+    const { control, handleSubmit, register, formState: { errors } } = useForm<Form>({ resolver: zodResolver(schema), defaultValues: customer ? { ...customer, email: customer.email || '', phone: customer.phone || '', address: customer.address || '' } : { type: 'individual' } });
+    return <Drawer anchor="right" open onClose={onClose}><Stack component="form" onSubmit={handleSubmit(value => onSubmit({ ...value, email: value.email || null, phone: value.phone || null, address: value.address || null }))} spacing={2} sx={{ p: 3, width: { xs: '100vw', sm: 420 } }}><Typography variant="h6">{customer ? 'Edit customer' : 'New customer'}</Typography><TextField label="Company ID" type="number" disabled={!!customer} {...register('company_id')} error={!!errors.company_id} helperText={errors.company_id?.message} /><TextField label="Customer code" disabled={!!customer} {...register('customer_code')} error={!!errors.customer_code} helperText={errors.customer_code?.message} /><TextField label="Name" {...register('name')} error={!!errors.name} helperText={errors.name?.message} /><Controller control={control} name="type" render={({ field }) => <TextField {...field} select label="Type"><MenuItem value="individual">Individual</MenuItem><MenuItem value="organization">Organization</MenuItem></TextField>} /><TextField label="Email" {...register('email')} error={!!errors.email} helperText={errors.email?.message} /><TextField label="Phone" {...register('phone')} /><TextField label="Address" multiline minRows={2} {...register('address')} /><Stack direction="row" spacing={1}><Button onClick={onClose}>Cancel</Button><Button type="submit" variant="contained">Save</Button></Stack></Stack></Drawer>;
+};

@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Asset;
 use App\Models\Branch;
 use App\Models\Company;
+use App\Models\Customer;
+use App\Models\CustomerService;
 use App\Models\Department;
 use App\Models\FiberCable;
 use App\Models\FiberCore;
@@ -26,6 +28,7 @@ use App\Models\Region;
 use App\Models\RoutingInstance;
 use App\Models\RoutingL3Interface;
 use App\Models\RoutingL3InterfaceAddress;
+use App\Models\Service;
 use App\Models\Site;
 use App\Models\SplitterBranch;
 use App\Models\SplitterProfile;
@@ -98,6 +101,9 @@ class ManagementScopeService
         if ($resource instanceof Company) {
             // Only company scope grants access to a company
             return $scopeType === 'company' && $resource->id === $scopeId;
+        }
+        if ($resource instanceof Customer || $resource instanceof Service || $resource instanceof CustomerService) {
+            return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
         }
         if ($resource instanceof Region) {
             return in_array($resource->id, static::getRegionIdsForScope($scopeType, $scopeId));
@@ -267,6 +273,10 @@ class ManagementScopeService
                 if (! empty($siteIds)) {
                     $assetIds = Asset::whereIn('site_id', $siteIds)->pluck('id')->toArray();
                     $ids = array_merge($ids, $assetIds);
+                }
+            } elseif (in_array($modelClass, [Customer::class, Service::class, CustomerService::class], true)) {
+                if ($type === 'company') {
+                    $ids = array_merge($ids, $modelClass::where('company_id', $id)->pluck('id')->toArray());
                 }
             } elseif ($modelClass === FiberCable::class) {
                 $ids = array_merge($ids, static::getFiberCableIdsForScope($type, $id));

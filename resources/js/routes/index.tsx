@@ -39,6 +39,7 @@ const AssetsPage = lazy(() => import('@/features/assets/pages/AssetsPage'));
 const FimOperationsPage = lazy(() => import('@/features/fim/pages/FimOperationsPage'));
 const FimMapPage = lazy(() => import('@/features/fim/pages/FimMapPage'));
 const NetworkOperationsPage = lazy(() => import('@/features/network/pages/NetworkOperationsPage'));
+const BssOperationsPage = lazy(() => import('@/features/bss/pages/BssOperationsPage'));
 
 const PageLoader = () => (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 2 }}>
@@ -87,6 +88,11 @@ export const AppRouter = () => (
                         <Route element={<PermissionRoute permission="fim.cables.view" />}>
                             <Route index element={<FimOperationsPage />} />
                             <Route path="map" element={<FimMapPage />} />
+                        </Route>
+                    </Route>
+                    <Route path="bss">
+                        <Route element={<PermissionRoute permission="bss.customers.view" />}>
+                            <Route index element={<BssOperationsPage />} />
                         </Route>
                     </Route>
 
