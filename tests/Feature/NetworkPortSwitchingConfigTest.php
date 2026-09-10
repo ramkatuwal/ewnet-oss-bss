@@ -222,4 +222,20 @@ class NetworkPortSwitchingConfigTest extends TestCase
         $this->actingAs($user)->getJson("/api/v1/network-ports/{$port->id}/switching-configuration")
             ->assertOk()->assertJsonPath('data.memberships', []);
     }
+
+    public function test_retirement_audit_metadata_excludes_hidden_vlan_memberships(): void
+    {
+        $company = Company::factory()->create();
+        $configurer = $this->user($company, $this->permissions());
+        $retirer = $this->user($company, ['assets.view', 'net.network-ports.view', 'net.port-switching-configs.delete']);
+        $port = $this->port($company);
+        $vlan = $this->vlan($company, 100);
+
+        $this->actingAs($configurer)->putJson("/api/v1/network-ports/{$port->id}/switching-configuration", $this->payload('access', [['vlan_id' => $vlan->id, 'tagging' => 'untagged']]))->assertOk();
+        $this->actingAs($retirer)->deleteJson("/api/v1/network-ports/{$port->id}/switching-configuration")->assertOk();
+
+        $audit = AuditLog::where('action', 'net.port-switching-config-retired')->latest('id')->firstOrFail();
+        $this->assertSame([], $audit->metadata['memberships']);
+        $this->assertNotContains($vlan->id, $audit->metadata['memberships']);
+    }
 }
