@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AuditLog;
 use App\Models\Company;
 use App\Models\User;
+use App\Services\AuditService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -162,5 +163,24 @@ class AuditSecurityTest extends TestCase
 
         // Also verify no raw password string is accidentally serialized
         $this->assertStringNotContainsString('password', json_encode($log->metadata));
+    }
+
+    public function test_nested_and_variant_secret_keys_are_removed_before_audit_storage(): void
+    {
+        AuditService::log('test.nested-secrets', 'success', null, [
+            'safe' => 'visible',
+            'provider_payload' => [
+                'apiKey' => 'do-not-store',
+                'headers' => ['Authorization' => 'Bearer do-not-store'],
+                'nested' => ['refresh_token' => 'do-not-store', 'safe' => 'retained'],
+            ],
+        ]);
+
+        $metadata = AuditLog::where('action', 'test.nested-secrets')->sole()->metadata;
+        $this->assertSame('visible', $metadata['safe']);
+        $this->assertArrayNotHasKey('apiKey', $metadata['provider_payload']);
+        $this->assertArrayNotHasKey('Authorization', $metadata['provider_payload']['headers']);
+        $this->assertArrayNotHasKey('refresh_token', $metadata['provider_payload']['nested']);
+        $this->assertSame('retained', $metadata['provider_payload']['nested']['safe']);
     }
 }

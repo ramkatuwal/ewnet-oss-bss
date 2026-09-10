@@ -19,8 +19,7 @@ class AuditService
             $user = Auth::user();
             $request = request();
 
-            // SANITIZE METADATA: Remove any potential secrets
-            $safeMetadata = collect($metadata)->forget(['password', 'token', 'secret', 'api_key', 'credentials'])->toArray();
+            $safeMetadata = self::redactSecrets($metadata);
 
             AuditLog::create([
                 'actor_type' => $user ? get_class($user) : 'guest',
@@ -48,5 +47,24 @@ class AuditService
 
             // If this was a critical security denial, we might want to throw, but for now, fail closed on the log, not the app.
         }
+    }
+
+    /**
+     * Audit metadata often contains nested provider/request payloads. Remove
+     * secret-bearing keys at every depth before the payload reaches storage.
+     */
+    private static function redactSecrets(array $metadata): array
+    {
+        $safeMetadata = [];
+
+        foreach ($metadata as $key => $value) {
+            if (is_string($key) && preg_match('/(?:password|token|secret|api[_-]?key|credential|authorization|private[_-]?key)/i', $key)) {
+                continue;
+            }
+
+            $safeMetadata[$key] = is_array($value) ? self::redactSecrets($value) : $value;
+        }
+
+        return $safeMetadata;
     }
 }

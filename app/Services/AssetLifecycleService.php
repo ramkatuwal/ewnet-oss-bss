@@ -44,6 +44,15 @@ class AssetLifecycleService
     public function transfer(Asset $asset, Site $toSite, User $user, ?string $notes = null): AssetLifecycleEvent
     {
         return DB::transaction(function () use ($asset, $toSite, $user, $notes) {
+            $asset = Asset::lockForUpdate()->findOrFail($asset->id);
+            $sites = Site::whereIn('id', [$asset->site_id, $toSite->id])
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+            $fromSite = $sites->get($asset->site_id) ?? throw new \LogicException('Asset site no longer exists.');
+            $toSite = $sites->get($toSite->id) ?? throw new \LogicException('Destination site no longer exists.');
+            $this->ensureSameCompany($asset, $fromSite, $toSite);
             $fromSiteId = $asset->site_id;
 
             $event = $this->createEvent($asset, 'TRANSFERRED', [
@@ -68,13 +77,20 @@ class AssetLifecycleService
 
     public function changeStatus(Asset $asset, string $newStatus, User $user, ?string $notes = null): AssetLifecycleEvent
     {
-        $oldStatus = $asset->status;
+        return $this->transition($asset, $newStatus, $user, $notes);
+    }
 
-        if ($oldStatus === $newStatus) {
-            throw new \InvalidArgumentException('Status is already set to '.$newStatus);
-        }
-
-        return DB::transaction(function () use ($asset, $newStatus, $user, $notes, $oldStatus) {
+    private function transition(Asset $asset, string $newStatus, User $user, ?string $notes, ?callable $validate = null): AssetLifecycleEvent
+    {
+        return DB::transaction(function () use ($asset, $newStatus, $user, $notes, $validate) {
+            $asset = Asset::lockForUpdate()->findOrFail($asset->id);
+            $oldStatus = $asset->status;
+            if ($oldStatus === $newStatus) {
+                throw new \InvalidArgumentException('Status is already set to '.$newStatus);
+            }
+            if ($validate !== null) {
+                $validate($asset);
+            }
             $event = $this->createEvent($asset, 'STATUS_CHANGED', [
                 'status_before' => $oldStatus,
                 'status_after' => $newStatus,
@@ -97,24 +113,20 @@ class AssetLifecycleService
 
     public function retire(Asset $asset, User $user, ?string $notes = null): AssetLifecycleEvent
     {
-        if ($asset->status === 'RETIRED') {
-            throw new \InvalidArgumentException('Asset is already retired.');
-        }
-
-        if ($asset->status === 'DISPOSED') {
-            throw new \InvalidArgumentException('Cannot retire a disposed asset.');
-        }
-
-        return $this->changeStatus($asset, 'RETIRED', $user, $notes);
+        return $this->transition($asset, 'RETIRED', $user, $notes, function (Asset $lockedAsset): void {
+            if ($lockedAsset->status === 'DISPOSED') {
+                throw new \InvalidArgumentException('Cannot retire a disposed asset.');
+            }
+        });
     }
 
     public function dispose(Asset $asset, User $user, ?string $notes = null): AssetLifecycleEvent
     {
-        if ($asset->status !== 'RETIRED') {
-            throw new \InvalidArgumentException('Asset must be retired before disposal.');
-        }
-
-        return $this->changeStatus($asset, 'DISPOSED', $user, $notes);
+        return $this->transition($asset, 'DISPOSED', $user, $notes, function (Asset $lockedAsset): void {
+            if ($lockedAsset->status !== 'RETIRED') {
+                throw new \InvalidArgumentException('Asset must be retired before disposal.');
+            }
+        });
     }
 
     public function getHistory(Asset $asset): Collection
@@ -124,5 +136,16 @@ class AssetLifecycleService
             ->orderBy('event_date', 'desc')
             ->orderBy('id', 'desc')
             ->get();
+    }
+
+    private function ensureSameCompany(Asset $asset, Site $fromSite, Site $toSite): void
+    {
+        // Legacy company IDs may be null; a source site's company remains a
+        // reliable boundary when the denormalized asset value is absent.
+        $assetCompanyId = $asset->company_id ?? $fromSite->company_id;
+        if ($assetCompanyId !== null && $toSite->company_id !== null
+            && (int) $assetCompanyId !== (int) $toSite->company_id) {
+            throw new \InvalidArgumentException('Assets cannot be transferred across companies.');
+        }
     }
 }

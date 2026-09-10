@@ -3,6 +3,7 @@
 namespace Tests\Feature\Integrations;
 
 use App\Models\Asset;
+use App\Models\AssetExternalReference;
 use App\Models\Company;
 use App\Models\ImportHistory;
 use App\Models\Integration;
@@ -203,6 +204,52 @@ class ImportPipelineTest extends TestCase
         $site->refresh();
         $this->assertSame('28.9735400', $site->latitude);
         $this->assertSame('81.5257200', $site->longitude);
+    }
+
+    public function test_uisp_reimport_preserves_canonical_asset_identity_and_lifecycle(): void
+    {
+        Http::fake();
+        $integration = $this->uispIntegration();
+        $site = Site::factory()->create(['company_id' => $this->company['A']->id]);
+        $asset = Asset::factory()->create([
+            'site_id' => $site->id, 'company_id' => $this->company['A']->id,
+            'asset_tag' => 'CANONICAL-ASSET', 'status' => 'RETIRED', 'model' => 'Field Model',
+        ]);
+        AssetExternalReference::create(['asset_id' => $asset->id, 'provider' => 'uisp', 'external_type' => 'device', 'external_id' => 'provider-device']);
+
+        $this->actingAs($this->admin['uisp'])->postJson("/api/v1/integrations/{$integration->id}/uisp/import/execute", [
+            'devices' => [[
+                'external_id' => 'provider-device', 'name' => 'Provider Rename', 'model' => 'Provider Model',
+                'serial_number' => 'provider-serial', 'site_id' => $site->id,
+            ]],
+        ])->assertOk();
+
+        $asset->refresh();
+        $this->assertSame('CANONICAL-ASSET', $asset->asset_tag);
+        $this->assertSame('RETIRED', $asset->status);
+        $this->assertSame('Field Model', $asset->model);
+    }
+
+    public function test_uisp_reimport_preserves_canonical_site_intent(): void
+    {
+        Http::fake();
+        $integration = $this->uispIntegration();
+        $site = Site::factory()->create([
+            'company_id' => $this->company['A']->id,
+            'name' => 'Surveyed POP', 'status' => 'maintenance', 'description' => 'Canonical survey notes',
+        ]);
+        SiteExternalReference::create(['site_id' => $site->id, 'provider' => 'uisp', 'external_type' => 'site', 'external_id' => 'provider-site']);
+
+        $this->actingAs($this->admin['uisp'])->postJson("/api/v1/integrations/{$integration->id}/uisp/import/execute", [
+            'sites' => [[
+                'external_id' => 'provider-site', 'name' => 'Provider Rename', 'description' => 'Provider description',
+            ]],
+        ])->assertOk();
+
+        $site->refresh();
+        $this->assertSame('Surveyed POP', $site->name);
+        $this->assertSame('maintenance', $site->status);
+        $this->assertSame('Canonical survey notes', $site->description);
     }
 
     public function test_uisp_site_and_device_respect_action_from_analysis(): void

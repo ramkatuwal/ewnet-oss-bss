@@ -8,7 +8,9 @@ use App\Models\Company;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\UserManagementScope;
+use App\Services\AssetLifecycleService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class AssetLifecycleTest extends TestCase
@@ -187,6 +189,38 @@ class AssetLifecycleTest extends TestCase
             'id' => $asset->id,
             'site_id' => $site1->id,
         ]);
+    }
+
+    public function test_transfer_rejects_cross_company_when_the_user_has_both_company_scopes(): void
+    {
+        $companyA = Company::factory()->create();
+        $companyB = Company::factory()->create();
+        $siteA = Site::factory()->create(['company_id' => $companyA->id]);
+        $siteB = Site::factory()->create(['company_id' => $companyB->id]);
+        $asset = Asset::factory()->create(['site_id' => $siteA->id, 'company_id' => null]);
+
+        $user = User::factory()->create(['company_id' => $companyA->id]);
+        $user->givePermissionTo(['assets.transfer', 'assets.view', 'sites.view']);
+        foreach ([$companyA, $companyB] as $company) {
+            UserManagementScope::create(['user_id' => $user->id, 'scope_type' => 'company', 'scope_id' => $company->id, 'granted_by' => $user->id]);
+        }
+
+        $this->actingAs($user)->postJson("/api/v1/assets/{$asset->id}/transfer", ['to_site_id' => $siteB->id])
+            ->assertUnprocessable()->assertJsonValidationErrors('to_site_id');
+        $this->assertSame($siteA->id, $asset->fresh()->site_id);
+    }
+
+    public function test_lifecycle_rechecks_the_locked_current_status(): void
+    {
+        $company = Company::factory()->create();
+        $site = Site::factory()->create(['company_id' => $company->id]);
+        $asset = Asset::factory()->create(['site_id' => $site->id, 'company_id' => $company->id, 'status' => 'OPERATIONAL']);
+        $user = User::factory()->create(['company_id' => $company->id]);
+        $staleAsset = Asset::findOrFail($asset->id);
+        DB::table('assets')->where('id', $asset->id)->update(['status' => 'DISPOSED']);
+
+        $this->expectException(\InvalidArgumentException::class);
+        app(AssetLifecycleService::class)->retire($staleAsset, $user);
     }
 
     public function test_can_retire_asset()

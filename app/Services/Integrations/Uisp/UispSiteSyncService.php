@@ -172,14 +172,7 @@ class UispSiteSyncService
      */
     protected function getUispOwnedFields(Site $site, array $newData): array
     {
-        $allowed = ['name', 'status', 'address'];
         $updates = [];
-
-        foreach ($allowed as $field) {
-            if (isset($newData[$field]) && $site->{$field} != $newData[$field]) {
-                $updates[$field] = $newData[$field];
-            }
-        }
 
         // Provider observations may initialize, but never replace, canonical local location.
         if ($site->latitude === null && $site->longitude === null
@@ -199,13 +192,6 @@ class UispSiteSyncService
 
     protected function hasChanges(Site $site, array $newData): bool
     {
-        $allowed = ['name', 'status', 'address'];
-        foreach ($allowed as $field) {
-            if (isset($newData[$field]) && $site->{$field} != $newData[$field]) {
-                return true;
-            }
-        }
-
         if ($site->latitude === null && $site->longitude === null
             && isset($newData['latitude'], $newData['longitude'])) {
             return true;

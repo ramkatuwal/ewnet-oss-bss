@@ -137,6 +137,7 @@ class AssetImportService
 
         $data = [
             'site_id' => $site->id,
+            'company_id' => $site->company_id,
             'asset_tag' => $assetTag,
             'serial_number' => $serialNumber,
             'category' => $category,

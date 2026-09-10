@@ -6,6 +6,7 @@ use App\Integrations\Providers\Uisp\UispClient;
 use App\Models\Asset;
 use App\Models\AssetExternalReference;
 use App\Models\Integration;
+use App\Models\Site;
 use App\Models\SiteExternalReference;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -114,6 +115,7 @@ class UispDeviceSyncService
             return;
         }
         $assetData['site_id'] = $siteId;
+        $assetData['company_id'] = Site::find($siteId)?->company_id;
 
         // Conflict check against Assets table: description/hostname, serial, MAC, IP
         $asset = null;
@@ -213,16 +215,8 @@ class UispDeviceSyncService
      */
     protected function getUispOwnedFields(Asset $asset, array $newData): array
     {
-        $allowed = ['model', 'manufacturer', 'serial_number', 'type', 'category', 'status', 'description'];
-        $updates = [];
-
-        foreach ($allowed as $field) {
-            if (isset($newData[$field]) && $asset->{$field} != $newData[$field]) {
-                $updates[$field] = $newData[$field];
-            }
-        }
-
-        // Merge specifications (preserve existing keys)
+        // Asset identity, placement, and lifecycle are canonical operator intent.
+        // UISP may only refresh its observation namespace on an existing asset.
         $existingSpecs = $asset->specifications ?? [];
         $newSpecs = $newData['specifications'] ?? [];
         $mergedSpecs = array_merge($existingSpecs, $newSpecs);
@@ -247,14 +241,7 @@ class UispDeviceSyncService
 
     protected function hasChanges(Asset $asset, array $newData): bool
     {
-        $allowed = ['model', 'manufacturer', 'serial_number', 'type', 'category', 'status', 'description'];
-        foreach ($allowed as $field) {
-            if (isset($newData[$field]) && $asset->{$field} != $newData[$field]) {
-                return true;
-            }
-        }
-
-        // Check specifications changes (only for UISP keys)
+        // Check provider observations only; canonical fields are never provider-owned.
         $existingSpecs = $asset->specifications ?? [];
         $newSpecs = $newData['specifications'] ?? [];
         $uispKeys = ['mac_address', 'firmware_version', 'ip_address', 'synced_from', 'synced_at'];

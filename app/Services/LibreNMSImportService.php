@@ -7,6 +7,7 @@ use App\Models\Asset;
 use App\Models\AssetExternalReference;
 use App\Models\ImportHistory;
 use App\Models\Integration;
+use App\Models\Site;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -195,10 +196,7 @@ class LibreNMSImportService
 
                     if ($asset) {
                         $asset->update([
-                            'description' => $displayName,
-                            'manufacturer' => $fullDevice['os'] ?? null,
-                            'model' => $fullDevice['hardware'] ?? null,
-                            'site_id' => $siteMapping['site_id'],
+                            // Monitoring observations must not rewrite canonical asset intent.
                             'specifications' => array_merge($asset->specifications ?? [], ['last_synced' => now()]),
                         ]);
                         $results['updated']++;
@@ -212,6 +210,7 @@ class LibreNMSImportService
 
                         $newAsset = Asset::create([
                             'site_id' => $siteMapping['site_id'],
+                            'company_id' => Site::find($siteMapping['site_id'])?->company_id,
                             'asset_tag' => $assetTag,
                             'description' => $displayName,
                             'manufacturer' => $fullDevice['os'] ?? null,

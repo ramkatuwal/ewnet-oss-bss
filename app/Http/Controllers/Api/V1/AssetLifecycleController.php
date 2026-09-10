@@ -53,7 +53,11 @@ class AssetLifecycleController extends Controller
         $toSite = Site::findOrFail($request->to_site_id);
         $this->authorize('view', $toSite);
 
-        $event = $this->lifecycleService->transfer($asset, $toSite, $request->user(), $request->notes);
+        try {
+            $event = $this->lifecycleService->transfer($asset, $toSite, $request->user(), $request->notes);
+        } catch (\InvalidArgumentException $e) {
+            throw ValidationException::withMessages(['to_site_id' => [$e->getMessage()]]);
+        }
 
         return response()->json([
             'message' => 'Asset transferred successfully.',

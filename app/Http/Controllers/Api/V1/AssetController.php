@@ -85,7 +85,9 @@ class AssetController extends Controller
     {
         $this->authorize('create', Asset::class);
 
+        $site = Site::findOrFail($request->validated('site_id'));
         $asset = Asset::create($request->validated() + [
+            'company_id' => $site->company_id,
             'created_by' => $request->user()->id,
             'updated_by' => $request->user()->id,
         ]);

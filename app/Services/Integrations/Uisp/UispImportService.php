@@ -110,8 +110,7 @@ class UispImportService
                         ? ['latitude' => $location['latitude'], 'longitude' => $location['longitude']]
                         : [];
                     $site->update([
-                        'name' => $data['name'] ?? $site->name,
-                        'description' => $data['description'] ?? $site->description,
+                        // Provider discovery must not rewrite canonical FIM site intent.
                         'metadata' => array_merge($site->metadata ?? [], ['last_synced' => now()]),
                         ...$locationUpdates,
                     ]);
@@ -171,10 +170,6 @@ class UispImportService
                 $asset = Asset::find($existingRef->asset_id);
                 if ($asset) {
                     $asset->update([
-                        'asset_tag' => $data['name'] ?? $asset->asset_tag,
-                        'model' => $data['model'] ?? $asset->model,
-                        'manufacturer' => $data['manufacturer'] ?? $asset->manufacturer,
-                        'serial_number' => $data['serial_number'] ?? $asset->serial_number,
                         'specifications' => array_merge($asset->specifications ?? [], ['last_synced' => now()]),
                     ]);
                     $results['devices']['updated']++;
@@ -205,6 +200,7 @@ class UispImportService
 
             $asset = Asset::create([
                 'site_id' => $siteId,
+                'company_id' => Site::find($siteId)?->company_id,
                 'asset_tag' => $assetTag,
                 'serial_number' => $data['serial_number'] ?? null,
                 'category' => 'NETWORK',
