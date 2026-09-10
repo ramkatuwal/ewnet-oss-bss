@@ -320,7 +320,7 @@ class PhysicalConnectionTest extends TestCase
         $own = app(PhysicalConnectionService::class)->create(['termination_a_id' => $a1->id, 'termination_b_id' => $a2->id, 'connection_type' => 'fusion_splice'], $user);
         $foreign = app(PhysicalConnectionService::class)->create(['termination_a_id' => $b1->id, 'termination_b_id' => $b2->id, 'connection_type' => 'fusion_splice'], User::factory()->create(['company_id' => $companyB->id]));
 
-        $this->actingAs($user, 'sanctum')->getJson('/api/v1/fim/physical-connections')->assertOk()->assertJsonFragment(['id' => $own->id])->assertJsonMissing(['id' => $foreign->id]);
+        $this->actingAs($user, 'sanctum')->getJson('/api/v1/fim/physical-connections?per_page=1')->assertOk()->assertJsonFragment(['id' => $own->id])->assertJsonMissing(['id' => $foreign->id])->assertJsonPath('meta.total', 1)->assertJsonPath('meta.per_page', 1);
         $this->actingAs($user, 'sanctum')->getJson("/api/v1/fim/physical-connections/{$own->id}")->assertOk()->assertJsonPath('data.id', $own->id);
         $this->actingAs($user, 'sanctum')->getJson('/api/v1/fim/physical-connections/999999')->assertNotFound();
         $this->actingAs($user, 'sanctum')->getJson("/api/v1/fim/physical-connections/{$foreign->id}")->assertForbidden();

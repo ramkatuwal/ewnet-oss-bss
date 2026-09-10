@@ -20,7 +20,20 @@ class PhysicalConnectionController extends Controller
     {
         $this->authorize('viewAny', PhysicalConnection::class);
 
-        return response()->json(['data' => PhysicalConnection::query()->whereIn('id', ManagementScopeService::applyScopeToQuery(PhysicalConnection::query(), $r->user(), PhysicalConnection::class)->pluck('id'))->orderByDesc('id')->paginate($r->input('per_page', 15))->items()]);
+        $connections = PhysicalConnection::query()
+            ->whereIn('id', ManagementScopeService::applyScopeToQuery(PhysicalConnection::query(), $r->user(), PhysicalConnection::class)->pluck('id'))
+            ->orderByDesc('id')
+            ->paginate($r->integer('per_page', 15));
+
+        return response()->json([
+            'data' => $connections->items(),
+            'meta' => [
+                'current_page' => $connections->currentPage(),
+                'last_page' => $connections->lastPage(),
+                'per_page' => $connections->perPage(),
+                'total' => $connections->total(),
+            ],
+        ]);
     }
 
     public function store(StorePhysicalConnectionRequest $r)

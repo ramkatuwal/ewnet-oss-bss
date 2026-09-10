@@ -8,3 +8,15 @@ export const infrastructureKeys = {
     assetDashboard: () => ['infrastructure', 'assets', 'dashboard'] as const,
     networkPorts: (assetId: number) => ['infrastructure', 'asset', assetId, 'network-ports'] as const,
 };
+
+export const fimKeys = {
+    cables: (filters: Record<string, unknown> = {}) => ['fim', 'cables', filters] as const,
+    points: (filters: Record<string, unknown> = {}) => ['fim', 'connection-points', filters] as const,
+    segments: (filters: Record<string, unknown> = {}) => ['fim', 'segments', filters] as const,
+    cores: (filters: Record<string, unknown> = {}) => ['fim', 'cores', filters] as const,
+    terminations: (coreId: number, filters: Record<string, unknown> = {}) => ['fim', 'cores', coreId, 'terminations', filters] as const,
+    connections: (filters: Record<string, unknown> = {}) => ['fim', 'physical-connections', filters] as const,
+    passivePorts: (assetId: number, filters: Record<string, unknown> = {}) => ['fim', 'assets', assetId, 'passive-ports', filters] as const,
+    capacity: (kind: 'cable' | 'segment' | 'splitter', id: number) => ['fim', 'capacity', kind, id] as const,
+    continuity: (coreId: number) => ['fim', 'continuity', coreId] as const,
+};
