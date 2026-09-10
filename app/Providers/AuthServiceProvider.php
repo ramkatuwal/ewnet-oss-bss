@@ -11,6 +11,7 @@ use App\Models\NetworkConnectionPoint;
 use App\Models\PassiveOpticalPort;
 use App\Models\PhysicalConnection;
 use App\Models\RoutingInstance;
+use App\Models\RoutingL3Interface;
 use App\Models\Site;
 use App\Policies\FiberCablePolicy;
 use App\Policies\FiberCorePolicy;
@@ -23,6 +24,7 @@ use App\Policies\PermissionPolicy;
 use App\Policies\PhysicalConnectionPolicy;
 use App\Policies\RolePolicy;
 use App\Policies\RoutingInstancePolicy;
+use App\Policies\RoutingL3InterfacePolicy;
 use App\Policies\SitePolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
@@ -50,6 +52,7 @@ class AuthServiceProvider extends ServiceProvider
         PassiveOpticalPort::class => PassiveOpticalPortPolicy::class,
         NetworkConnectionPoint::class => NetworkConnectionPointPolicy::class,
         RoutingInstance::class => RoutingInstancePolicy::class,
+        RoutingL3Interface::class => RoutingL3InterfacePolicy::class,
     ];
 
     /**
@@ -72,5 +75,6 @@ class AuthServiceProvider extends ServiceProvider
         Gate::policy(PassiveOpticalPort::class, PassiveOpticalPortPolicy::class);
         Gate::policy(NetworkConnectionPoint::class, NetworkConnectionPointPolicy::class);
         Gate::policy(RoutingInstance::class, RoutingInstancePolicy::class);
+        Gate::policy(RoutingL3Interface::class, RoutingL3InterfacePolicy::class);
     }
 }

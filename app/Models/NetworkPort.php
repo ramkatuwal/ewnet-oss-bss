@@ -79,4 +79,9 @@ class NetworkPort extends Model
     {
         return $this->hasOne(NetworkPortSwitchingConfig::class);
     }
+
+    public function routingL3Interfaces(): HasMany
+    {
+        return $this->hasMany(RoutingL3Interface::class);
+    }
 }

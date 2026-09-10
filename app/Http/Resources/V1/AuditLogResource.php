@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\V1;
 
+use App\Models\RoutingL3Interface;
 use App\Models\Vlan;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -84,6 +85,13 @@ class AuditLogResource extends JsonResource
         ], true) && isset($metadata['memberships']) && is_array($metadata['memberships'])) {
             $vlans = Vlan::whereIn('id', collect($metadata['memberships'])->pluck('vlan_id')->filter()->all())->get()->keyBy('id');
             $metadata['memberships'] = array_values(array_filter($metadata['memberships'], fn (array $membership) => isset($membership['vlan_id']) && isset($vlans[$membership['vlan_id']]) && $request->user()?->can('view', $vlans[$membership['vlan_id']])));
+        }
+
+        if (in_array($this->action, ['net.routing-l3-interface-created', 'net.routing-l3-interface-retired'], true)) {
+            $interface = isset($metadata['routing_l3_interface_id']) ? RoutingL3Interface::withTrashed()->find($metadata['routing_l3_interface_id']) : null;
+            if (! $interface || ! $request->user()?->can('view', $interface)) {
+                unset($metadata['asset_id'], $metadata['company_id'], $metadata['network_port_id'], $metadata['vlan_id'], $metadata['parent_routing_l3_interface_id'], $metadata['routing_instance_id'], $metadata['routing_l3_interface_id']);
+            }
         }
 
         return $metadata;

@@ -167,6 +167,11 @@ class Asset extends Model
         return $this->hasMany(RoutingInstance::class);
     }
 
+    public function routingL3Interfaces(): HasMany
+    {
+        return $this->hasMany(RoutingL3Interface::class);
+    }
+
     public function ipAddresses(): HasManyThrough
     {
         return $this->hasManyThrough(

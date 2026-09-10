@@ -47,4 +47,9 @@ class Vlan extends Model
     {
         return $this->hasMany(NetworkPortVlanMembership::class);
     }
+
+    public function routingL3Interfaces(): HasMany
+    {
+        return $this->hasMany(RoutingL3Interface::class);
+    }
 }

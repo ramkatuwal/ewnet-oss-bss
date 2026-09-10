@@ -125,6 +125,9 @@ class SystemPermissionSeeder extends Seeder
             'net.routing-instances.view',
             'net.routing-instances.create',
             'net.routing-instances.delete',
+            'net.routing-l3-interfaces.view',
+            'net.routing-l3-interfaces.create',
+            'net.routing-l3-interfaces.delete',
         ];
 
         foreach ($permissions as $permission) {
