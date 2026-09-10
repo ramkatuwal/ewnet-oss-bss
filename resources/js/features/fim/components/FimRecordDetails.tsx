@@ -1,0 +1,15 @@
+import { Box, Chip, Stack, Typography } from '@mui/material';
+import type { ConnectionPoint, FiberCable, FiberCore, FiberSegment, PhysicalConnection } from '../api/fim';
+
+type Record = FiberCable | ConnectionPoint | FiberSegment | FiberCore | PhysicalConnection;
+export function FimRecordDetails({ kind, record, cables, points, segments, cores }: { kind: 'cables' | 'points' | 'segments' | 'cores' | 'connections'; record: Record | null; cables: FiberCable[]; points: ConnectionPoint[]; segments: FiberSegment[]; cores: FiberCore[] }) {
+    if (!record) return <Box sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 1 }}><Typography color="text.secondary">Select an authorized record to inspect its explicit physical relationships.</Typography></Box>;
+    const cable = (id: number) => cables.find(item => item.id === id); const point = (id: number) => points.find(item => item.id === id); const segment = (id: number) => segments.find(item => item.id === id); const core = (id: number) => cores.find(item => item.id === id);
+    let title = `Record #${record.id}`; let relationships: string[] = [];
+    if (kind === 'cables') { const item = record as FiberCable; title = item.cable_code; relationships = [`${item.fiber_count} fiber cores per represented cable inventory`, `Company #${item.company_id}`, `Route authority: ${item.route_geometry_authority}`]; }
+    if (kind === 'points') { const item = record as ConnectionPoint; title = item.name || `Connection point #${item.id}`; relationships = [`Type: ${item.point_type}`, item.site_id ? `Site #${item.site_id}` : 'No site reference', item.asset_id ? `Asset #${item.asset_id}` : 'No asset reference']; }
+    if (kind === 'segments') { const item = record as FiberSegment; title = `Segment ${item.sequence} of ${cable(item.fiber_cable_id)?.cable_code ?? `cable #${item.fiber_cable_id}`}`; relationships = [`A: ${point(item.endpoint_a_id)?.name ?? `NCP #${item.endpoint_a_id}`}`, `B: ${point(item.endpoint_b_id)?.name ?? `NCP #${item.endpoint_b_id}`}`, `Length: ${item.calculated_length_meters ?? item.length_meters ?? 'not recorded'} m`]; }
+    if (kind === 'cores') { const item = record as FiberCore; title = `Core ${item.core_number} in ${segment(item.fiber_segment_id) ? `segment #${item.fiber_segment_id}` : `segment #${item.fiber_segment_id}`}`; relationships = [`Status: ${item.status}`, `Color: ${item.color_code || 'not recorded'}`]; }
+    if (kind === 'connections') { const item = record as PhysicalConnection; title = `Explicit ${item.connection_type.replace('_', ' ')}`; relationships = [`Termination A: #${item.termination_a_id}${core(item.termination_a_id) ? '' : ''}`, `Termination B: #${item.termination_b_id}`, 'No logical or inferred topology edge is displayed.']; }
+    return <Box sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 1 }}><Stack direction="row" justifyContent="space-between" alignItems="center"><Typography variant="h6">{title}</Typography><Chip size="small" label={kind} /></Stack>{relationships.map(item => <Typography key={item} variant="body2" sx={{ mt: 0.5 }}>{item}</Typography>)}</Box>;
+}
