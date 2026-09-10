@@ -22,6 +22,7 @@ export const bssApi = {
     updateCustomer: (id: number, body: Partial<CustomerInput>) => data<Customer>(apiClient.patch(`/api/v1/bss/customers/${id}`, body)),
     retireCustomer: (id: number) => apiClient.delete(`/api/v1/bss/customers/${id}`),
     services: (params?: Record<string, unknown>) => collection<Service>('/api/v1/bss/services', params),
+    service: (id: number) => data<Service>(apiClient.get(`/api/v1/bss/services/${id}`)),
     createService: (body: ServiceInput) => data<Service>(apiClient.post('/api/v1/bss/services', body)),
     updateService: (id: number, body: Partial<ServiceInput>) => data<Service>(apiClient.patch(`/api/v1/bss/services/${id}`, body)),
     retireService: (id: number) => apiClient.delete(`/api/v1/bss/services/${id}`),

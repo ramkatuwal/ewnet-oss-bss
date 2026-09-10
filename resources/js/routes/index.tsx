@@ -40,6 +40,8 @@ const FimOperationsPage = lazy(() => import('@/features/fim/pages/FimOperationsP
 const FimMapPage = lazy(() => import('@/features/fim/pages/FimMapPage'));
 const NetworkOperationsPage = lazy(() => import('@/features/network/pages/NetworkOperationsPage'));
 const BssOperationsPage = lazy(() => import('@/features/bss/pages/BssOperationsPage'));
+const CustomerDetailPage = lazy(() => import('@/features/bss/pages/CustomerDetailPage'));
+const ServiceDetailPage = lazy(() => import('@/features/bss/pages/ServiceDetailPage'));
 
 const PageLoader = () => (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 2 }}>
@@ -93,6 +95,8 @@ export const AppRouter = () => (
                     <Route path="bss">
                         <Route element={<PermissionRoute permission="bss.customers.view" />}>
                             <Route index element={<BssOperationsPage />} />
+                            <Route path="customers/:id" element={<CustomerDetailPage />} />
+                            <Route path="services/:id" element={<ServiceDetailPage />} />
                         </Route>
                     </Route>
 
