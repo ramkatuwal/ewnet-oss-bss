@@ -29,6 +29,7 @@ use App\Models\RoutingL3InterfaceAddress;
 use App\Models\Site;
 use App\Models\SplitterBranch;
 use App\Models\SplitterProfile;
+use App\Models\StaticRoute;
 use App\Models\User;
 use App\Models\UserManagementScope;
 use App\Models\Vlan;
@@ -183,6 +184,9 @@ class ManagementScopeService
         if ($resource instanceof RoutingL3InterfaceAddress) {
             return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
         }
+        if ($resource instanceof StaticRoute) {
+            return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
+        }
         if ($resource instanceof Integration) {
             // Global (system-level) integrations are only reachable via the global scope
             if ($resource->company_id === null) {
@@ -331,6 +335,10 @@ class ManagementScopeService
             } elseif ($modelClass === RoutingL3InterfaceAddress::class) {
                 if ($type === 'company') {
                     $ids = array_merge($ids, RoutingL3InterfaceAddress::where('company_id', $id)->pluck('id')->toArray());
+                }
+            } elseif ($modelClass === StaticRoute::class) {
+                if ($type === 'company') {
+                    $ids = array_merge($ids, StaticRoute::where('company_id', $id)->pluck('id')->toArray());
                 }
             } elseif ($modelClass === User::class) {
                 $ids = array_merge($ids, static::getUserIdsForScope($type, $id));

@@ -52,6 +52,11 @@ class RoutingL3Interface extends Model
         return $this->hasMany(RoutingL3InterfaceAddress::class);
     }
 
+    public function staticRoutes(): HasMany
+    {
+        return $this->hasMany(StaticRoute::class);
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

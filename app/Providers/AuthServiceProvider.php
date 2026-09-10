@@ -14,6 +14,7 @@ use App\Models\RoutingInstance;
 use App\Models\RoutingL3Interface;
 use App\Models\RoutingL3InterfaceAddress;
 use App\Models\Site;
+use App\Models\StaticRoute;
 use App\Policies\FiberCablePolicy;
 use App\Policies\FiberCorePolicy;
 use App\Policies\FiberSegmentPolicy;
@@ -28,6 +29,7 @@ use App\Policies\RoutingInstancePolicy;
 use App\Policies\RoutingL3InterfaceAddressPolicy;
 use App\Policies\RoutingL3InterfacePolicy;
 use App\Policies\SitePolicy;
+use App\Policies\StaticRoutePolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 use Spatie\Permission\Models\Permission;
@@ -56,6 +58,7 @@ class AuthServiceProvider extends ServiceProvider
         RoutingInstance::class => RoutingInstancePolicy::class,
         RoutingL3Interface::class => RoutingL3InterfacePolicy::class,
         RoutingL3InterfaceAddress::class => RoutingL3InterfaceAddressPolicy::class,
+        StaticRoute::class => StaticRoutePolicy::class,
     ];
 
     /**
@@ -80,5 +83,6 @@ class AuthServiceProvider extends ServiceProvider
         Gate::policy(RoutingInstance::class, RoutingInstancePolicy::class);
         Gate::policy(RoutingL3Interface::class, RoutingL3InterfacePolicy::class);
         Gate::policy(RoutingL3InterfaceAddress::class, RoutingL3InterfaceAddressPolicy::class);
+        Gate::policy(StaticRoute::class, StaticRoutePolicy::class);
     }
 }

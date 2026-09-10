@@ -5,6 +5,7 @@ namespace App\Http\Resources\V1;
 use App\Models\RoutingInstance;
 use App\Models\RoutingL3Interface;
 use App\Models\RoutingL3InterfaceAddress;
+use App\Models\StaticRoute;
 use App\Models\Vlan;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -107,6 +108,13 @@ class AuditLogResource extends JsonResource
             $address = isset($metadata['routing_l3_interface_address_id']) ? RoutingL3InterfaceAddress::withTrashed()->find($metadata['routing_l3_interface_address_id']) : null;
             if (! $address || ! $request->user()?->can('view', $address)) {
                 unset($metadata['asset_id'], $metadata['company_id'], $metadata['routing_instance_id'], $metadata['routing_l3_interface_id'], $metadata['routing_l3_interface_address_id']);
+            }
+        }
+
+        if (in_array($this->action, ['net.static-route-created', 'net.static-route-retired'], true)) {
+            $route = isset($metadata['static_route_id']) ? StaticRoute::withTrashed()->find($metadata['static_route_id']) : null;
+            if (! $route || ! $request->user()?->can('view', $route)) {
+                unset($metadata['asset_id'], $metadata['company_id'], $metadata['routing_instance_id'], $metadata['routing_l3_interface_id'], $metadata['static_route_id']);
             }
         }
 

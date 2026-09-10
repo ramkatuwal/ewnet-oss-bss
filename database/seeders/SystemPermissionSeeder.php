@@ -131,6 +131,9 @@ class SystemPermissionSeeder extends Seeder
             'net.routing-l3-interface-addresses.view',
             'net.routing-l3-interface-addresses.create',
             'net.routing-l3-interface-addresses.delete',
+            'net.static-routes.view',
+            'net.static-routes.create',
+            'net.static-routes.delete',
         ];
 
         foreach ($permissions as $permission) {

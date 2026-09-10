@@ -40,6 +40,7 @@ use App\Http\Controllers\Api\V1\RoutingL3InterfaceController;
 use App\Http\Controllers\Api\V1\SiteController;
 use App\Http\Controllers\Api\V1\SplitterBranchController;
 use App\Http\Controllers\Api\V1\SplitterProfileController;
+use App\Http\Controllers\Api\V1\StaticRouteController;
 use App\Http\Controllers\Api\V1\SystemConfigController;
 use App\Http\Controllers\Api\V1\SystemInfoController;
 use App\Http\Controllers\Api\V1\TopologyTraversalController;
@@ -124,6 +125,10 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::post('/routing-l3-interfaces/{routingL3Interface}/addresses', [RoutingL3InterfaceAddressController::class, 'store']);
     Route::get('/routing-l3-interface-addresses/{routingL3InterfaceAddress}', [RoutingL3InterfaceAddressController::class, 'show']);
     Route::delete('/routing-l3-interface-addresses/{routingL3InterfaceAddress}', [RoutingL3InterfaceAddressController::class, 'destroy']);
+    Route::get('/routing-instances/{routingInstance}/static-routes', [StaticRouteController::class, 'index']);
+    Route::post('/routing-instances/{routingInstance}/static-routes', [StaticRouteController::class, 'store']);
+    Route::get('/static-routes/{staticRoute}', [StaticRouteController::class, 'show']);
+    Route::delete('/static-routes/{staticRoute}', [StaticRouteController::class, 'destroy']);
 
     // PON Domains (logical PON identity)
     Route::get('/network-ports/{networkPort}/pon-domains', [PonDomainController::class, 'index']);

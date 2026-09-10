@@ -6,6 +6,7 @@ use App\Models\NetworkPort;
 use App\Models\RoutingInstance;
 use App\Models\RoutingL3Interface;
 use App\Models\RoutingL3InterfaceAddress;
+use App\Models\StaticRoute;
 use App\Models\User;
 use App\Models\Vlan;
 use Illuminate\Database\QueryException;
@@ -47,6 +48,9 @@ class RoutingL3InterfaceService
                 }
                 if (RoutingL3InterfaceAddress::where('routing_l3_interface_id', $interface->id)->exists()) {
                     throw ValidationException::withMessages(['routing_l3_interface' => 'Retire authoritative addresses first.']);
+                }
+                if (StaticRoute::where('routing_l3_interface_id', $interface->id)->exists()) {
+                    throw ValidationException::withMessages(['routing_l3_interface' => 'Retire static routes first.']);
                 }
                 $interface->update(['updated_by' => $user->id]);
                 $interface->delete();
