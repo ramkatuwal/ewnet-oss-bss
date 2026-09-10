@@ -12,8 +12,8 @@ import { getSiteAssets, deleteAsset } from '../../assets/api/assets';
 import AssetFormDrawer from '../../assets/components/AssetFormDrawer';
 import { SiteLibreNMSImportDialog } from './SiteLibreNMSImportDialog';
 import toast from 'react-hot-toast';
-import { useQuery as useReactQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { apiClient } from '@/api/client';
+import { infrastructureKeys } from '@/api/queryKeys';
 
 interface SiteAssetsTabProps {
     siteId: number;
@@ -31,9 +31,9 @@ export const SiteAssetsTab: React.FC<SiteAssetsTabProps> = ({ siteId }) => {
     const [importDialogOpen, setImportDialogOpen] = useState(false);
 
     // Fetch LibreNMS integrations
-    const { data: integrations } = useReactQuery({
+    const { data: integrations } = useQuery({
         queryKey: ['integrations'],
-        queryFn: () => axios.get('/api/v1/integrations').then(res => res.data.data),
+        queryFn: () => apiClient.get('/api/v1/integrations').then(res => res.data.data),
     });
 
     const librenmsIntegration = integrations?.find(
@@ -41,7 +41,7 @@ export const SiteAssetsTab: React.FC<SiteAssetsTabProps> = ({ siteId }) => {
     );
 
     const { data, isLoading } = useQuery({
-        queryKey: ['site-assets', siteId, page, pageSize, searchValue, filters],
+        queryKey: infrastructureKeys.siteAssets(siteId, { page, pageSize, searchValue, ...filters }),
         queryFn: () => getSiteAssets(siteId, {
             page: page + 1,
             per_page: pageSize,
@@ -54,8 +54,8 @@ export const SiteAssetsTab: React.FC<SiteAssetsTabProps> = ({ siteId }) => {
     const deleteMutation = useMutation({
         mutationFn: deleteAsset,
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['site-assets', siteId] });
-            queryClient.invalidateQueries({ queryKey: ['assets'] });
+            queryClient.invalidateQueries({ queryKey: ['infrastructure', 'site-assets', siteId] });
+            queryClient.invalidateQueries({ queryKey: ['infrastructure', 'assets'] });
             setDeleteId(null);
             toast.success('Asset deleted successfully');
         },

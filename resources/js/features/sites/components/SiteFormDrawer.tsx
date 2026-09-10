@@ -1,297 +1,64 @@
-import { useEffect, useState } from 'react';
-import {
-    Drawer,
-    Box,
-    Typography,
-    TextField,
-    Button,
-    Stack,
-    MenuItem,
-    FormControl,
-    InputLabel,
-    Select,
-    FormHelperText,
-} from '@mui/material';
-import { sitesApi, Site } from '@/api/sites';
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Box, Button, Drawer, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
+import { sitesApi } from '@/api/sites';
 import { companiesApi } from '@/api/companies';
 import { regionsApi } from '@/api/regions';
 import { branchesApi } from '@/api/branches';
 import SearchableSelect, { SearchableSelectOption } from '@/components/forms/SearchableSelect';
+import { normalizeApiError } from '@/api/errors';
 
-interface SiteFormDrawerProps {
-    open: boolean;
-    siteId?: number;
-    onClose: () => void;
-    onSuccess: () => void;
-}
+const schema = z.object({
+    site_code: z.string().min(1, 'Site code is required.').max(255),
+    name: z.string().min(1, 'Name is required.').max(255),
+    type: z.string().min(1), status: z.string().min(1),
+    company_id: z.number().optional(), region_id: z.number().optional(), branch_id: z.number().optional(),
+    latitude: z.number().min(-90).max(90).optional(), longitude: z.number().min(-180).max(180).optional(), altitude: z.number().optional(),
+    province: z.string().optional(), district: z.string().optional(), municipality: z.string().optional(), address: z.string().optional(),
+});
+type SiteForm = z.infer<typeof schema>;
 
-export const SiteFormDrawer = ({ open, siteId, onClose, onSuccess }: SiteFormDrawerProps) => {
-    const [formData, setFormData] = useState<Partial<Site>>({});
-    const [companyId, setCompanyId] = useState<number | ''>('');
-    const [regionId, setRegionId] = useState<number | ''>('');
-    const [companyLabel, setCompanyLabel] = useState('');
-    const [regionLabel, setRegionLabel] = useState('');
-    const [branchLabel, setBranchLabel] = useState('');
-    const [errors, setErrors] = useState<Record<string, string>>({});
+interface Props { open: boolean; siteId?: number; onClose: () => void; onSuccess: () => void; }
 
-    const { data: siteData } = useQuery({
-        queryKey: ['site', siteId],
-        queryFn: () => sitesApi.get(siteId!),
-        enabled: !!siteId && open,
+export const SiteFormDrawer = ({ open, siteId, onClose, onSuccess }: Props) => {
+    const { data: site } = useQuery({ queryKey: ['site', siteId], queryFn: () => sitesApi.get(siteId!), enabled: open && Boolean(siteId) });
+    const { register, handleSubmit, reset, setValue, watch, setError, formState: { errors, isSubmitting } } = useForm<SiteForm>({
+        resolver: zodResolver(schema), defaultValues: { site_code: '', name: '', type: 'pop', status: 'planned' },
     });
-
-    const { data: regions } = useQuery({
-        queryKey: ['regions', companyId],
-        queryFn: () => regionsApi.getAll({ company_id: companyId, per_page: 500 }),
-        enabled: !!companyId,
-    });
-
-    const { data: branches } = useQuery({
-        queryKey: ['branches', regionId],
-        queryFn: () => branchesApi.getAll({ region_id: regionId, per_page: 500 }),
-        enabled: !!regionId,
-    });
+    const companyId = watch('company_id');
+    const regionId = watch('region_id');
+    const branchId = watch('branch_id');
+    const { data: regions } = useQuery({ queryKey: ['regions', companyId], queryFn: () => regionsApi.getAll({ company_id: companyId, per_page: 500 }), enabled: Boolean(companyId) });
+    const { data: branches } = useQuery({ queryKey: ['branches', regionId], queryFn: () => branchesApi.getAll({ region_id: regionId, per_page: 500 }), enabled: Boolean(regionId) });
 
     useEffect(() => {
-        if (siteData) {
-            setFormData(siteData);
-            setCompanyId(siteData.company_id || '');
-            setRegionId(siteData.region_id || '');
-            setCompanyLabel(siteData.company?.name || '');
-            setRegionLabel(siteData.region?.name || '');
-            setBranchLabel(siteData.branch?.name || '');
-        } else {
-            setFormData({
-                type: 'pop',
-                status: 'planned',
-            });
-            setCompanyId('');
-            setRegionId('');
-            setCompanyLabel('');
-            setRegionLabel('');
-            setBranchLabel('');
-        }
-        setErrors({});
-    }, [siteData, open]);
+        reset(site ? { ...site, latitude: site.latitude ? Number(site.latitude) : undefined, longitude: site.longitude ? Number(site.longitude) : undefined, altitude: site.altitude ? Number(site.altitude) : undefined } : { site_code: '', name: '', type: 'pop', status: 'planned' });
+    }, [site, open, reset]);
 
-    // Type-ahead server-side lookup for companies (efficient with many records)
-    const loadCompanyOptions = async (query: string): Promise<SearchableSelectOption<number>[]> => {
-        const res = await companiesApi.getAll({ search: query || undefined, per_page: 50 });
-        return (res.data || []).map((c) => ({ value: c.id, label: c.name }));
-    };
-
-    const regionOptions: SearchableSelectOption<number>[] = (regions?.data || []).map((r) => ({
-        value: r.id,
-        label: r.name,
-    }));
-    const branchOptions: SearchableSelectOption<number>[] = (branches?.data || []).map((b) => ({
-        value: b.id,
-        label: b.name,
-    }));
-
-    const handleSubmit = async () => {
+    const submit = async (data: SiteForm) => {
         try {
-            setErrors({});
-            if (siteId) {
-                await sitesApi.update(siteId, formData);
-            } else {
-                await sitesApi.create(formData);
-            }
+            if (siteId) await sitesApi.update(siteId, data); else await sitesApi.create(data);
             onSuccess();
-        } catch (error: any) {
-            if (error.response?.data?.errors) {
-                setErrors(error.response.data.errors);
-            }
+        } catch (error) {
+            const normalized = normalizeApiError(error);
+            Object.entries(normalized.fieldErrors).forEach(([field, message]) => setError(field as keyof SiteForm, { message }));
         }
     };
+    const field = (name: keyof SiteForm, label: string, type?: string) => <TextField label={label} type={type} fullWidth {...register(name, type === 'number' ? { setValueAs: (value) => value === '' ? undefined : Number(value) } : undefined)} error={Boolean(errors[name])} helperText={errors[name]?.message} />;
 
-    return (
-        <Drawer anchor="right" open={open} onClose={onClose} sx={{ width: 500 }}>
-            <Box sx={{ width: 500, p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                    {siteId ? 'Edit Site' : 'Add Site'}
-                </Typography>
-                <Stack spacing={2}>
-                    <TextField
-                        label="Site Code *"
-                        value={formData.site_code || ''}
-                        onChange={(e) => setFormData({ ...formData, site_code: e.target.value })}
-                        fullWidth
-                        error={!!errors.site_code}
-                        helperText={errors.site_code?.[0]}
-                    />
-                    <TextField
-                        label="Name *"
-                        value={formData.name || ''}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        fullWidth
-                        error={!!errors.name}
-                        helperText={errors.name?.[0]}
-                    />
-                    <FormControl fullWidth error={!!errors.type}>
-                        <InputLabel>Type *</InputLabel>
-                        <Select
-                            value={formData.type || 'pop'}
-                            label="Type *"
-                            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                        >
-                            <MenuItem value="pop">POP</MenuItem>
-                            <MenuItem value="tower">Tower</MenuItem>
-                            <MenuItem value="office">Office</MenuItem>
-                            <MenuItem value="warehouse">Warehouse</MenuItem>
-                            <MenuItem value="datacenter">Datacenter</MenuItem>
-                            <MenuItem value="customer_premises">Customer Premises</MenuItem>
-                            <MenuItem value="solar_site">Solar Site</MenuItem>
-                            <MenuItem value="repeater_site">Repeater Site</MenuItem>
-                            <MenuItem value="other">Other</MenuItem>
-                        </Select>
-                        {errors.type && <FormHelperText>{errors.type[0]}</FormHelperText>}
-                    </FormControl>
-                    <FormControl fullWidth error={!!errors.status}>
-                        <InputLabel>Status *</InputLabel>
-                        <Select
-                            value={formData.status || 'planned'}
-                            label="Status *"
-                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                        >
-                            <MenuItem value="planned">Planned</MenuItem>
-                            <MenuItem value="active">Active</MenuItem>
-                            <MenuItem value="maintenance">Maintenance</MenuItem>
-                            <MenuItem value="inactive">Inactive</MenuItem>
-                            <MenuItem value="decommissioned">Decommissioned</MenuItem>
-                        </Select>
-                        {errors.status && <FormHelperText>{errors.status[0]}</FormHelperText>}
-                    </FormControl>
-                    
-                    {/* Organization Selection */}
-                    <SearchableSelect<SearchableSelectOption<number>>
-                        label="Company"
-                        value={companyId !== '' ? { value: companyId, label: companyLabel || `Company #${companyId}` } : null}
-                        onChange={(option) => {
-                            if (option) {
-                                setCompanyId(option.value);
-                                setCompanyLabel(option.label);
-                                setFormData({ ...formData, company_id: option.value, region_id: undefined, branch_id: undefined });
-                                setRegionId('');
-                                setRegionLabel('');
-                                setBranchLabel('');
-                            } else {
-                                setCompanyId('');
-                                setCompanyLabel('');
-                                setFormData({ ...formData, company_id: undefined, region_id: undefined, branch_id: undefined });
-                                setRegionId('');
-                                setRegionLabel('');
-                                setBranchLabel('');
-                            }
-                        }}
-                        loadOptions={loadCompanyOptions}
-                        getOptionLabel={(o) => o.label}
-                        placeholder="Search by company name..."
-                        error={!!errors.company_id}
-                        helperText={errors.company_id?.[0]}
-                    />
-
-                    <SearchableSelect<SearchableSelectOption<number>>
-                        label="Region"
-                        value={regionId !== '' ? { value: regionId, label: regionLabel || `Region #${regionId}` } : null}
-                        onChange={(option) => {
-                            if (option) {
-                                setRegionId(option.value);
-                                setRegionLabel(option.label);
-                                setFormData({ ...formData, region_id: option.value, branch_id: undefined });
-                                setBranchLabel('');
-                            } else {
-                                setRegionId('');
-                                setRegionLabel('');
-                                setFormData({ ...formData, region_id: undefined, branch_id: undefined });
-                                setBranchLabel('');
-                            }
-                        }}
-                        options={regionOptions}
-                        getOptionLabel={(o) => o.label}
-                        placeholder="Type to search region..."
-                        disabled={!companyId}
-                        error={!!errors.region_id}
-                        helperText={errors.region_id?.[0]}
-                    />
-
-                    <SearchableSelect<SearchableSelectOption<number>>
-                        label="Branch"
-                        value={formData.branch_id ? { value: formData.branch_id, label: branchLabel || `Branch #${formData.branch_id}` } : null}
-                        onChange={(option) => {
-                            setFormData({ ...formData, branch_id: option ? option.value : undefined });
-                            setBranchLabel(option ? option.label : '');
-                        }}
-                        options={branchOptions}
-                        getOptionLabel={(o) => o.label}
-                        placeholder="Type to search branch..."
-                        disabled={!regionId}
-                        error={!!errors.branch_id}
-                        helperText={errors.branch_id?.[0]}
-                    />
-
-                    {/* Location */}
-                    <TextField
-                        label="Latitude"
-                        type="number"
-                        value={formData.latitude || ''}
-                        onChange={(e) => setFormData({ ...formData, latitude: parseFloat(e.target.value) || undefined })}
-                        fullWidth
-                        error={!!errors.latitude}
-                        helperText={errors.latitude?.[0]}
-                    />
-                    <TextField
-                        label="Longitude"
-                        type="number"
-                        value={formData.longitude || ''}
-                        onChange={(e) => setFormData({ ...formData, longitude: parseFloat(e.target.value) || undefined })}
-                        fullWidth
-                        error={!!errors.longitude}
-                        helperText={errors.longitude?.[0]}
-                    />
-                    <TextField
-                        label="Altitude"
-                        type="number"
-                        value={formData.altitude || ''}
-                        onChange={(e) => setFormData({ ...formData, altitude: parseFloat(e.target.value) || undefined })}
-                        fullWidth
-                    />
-
-                    {/* Optional Address */}
-                    <TextField
-                        label="Province"
-                        value={formData.province || ''}
-                        onChange={(e) => setFormData({ ...formData, province: e.target.value })}
-                        fullWidth
-                    />
-                    <TextField
-                        label="District"
-                        value={formData.district || ''}
-                        onChange={(e) => setFormData({ ...formData, district: e.target.value })}
-                        fullWidth
-                    />
-                    <TextField
-                        label="Municipality"
-                        value={formData.municipality || ''}
-                        onChange={(e) => setFormData({ ...formData, municipality: e.target.value })}
-                        fullWidth
-                    />
-                    <TextField
-                        label="Address"
-                        multiline
-                        rows={2}
-                        value={formData.address || ''}
-                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                        fullWidth
-                    />
-
-                    <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-                        <Button onClick={onClose} fullWidth>Cancel</Button>
-                        <Button variant="contained" onClick={handleSubmit} fullWidth>Save</Button>
-                    </Box>
-                </Stack>
-            </Box>
-        </Drawer>
-    );
+    return <Drawer anchor="right" open={open} onClose={onClose}><Box component="form" onSubmit={handleSubmit(submit)} sx={{ width: { xs: '100vw', sm: 500 }, p: 3 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>{siteId ? 'Edit Site' : 'Add Site'}</Typography><Stack spacing={2}>
+            {field('site_code', 'Site Code *')}{field('name', 'Name *')}
+            <TextField select label="Type *" defaultValue="pop" {...register('type')} error={Boolean(errors.type)} helperText={errors.type?.message}>{['pop', 'tower', 'office', 'warehouse', 'datacenter', 'customer_premises', 'solar_site', 'repeater_site', 'other'].map((value) => <MenuItem key={value} value={value}>{value.replaceAll('_', ' ')}</MenuItem>)}</TextField>
+            <TextField select label="Status *" defaultValue="planned" {...register('status')} error={Boolean(errors.status)} helperText={errors.status?.message}>{['planned', 'active', 'maintenance', 'inactive', 'decommissioned'].map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}</TextField>
+            <SearchableSelect<SearchableSelectOption<number>> label="Company" value={companyId ? { value: companyId, label: site?.company?.name || `Company #${companyId}` } : null} onChange={(option) => { setValue('company_id', option?.value); setValue('region_id', undefined); setValue('branch_id', undefined); }} loadOptions={async (search) => (await companiesApi.getAll({ search: search || undefined, per_page: 50 })).data.map((company) => ({ value: company.id, label: company.name }))} getOptionLabel={(option) => option.label} placeholder="Search companies..." error={Boolean(errors.company_id)} helperText={errors.company_id?.message} />
+            <SearchableSelect<SearchableSelectOption<number>> label="Region" value={regionId ? { value: regionId, label: site?.region?.name || `Region #${regionId}` } : null} onChange={(option) => { setValue('region_id', option?.value); setValue('branch_id', undefined); }} options={(regions?.data ?? []).map((region) => ({ value: region.id, label: region.name }))} getOptionLabel={(option) => option.label} placeholder="Select region..." disabled={!companyId} error={Boolean(errors.region_id)} helperText={errors.region_id?.message} />
+            <SearchableSelect<SearchableSelectOption<number>> label="Branch" value={branchId ? { value: branchId, label: site?.branch?.name || `Branch #${branchId}` } : null} onChange={(option) => setValue('branch_id', option?.value)} options={(branches?.data ?? []).map((branch) => ({ value: branch.id, label: branch.name }))} getOptionLabel={(option) => option.label} placeholder="Select branch..." disabled={!regionId} error={Boolean(errors.branch_id)} helperText={errors.branch_id?.message} />
+            {field('latitude', 'Latitude', 'number')}{field('longitude', 'Longitude', 'number')}{field('altitude', 'Altitude', 'number')}{field('province', 'Province')}{field('district', 'District')}{field('municipality', 'Municipality')}{field('address', 'Address')}
+            <Stack direction="row" spacing={2}><Button fullWidth onClick={onClose}>Cancel</Button><Button fullWidth type="submit" variant="contained" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : 'Save'}</Button></Stack>
+        </Stack>
+    </Box></Drawer>;
 };

@@ -17,6 +17,9 @@ import { AssetStatusChangeDialog } from '../components/AssetStatusChangeDialog';
 import { PhotoGallery } from '@/features/shared/components/PhotoGallery';
 import AssetFormDrawer from '../components/AssetFormDrawer';
 import toast from 'react-hot-toast';
+import { infrastructureKeys } from '@/api/queryKeys';
+import { AuthorityBadge } from '@/components/infrastructure/AuthorityBadge';
+import { NetworkPortPreview } from '../components/NetworkPortPreview';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -71,7 +74,7 @@ const AssetDetailPage: React.FC = () => {
     const [statusAction, setStatusAction] = useState<'retire' | 'dispose' | null>(null);
 
     const { data, isLoading, error } = useQuery({
-        queryKey: ['asset', id],
+        queryKey: infrastructureKeys.asset(id!),
         queryFn: () => getAsset(parseInt(id!)),
         enabled: !!id,
     });
@@ -79,8 +82,7 @@ const AssetDetailPage: React.FC = () => {
     const deleteMutation = useMutation({
         mutationFn: deleteAsset,
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['assets'] });
-            queryClient.invalidateQueries({ queryKey: ['asset-dashboard'] });
+            queryClient.invalidateQueries({ queryKey: ['infrastructure', 'assets'] });
             toast.success('Asset deleted successfully');
             navigate('/network/assets');
         },
@@ -169,6 +171,7 @@ const AssetDetailPage: React.FC = () => {
                     <Chip label={asset.condition} size="small" color={CONDITION_COLORS[asset.condition] || 'default'} variant="outlined" />
                 )}
                 <Chip label={`${asset.quantity} ${asset.unit || 'pcs'}`} size="small" variant="outlined" />
+                <AuthorityBadge authoritative />
             </Stack>
 
             <Grid container spacing={3} sx={{ mb: 3 }}>
@@ -211,6 +214,18 @@ const AssetDetailPage: React.FC = () => {
                             </Stack>
                         </CardContent>
                     </Card>
+                    {(asset.ip_address || asset.mac_address) && (
+                        <Card sx={{ mt: 2 }}>
+                            <CardContent>
+                                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                                    <Typography variant="subtitle2">Network Observations</Typography>
+                                    <AuthorityBadge authoritative={false} />
+                                </Stack>
+                                <DetailField label="Primary IP" value={asset.ip_address} mono />
+                                <Box sx={{ mt: 1 }}><DetailField label="Primary MAC" value={asset.mac_address} mono /></Box>
+                            </CardContent>
+                        </Card>
+                    )}
                 </Grid>
 
                 {/* Right Column: Dates + Description + Tabs */}
@@ -246,6 +261,7 @@ const AssetDetailPage: React.FC = () => {
                             <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
                                 <Tab label="Lifecycle History" />
                                 <Tab label="Photos" />
+                                {asset.category === 'NETWORK' && <Tab label="Network Ports" />}
                             </Tabs>
                         </Box>
                         <TabPanel value={tabValue} index={0}>
@@ -268,6 +284,7 @@ const AssetDetailPage: React.FC = () => {
                                 />
                             </Can>
                         </TabPanel>
+                        {asset.category === 'NETWORK' && <TabPanel value={tabValue} index={2}><NetworkPortPreview assetId={assetId} /></TabPanel>}
                     </Card>
                 </Grid>
             </Grid>

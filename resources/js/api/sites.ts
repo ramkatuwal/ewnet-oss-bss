@@ -1,6 +1,17 @@
 import { apiClient } from './client';
 import { PaginatedResponse } from '@/types';
 
+export interface SiteListParams {
+    page?: number;
+    per_page?: number;
+    search?: string;
+    status?: string;
+    type?: string;
+    company_id?: number;
+    region_id?: number;
+    branch_id?: number;
+}
+
 export interface Company {
     id: number;
     name: string;
@@ -63,7 +74,8 @@ export interface Site {
     region_id?: number;
     branch_id?: number;
     assets_count?: number;
-    assets?: any[];
+    assets?: unknown[];
+    metadata?: Record<string, unknown> | null;
     created_at: string;
     updated_at: string;
     // Eager-loaded relationships
@@ -73,7 +85,7 @@ export interface Site {
 }
 
 export const sitesApi = {
-    list: (params?: Record<string, any>) =>
+    list: (params?: SiteListParams) =>
         apiClient.get<PaginatedResponse<Site>>('/api/v1/sites', { params }).then((res) => res.data),
 
     create: (data: Partial<Site>) =>
@@ -87,6 +99,15 @@ export const sitesApi = {
 
     delete: (id: number) =>
         apiClient.delete(`/api/v1/sites/${id}`),
+
+    import: (file: File) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return apiClient.post('/api/v1/sites/import', formData);
+    },
+
+    export: (format: 'csv' | 'xlsx', params?: Pick<SiteListParams, 'search'>) =>
+        apiClient.get('/api/v1/sites/export', { params: { ...params, format }, responseType: 'blob' }),
 };
 
 // Site Photos

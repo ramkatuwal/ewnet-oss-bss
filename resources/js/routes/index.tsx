@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
+import { PermissionRoute } from '@/components/auth/PermissionRoute';
 import { AuthLayout } from '@/layouts/AuthLayout';
 import { MainLayout } from '@/layouts/MainLayout';
 import { Box, CircularProgress, Typography } from '@mui/material';
@@ -67,10 +68,14 @@ export const AppRouter = () => (
 
                     {/* Network Section */}
                     <Route path="network">
-                        <Route path="sites" element={<SitesPage />} />
-                        <Route path="sites/:id" element={<SiteDetailPage />} />
-                        <Route path="assets" element={<AssetsPage />} />
-                        <Route path="assets/:id" element={<AssetDetailPage />} />
+                        <Route element={<PermissionRoute permission="sites.view" />}>
+                            <Route path="sites" element={<SitesPage />} />
+                            <Route path="sites/:id" element={<SiteDetailPage />} />
+                        </Route>
+                        <Route element={<PermissionRoute permission="assets.view" />}>
+                            <Route path="assets" element={<AssetsPage />} />
+                            <Route path="assets/:id" element={<AssetDetailPage />} />
+                        </Route>
                     </Route>
 
                     <Route path="manage">

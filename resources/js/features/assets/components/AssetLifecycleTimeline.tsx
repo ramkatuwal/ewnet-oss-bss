@@ -17,24 +17,6 @@ import {
 import { getAssetLifecycle } from '../api/assets';
 import { format } from 'date-fns';
 
-interface AssetLifecycleEvent {
-    id: number;
-    asset_id: number;
-    event_type: string;
-    status_before: string | null;
-    status_after: string | null;
-    from_site_id: number | null;
-    to_site_id: number | null;
-    from_site?: { id: number; site_code: string; name: string };
-    to_site?: { id: number; site_code: string; name: string };
-    notes: string | null;
-    created_by: number;
-    created_by_user?: { id: number; name: string; email: string };
-    event_date: string;
-    created_at: string;
-    updated_at: string;
-}
-
 interface AssetLifecycleTimelineProps {
     assetId: number;
 }
@@ -111,7 +93,7 @@ export const AssetLifecycleTimeline: React.FC<AssetLifecycleTimelineProps> = ({ 
     return (
         <Box sx={{ py: 2 }}>
             <Timeline position="right">
-                {events.map((event: AssetLifecycleEvent, index: number) => (
+                {events.map((event, index) => (
                     <TimelineItem key={event.id}>
                         <TimelineOppositeContent sx={{ flex: 0.3 }}>
                             <Typography variant="caption" color="text.secondary">

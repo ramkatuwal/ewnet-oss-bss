@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Box, Button, Typography, Stack, Dialog, DialogTitle,
-    DialogContent, DialogActions, TextField, Alert
+    DialogContent, DialogActions, TextField
 } from '@mui/material';
 import {
     DataGrid, GridColDef, GridRenderCellParams, GridRowParams,
@@ -21,8 +21,9 @@ import { ConfirmDialog } from '@/components/feedback/ConfirmDialog';
 import { Can } from '@/components/auth/Can';
 import { SiteFormDrawer } from '../components/SiteFormDrawer';
 import { PageHeader } from '@/components/layout/PageHeader';
-import axios from 'axios';
 import toast from 'react-hot-toast';
+import { infrastructureKeys } from '@/api/queryKeys';
+import { PageErrorState } from '@/components/feedback/PageStates';
 
 const COLUMN_VISIBILITY_KEY = 'sites-table-column-visibility';
 
@@ -72,12 +73,12 @@ export const SitesPage = () => {
 
     // Queries
     const { data: dashboardData, isLoading: isDashboardLoading } = useQuery({
-        queryKey: ['sites-dashboard'],
+        queryKey: infrastructureKeys.siteDashboard(),
         queryFn: getSiteDashboard,
     });
 
     const { data, isLoading, error } = useQuery({
-        queryKey: ['sites', search, statusFilter, typeFilter, page, pageSize],
+        queryKey: infrastructureKeys.sites({ search, status: statusFilter, type: typeFilter, page, pageSize }),
         queryFn: () => sitesApi.list({
             search,
             status: statusFilter || undefined,
@@ -90,8 +91,7 @@ export const SitesPage = () => {
     const deleteMutation = useMutation({
         mutationFn: (id: number) => sitesApi.delete(id),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['sites'] });
-            queryClient.invalidateQueries({ queryKey: ['sites-dashboard'] });
+            queryClient.invalidateQueries({ queryKey: ['infrastructure', 'sites'] });
             setDeleteId(null);
             toast.success('Site deleted successfully');
         },
@@ -104,15 +104,13 @@ export const SitesPage = () => {
         const formData = new FormData();
         formData.append('file', importFile);
         try {
-            await axios.post('/api/v1/sites/import', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            await sitesApi.import(importFile);
             setImportStatus('Import queued successfully! Check Horizon for status.');
             setTimeout(() => {
                 setImportOpen(false);
                 setImportStatus('');
                 setImportFile(null);
-                queryClient.invalidateQueries({ queryKey: ['sites'] });
+                queryClient.invalidateQueries({ queryKey: ['infrastructure', 'sites'] });
             }, 2000);
         } catch (err) {
             setImportStatus('Import failed. Please check file format.');
@@ -290,7 +288,7 @@ export const SitesPage = () => {
         },
     ], []);
 
-    if (error) return <Alert severity="error" sx={{ m: 3 }}>Failed to load site information. <Button onClick={() => window.location.reload()}>Retry</Button></Alert>;
+    if (error) return <PageErrorState message="Failed to load site information." onRetry={() => window.location.reload()} />;
 
     // FIX: Correctly map Laravel pagination meta
     const rows = data?.data || [];
@@ -388,8 +386,7 @@ export const SitesPage = () => {
                 onSuccess={() => {
                     setFormOpen(false);
                     setEditingId(undefined);
-                    queryClient.invalidateQueries({ queryKey: ['sites'] });
-                    queryClient.invalidateQueries({ queryKey: ['sites-dashboard'] });
+                     queryClient.invalidateQueries({ queryKey: ['infrastructure', 'sites'] });
                 }}
             />
         </Box>

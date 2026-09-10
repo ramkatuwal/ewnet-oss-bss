@@ -1,327 +1,70 @@
-import React, { useEffect, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-    Drawer, Box, Typography, TextField, Button,
-    Grid, FormControl, InputLabel, Select, MenuItem,
-    FormHelperText, Stack, Chip
-} from '@mui/material';
-import { createAsset, updateAsset, getAsset } from '../api/assets';
-import { sitesApi } from '@/api/sites';
-import SearchableSelect, { SearchableSelectOption } from '@/components/forms/SearchableSelect';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Box, Button, Drawer, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { createAsset, getAsset, updateAsset } from '../api/assets';
+import { sitesApi, Site } from '@/api/sites';
+import { AsyncSitePicker } from '@/components/infrastructure/AsyncSitePicker';
+import { normalizeApiError } from '@/api/errors';
+import { infrastructureKeys } from '@/api/queryKeys';
 import toast from 'react-hot-toast';
 
-interface Props {
-    open: boolean;
-    onClose: () => void;
-    assetId: number | null;
-    siteId?: number | null;  // NEW: pre-select site when creating from Site Detail
-}
-
-interface SiteWithRelations {
-    id: number;
-    site_code: string;
-    name: string;
-    company?: { id: number; name: string };
-    region?: { id: number; name: string };
-    branch?: { id: number; name: string };
-}
-
-interface SiteOption extends SearchableSelectOption<number> {
-    site: SiteWithRelations;
-}
-
-const toSiteOption = (site: SiteWithRelations): SiteOption => ({
-    value: site.id,
-    label: `${site.site_code} — ${site.name}`,
-    secondary: [site.company?.name, site.region?.name, site.branch?.name].filter(Boolean).join(' • '),
-    site,
+const schema = z.object({
+    site_id: z.number({ required_error: 'A site is required.' }), asset_tag: z.string().min(1, 'Asset tag is required.').max(255),
+    category: z.enum(['POWER', 'NETWORK', 'INFRASTRUCTURE', 'OTHER']), type: z.string().min(1, 'Type is required.').max(100),
+    quantity: z.number().int().min(1), status: z.enum(['OPERATIONAL', 'SPARE', 'MAINTENANCE', 'FAULTY', 'RETIRED', 'MISSING', 'DISPOSED']),
+    serial_number: z.string().max(255).optional(), manufacturer: z.string().max(255).optional(), model: z.string().max(255).optional(), unit: z.string().max(20).optional(),
 });
+type AssetForm = z.infer<typeof schema>;
+interface Props { open: boolean; onClose: () => void; assetId: number | null; siteId?: number | null; }
 
-const AssetFormDrawer: React.FC<Props> = ({ open, onClose, assetId, siteId }) => {
+const defaults = (siteId?: number | null): AssetForm => ({ site_id: siteId ?? 0, asset_tag: '', category: 'POWER', type: '', quantity: 1, status: 'OPERATIONAL', unit: 'pcs' });
+
+const AssetFormDrawer = ({ open, onClose, assetId, siteId }: Props) => {
     const queryClient = useQueryClient();
-    const [formData, setFormData] = useState<any>({
-        asset_tag: '',
-        type: '',
-        category: 'POWER',
-        quantity: 1,
-        status: 'OPERATIONAL',
-        unit: 'pcs',
-        site_id: siteId || undefined,
-    });
-    const [selectedSite, setSelectedSite] = useState<SiteWithRelations | null>(null);
-    const [errors, setErrors] = useState<Record<string, string>>({});
+    const { data: asset } = useQuery({ queryKey: infrastructureKeys.asset(assetId ?? 0), queryFn: () => getAsset(assetId!), enabled: open && Boolean(assetId) });
+    const { control, register, handleSubmit, reset, setError, formState: { errors } } = useForm<AssetForm>({ resolver: zodResolver(schema), defaultValues: defaults(siteId) });
+    const [selectedSite, setSelectedSite] = useState<Site | null>(null);
 
-    // Load asset data when editing
     useEffect(() => {
-        if (assetId && open) {
-            getAsset(assetId).then((data: any) => {
-                setFormData(data);
-                // Load site details with relationships
-                if (data.site_id) {
-                    sitesApi.get(data.site_id).then((site: SiteWithRelations) => {
-                        setSelectedSite(site);
-                    });
-                }
-            }).catch(() => {
-                toast.error('Failed to load asset data');
-            });
-        } else {
-            setFormData({
-                asset_tag: '',
-                type: '',
-                category: 'POWER',
-                quantity: 1,
-                status: 'OPERATIONAL',
-                unit: 'pcs',
-                site_id: siteId || undefined,
-            });
-            // Load site details if siteId is provided
-            if (siteId) {
-                sitesApi.get(siteId).then((site: SiteWithRelations) => {
-                    setSelectedSite(site);
-                }).catch(() => {
-                    // ignore
-                });
-            } else {
-                setSelectedSite(null);
-            }
+        if (asset) {
+            reset({ site_id: asset.site_id, asset_tag: asset.asset_tag, category: asset.category as AssetForm['category'], type: asset.type, quantity: asset.quantity, status: asset.status as AssetForm['status'], serial_number: asset.serial_number ?? undefined, manufacturer: asset.manufacturer ?? undefined, model: asset.model ?? undefined, unit: asset.unit ?? undefined });
+            setSelectedSite(asset.site as Site ?? null);
+        } else if (open) {
+            reset(defaults(siteId));
+            setSelectedSite(null);
+            if (siteId) sitesApi.get(siteId).then(setSelectedSite).catch(() => undefined);
         }
-        setErrors({});
-    }, [assetId, open, siteId]);
-
-    // Type-ahead server-side lookup for site options (efficient with thousands of sites)
-    const loadSiteOptions = async (query: string): Promise<SiteOption[]> => {
-        const res = await sitesApi.list({ search: query || undefined, per_page: 50 });
-        return (res.data || []).map((s: SiteWithRelations) => toSiteOption(s));
-    };
+    }, [asset, open, reset, siteId]);
 
     const mutation = useMutation({
-        mutationFn: assetId ? (data: any) => updateAsset(assetId, data) : createAsset,
+        mutationFn: (data: AssetForm) => assetId ? updateAsset(assetId, data) : createAsset(data),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['assets'] });
-            queryClient.invalidateQueries({ queryKey: ['asset-dashboard'] });
-            queryClient.invalidateQueries({ queryKey: ['site-assets'] });
-            toast.success(assetId ? 'Asset updated' : 'Asset created');
-            onClose();
+            queryClient.invalidateQueries({ queryKey: infrastructureKeys.assets() });
+            queryClient.invalidateQueries({ queryKey: infrastructureKeys.assetDashboard() });
+            queryClient.invalidateQueries({ queryKey: ['infrastructure', 'site-assets'] });
+            toast.success(assetId ? 'Asset updated.' : 'Asset created.'); onClose();
         },
-        onError: (err: any) => {
-            if (err.response?.data?.errors) {
-                setErrors(err.response.data.errors);
-            } else {
-                toast.error(err.response?.data?.message || 'Operation failed');
-            }
-        }
+        onError: (error) => {
+            const normalized = normalizeApiError(error);
+            Object.entries(normalized.fieldErrors).forEach(([field, message]) => setError(field as keyof AssetForm, { message }));
+            if (!Object.keys(normalized.fieldErrors).length) toast.error(normalized.message);
+        },
     });
+    const input = (name: keyof AssetForm, label: string, type?: string) => <TextField fullWidth label={label} type={type} {...register(name, type === 'number' ? { setValueAs: (value) => Number(value) } : undefined)} error={Boolean(errors[name])} helperText={errors[name]?.message} />;
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        // Validate site is selected
-        if (!formData.site_id) {
-            toast.error('Please select a Site for this asset.');
-            return;
-        }
-        mutation.mutate(formData);
-    };
-
-    return (
-        <Drawer anchor="right" open={open} onClose={onClose} sx={{ width: 550 }}>
-            <Box sx={{ width: 550, p: 3 }}>
-                <Typography variant="h6" sx={{ mb: 2 }}>{assetId ? 'Edit Asset' : 'Add Asset'}</Typography>
-                <form onSubmit={handleSubmit}>
-                    <Grid container spacing={2}>
-                        {/* Site Selection - ONLY Site */}
-                        <Grid item xs={12}>
-                            <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
-                                Site Location
-                            </Typography>
-                        </Grid>
-                        <Grid item xs={12}>
-                            <SearchableSelect<SiteOption>
-                                label="Site *"
-                                value={selectedSite ? toSiteOption(selectedSite) : null}
-                                onChange={(option) => {
-                                    if (option) {
-                                        setSelectedSite(option.site);
-                                        setFormData({ ...formData, site_id: option.site.id });
-                                    } else {
-                                        setSelectedSite(null);
-                                        setFormData({ ...formData, site_id: undefined });
-                                    }
-                                }}
-                                loadOptions={loadSiteOptions}
-                                getOptionLabel={(o) => o.label}
-                                getOptionSecondary={(o) => o.secondary}
-                                placeholder="Search by site code or name..."
-                                required
-                                error={!!errors.site_id}
-                                helperText={errors.site_id?.[0]}
-                            />
-                        </Grid>
-
-                        {/* Read-only hierarchy display */}
-                        {selectedSite && (
-                            <Grid item xs={12}>
-                                <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 0.5 }}>
-                                    <Chip
-                                        label={`Company: ${selectedSite.company?.name || 'N/A'}`}
-                                        size="small"
-                                        variant="outlined"
-                                    />
-                                    <Chip
-                                        label={`Region: ${selectedSite.region?.name || 'N/A'}`}
-                                        size="small"
-                                        variant="outlined"
-                                    />
-                                    <Chip
-                                        label={`Branch: ${selectedSite.branch?.name || 'N/A'}`}
-                                        size="small"
-                                        variant="outlined"
-                                    />
-                                </Stack>
-                            </Grid>
-                        )}
-
-                        {/* Asset Identification */}
-                        <Grid item xs={12}>
-                            <Typography variant="subtitle2" sx={{ mt: 1, mb: 1, color: 'text.secondary' }}>
-                                Asset Details
-                            </Typography>
-                        </Grid>
-                        <Grid item xs={12}>
-                            <TextField
-                                fullWidth
-                                label="Asset Tag"
-                                required
-                                value={formData.asset_tag || ''}
-                                onChange={e => setFormData({...formData, asset_tag: e.target.value})}
-                                error={!!errors.asset_tag}
-                                helperText={errors.asset_tag?.[0]}
-                            />
-                        </Grid>
-                        <Grid item xs={6}>
-                            <FormControl fullWidth error={!!errors.category}>
-                                <InputLabel>Category *</InputLabel>
-                                <Select
-                                    value={formData.category || ''}
-                                    label="Category *"
-                                    onChange={e => setFormData({...formData, category: e.target.value})}
-                                >
-                                    <MenuItem value="POWER">Power</MenuItem>
-                                    <MenuItem value="NETWORK">Network</MenuItem>
-                                    <MenuItem value="INFRASTRUCTURE">Infrastructure</MenuItem>
-                                    <MenuItem value="OTHER">Other</MenuItem>
-                                </Select>
-                                {errors.category && <FormHelperText>{errors.category[0]}</FormHelperText>}
-                            </FormControl>
-                        </Grid>
-                        <Grid item xs={6}>
-                            <TextField
-                                fullWidth
-                                label="Type"
-                                required
-                                value={formData.type || ''}
-                                onChange={e => setFormData({...formData, type: e.target.value})}
-                                error={!!errors.type}
-                                helperText={errors.type?.[0]}
-                            />
-                        </Grid>
-                        <Grid item xs={6}>
-                            <TextField
-                                fullWidth
-                                label="Manufacturer"
-                                value={formData.manufacturer || ''}
-                                onChange={e => setFormData({...formData, manufacturer: e.target.value})}
-                                error={!!errors.manufacturer}
-                                helperText={errors.manufacturer?.[0]}
-                            />
-                        </Grid>
-                        <Grid item xs={6}>
-                            <TextField
-                                fullWidth
-                                label="Model"
-                                value={formData.model || ''}
-                                onChange={e => setFormData({...formData, model: e.target.value})}
-                                error={!!errors.model}
-                                helperText={errors.model?.[0]}
-                            />
-                        </Grid>
-                        <Grid item xs={6}>
-                            <TextField
-                                fullWidth
-                                label="Serial Number"
-                                value={formData.serial_number || ''}
-                                onChange={e => setFormData({...formData, serial_number: e.target.value})}
-                                error={!!errors.serial_number}
-                                helperText={errors.serial_number?.[0]}
-                            />
-                        </Grid>
-                        <Grid item xs={6}>
-                            <TextField
-                                fullWidth
-                                label="Quantity"
-                                type="number"
-                                value={formData.quantity || 1}
-                                onChange={e => setFormData({...formData, quantity: parseInt(e.target.value) || 1})}
-                                error={!!errors.quantity}
-                                helperText={errors.quantity?.[0]}
-                            />
-                        </Grid>
-                        <Grid item xs={6}>
-                            <TextField
-                                fullWidth
-                                label="Unit"
-                                value={formData.unit || 'pcs'}
-                                onChange={e => setFormData({...formData, unit: e.target.value})}
-                            />
-                        </Grid>
-                        <Grid item xs={6}>
-                            <FormControl fullWidth error={!!errors.status}>
-                                <InputLabel>Status *</InputLabel>
-                                <Select
-                                    value={formData.status || ''}
-                                    label="Status *"
-                                    onChange={e => setFormData({...formData, status: e.target.value})}
-                                >
-                                    <MenuItem value="OPERATIONAL">Operational</MenuItem>
-                                    <MenuItem value="SPARE">Spare</MenuItem>
-                                    <MenuItem value="MAINTENANCE">Maintenance</MenuItem>
-                                    <MenuItem value="FAULTY">Faulty</MenuItem>
-                                    <MenuItem value="RETIRED">Retired</MenuItem>
-                                    <MenuItem value="MISSING">Missing</MenuItem>
-                                    <MenuItem value="DISPOSED">Disposed</MenuItem>
-                                </Select>
-                                {errors.status && <FormHelperText>{errors.status[0]}</FormHelperText>}
-                            </FormControl>
-                        </Grid>
-                        <Grid item xs={6}>
-                            <FormControl fullWidth error={!!errors.condition}>
-                                <InputLabel>Condition</InputLabel>
-                                <Select
-                                    value={formData.condition || ''}
-                                    label="Condition"
-                                    onChange={e => setFormData({...formData, condition: e.target.value})}
-                                >
-                                    <MenuItem value="">None</MenuItem>
-                                    <MenuItem value="EXCELLENT">Excellent</MenuItem>
-                                    <MenuItem value="GOOD">Good</MenuItem>
-                                    <MenuItem value="FAIR">Fair</MenuItem>
-                                    <MenuItem value="POOR">Poor</MenuItem>
-                                    <MenuItem value="CRITICAL">Critical</MenuItem>
-                                </Select>
-                                {errors.condition && <FormHelperText>{errors.condition[0]}</FormHelperText>}
-                            </FormControl>
-                        </Grid>
-                    </Grid>
-                    <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-                        <Button onClick={onClose}>Cancel</Button>
-                        <Button type="submit" variant="contained" disabled={mutation.isPending}>
-                            {mutation.isPending ? 'Saving...' : 'Save'}
-                        </Button>
-                    </Box>
-                </form>
-            </Box>
-        </Drawer>
-    );
+    return <Drawer anchor="right" open={open} onClose={onClose}><Box component="form" onSubmit={handleSubmit((data) => mutation.mutate(data))} sx={{ width: { xs: '100vw', sm: 550 }, p: 3 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>{assetId ? 'Edit Asset' : 'Add Asset'}</Typography><Stack spacing={2}>
+            <AsyncSitePicker control={control} selectedSite={selectedSite} onSelected={setSelectedSite} disabled={Boolean(siteId && !assetId)} error={errors.site_id?.message} />
+            {input('asset_tag', 'Asset Tag *')}
+            <TextField select label="Category *" defaultValue="POWER" {...register('category')} error={Boolean(errors.category)} helperText={errors.category?.message}>{['POWER', 'NETWORK', 'INFRASTRUCTURE', 'OTHER'].map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}</TextField>
+            {input('type', 'Type *')}{input('serial_number', 'Serial Number')}{input('manufacturer', 'Manufacturer')}{input('model', 'Model')}{input('quantity', 'Quantity *', 'number')}{input('unit', 'Unit')}
+            <TextField select label="Status *" defaultValue="OPERATIONAL" {...register('status')} error={Boolean(errors.status)} helperText={errors.status?.message}>{['OPERATIONAL', 'SPARE', 'MAINTENANCE', 'FAULTY', 'RETIRED', 'MISSING', 'DISPOSED'].map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}</TextField>
+            <Stack direction="row" spacing={2}><Button fullWidth onClick={onClose}>Cancel</Button><Button fullWidth type="submit" variant="contained" disabled={mutation.isPending}>{mutation.isPending ? 'Saving...' : 'Save'}</Button></Stack>
+        </Stack>
+    </Box></Drawer>;
 };
 
 export default AssetFormDrawer;

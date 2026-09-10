@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Box, Button, Typography, Stack, Dialog, DialogTitle,
-    DialogContent, DialogActions, TextField, MenuItem, Alert, Chip,
+    DialogContent, DialogActions, TextField, MenuItem, Chip,
 } from '@mui/material';
 import {
     DataGrid, GridColDef, GridRenderCellParams, GridRowParams,
@@ -22,6 +22,8 @@ import {
     AssetDashboardData, AssetListParams,
 } from '../api/assets';
 import toast from 'react-hot-toast';
+import { infrastructureKeys } from '@/api/queryKeys';
+import { PageErrorState } from '@/components/feedback/PageStates';
 
 const COLUMN_VISIBILITY_KEY = 'assets-table-column-visibility';
 
@@ -105,7 +107,7 @@ const AssetsPage: React.FC = () => {
 
     // Queries
     const { data: dashboard, isLoading: isDashboardLoading } = useQuery<AssetDashboardData>({
-        queryKey: ['asset-dashboard'],
+        queryKey: infrastructureKeys.assetDashboard(),
         queryFn: getAssetDashboard,
     });
 
@@ -120,15 +122,14 @@ const AssetsPage: React.FC = () => {
     }), [page, pageSize, search, statusFilter, categoryFilter, sortModel]);
 
     const { data, isLoading, error } = useQuery({
-        queryKey: ['assets', queryParams],
+        queryKey: infrastructureKeys.assets({ ...queryParams }),
         queryFn: () => getAssets(queryParams),
     });
 
     const deleteMutation = useMutation({
         mutationFn: deleteAsset,
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['assets'] });
-            queryClient.invalidateQueries({ queryKey: ['asset-dashboard'] });
+            queryClient.invalidateQueries({ queryKey: ['infrastructure', 'assets'] });
             setDeleteId(null);
             toast.success('Asset deleted successfully');
         },
@@ -159,8 +160,8 @@ const AssetsPage: React.FC = () => {
             setImportFile(null);
             queryClient.invalidateQueries({ queryKey: ['assets'] });
             queryClient.invalidateQueries({ queryKey: ['asset-dashboard'] });
-        } catch (err: any) {
-            toast.error(err.response?.data?.message || 'Import failed');
+        } catch {
+            toast.error('Import failed');
         }
     };
 
@@ -393,11 +394,7 @@ const AssetsPage: React.FC = () => {
     ], [navigate]);
 
     if (error) {
-        return (
-            <Alert severity="error" sx={{ m: 3 }}>
-                Unable to load assets. <Button onClick={() => window.location.reload()}>Retry</Button>
-            </Alert>
-        );
+        return <PageErrorState message="Unable to load assets." onRetry={() => window.location.reload()} />;
     }
 
     const rows = data?.data || [];
