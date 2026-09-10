@@ -34,7 +34,7 @@ class NetworkPortSwitchingConfigController extends Controller
         $configuration = $result['configuration'];
 
         if ($result['changed']) {
-            AuditService::log($result['replaced'] ? 'net.port-switching-config-replaced' : 'net.port-switching-configured', 'success', $configuration, $this->auditMetadata($configuration));
+            AuditService::log($result['replaced'] ? 'net.port-switching-config-replaced' : 'net.port-switching-configured', 'success', $configuration, $this->auditMetadata($configuration, $request->user()));
         }
 
         return (new NetworkPortSwitchingConfigResource($this->visibleMemberships($configuration, $request)))->response()->setStatusCode(200);

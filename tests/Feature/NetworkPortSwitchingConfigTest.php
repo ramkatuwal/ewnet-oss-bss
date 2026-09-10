@@ -238,4 +238,33 @@ class NetworkPortSwitchingConfigTest extends TestCase
         $this->assertSame([], $audit->metadata['memberships']);
         $this->assertNotContains($vlan->id, $audit->metadata['memberships']);
     }
+
+    public function test_audit_log_retrieval_filters_switching_memberships_by_viewer_vlan_visibility(): void
+    {
+        $company = Company::factory()->create();
+        $configurer = $this->user($company, [...$this->permissions(), 'system.debug.view']);
+        $auditViewer = $this->user($company, ['assets.view', 'net.network-ports.view', 'net.port-switching-configs.delete', 'system.debug.view']);
+        $port = $this->port($company);
+        $first = $this->vlan($company, 100);
+        $second = $this->vlan($company, 200);
+
+        $this->actingAs($configurer)->putJson("/api/v1/network-ports/{$port->id}/switching-configuration", $this->payload('trunk', [
+            ['vlan_id' => $first->id, 'tagging' => 'tagged'],
+            ['vlan_id' => $second->id, 'tagging' => 'tagged'],
+        ]))->assertOk();
+        $this->actingAs($configurer)->putJson("/api/v1/network-ports/{$port->id}/switching-configuration", $this->payload('access', [
+            ['vlan_id' => $first->id, 'tagging' => 'untagged'],
+        ]))->assertOk();
+
+        foreach (['net.port-switching-configured', 'net.port-switching-config-replaced'] as $action) {
+            $this->actingAs($auditViewer)->getJson("/api/v1/security/audit-logs?action={$action}")
+                ->assertOk()->assertJsonPath('data.0.metadata.memberships', []);
+        }
+        $this->actingAs($auditViewer)->deleteJson("/api/v1/network-ports/{$port->id}/switching-configuration")->assertOk();
+        $this->actingAs($auditViewer)->getJson('/api/v1/security/audit-logs?action=net.port-switching-config-retired')
+            ->assertOk()->assertJsonPath('data.0.metadata.memberships', []);
+        $this->actingAs($configurer)->getJson('/api/v1/security/audit-logs?action=net.port-switching-configured')
+            ->assertOk()->assertJsonPath('data.0.metadata.memberships.0.vlan_id', $first->id)
+            ->assertJsonPath('data.0.metadata.memberships.1.vlan_id', $second->id);
+    }
 }

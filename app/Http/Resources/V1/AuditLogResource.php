@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\V1;
 
+use App\Models\Vlan;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -48,12 +49,12 @@ class AuditLogResource extends JsonResource
             'ip_address' => $this->ip_address,
             'user_agent' => $this->user_agent,
             'correlation_id' => $this->correlation_id,
-            'metadata' => $this->sanitizeMetadata($this->metadata),
+            'metadata' => $this->sanitizeMetadata($this->metadata, $request),
             'created_at' => $this->created_at?->toISOString(),
         ];
     }
 
-    protected function sanitizeMetadata(?array $metadata): ?array
+    protected function sanitizeMetadata(?array $metadata, Request $request): ?array
     {
         if (! $metadata) {
             return null;
@@ -65,7 +66,7 @@ class AuditLogResource extends JsonResource
             'private_key', 'session_id', 'cookie',
         ];
 
-        return collect($metadata)
+        $metadata = collect($metadata)
             ->filter(fn ($value, $key) => ! in_array($key, $sensitiveKeys))
             ->map(function ($value, $key) {
                 if (is_string($value) && preg_match('/^(sk_|pk_|Bearer |eyJ)/', $value)) {
@@ -75,5 +76,16 @@ class AuditLogResource extends JsonResource
                 return $value;
             })
             ->toArray();
+
+        if (in_array($this->action, [
+            'net.port-switching-configured',
+            'net.port-switching-config-replaced',
+            'net.port-switching-config-retired',
+        ], true) && isset($metadata['memberships']) && is_array($metadata['memberships'])) {
+            $vlans = Vlan::whereIn('id', collect($metadata['memberships'])->pluck('vlan_id')->filter()->all())->get()->keyBy('id');
+            $metadata['memberships'] = array_values(array_filter($metadata['memberships'], fn (array $membership) => isset($membership['vlan_id']) && isset($vlans[$membership['vlan_id']]) && $request->user()?->can('view', $vlans[$membership['vlan_id']])));
+        }
+
+        return $metadata;
     }
 }
