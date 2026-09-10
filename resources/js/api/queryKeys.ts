@@ -9,6 +9,18 @@ export const infrastructureKeys = {
     networkPorts: (assetId: number) => ['infrastructure', 'asset', assetId, 'network-ports'] as const,
 };
 
+export const networkKeys = {
+    ports: (assetId: number) => ['network', 'ports', assetId] as const,
+    switching: (portId: number) => ['network', 'ports', portId, 'switching'] as const,
+    ponDomains: (portId: number) => ['network', 'ports', portId, 'pon-domains'] as const,
+    ponMemberships: (domainId: number) => ['network', 'pon-domains', domainId, 'memberships'] as const,
+    vlans: () => ['network', 'vlans'] as const,
+    routingInstances: (assetId: number) => ['network', 'routing-instances', assetId] as const,
+    interfaces: (instanceId: number) => ['network', 'routing-instances', instanceId, 'interfaces'] as const,
+    addresses: (interfaceId: number) => ['network', 'interfaces', interfaceId, 'addresses'] as const,
+    staticRoutes: (instanceId: number) => ['network', 'routing-instances', instanceId, 'static-routes'] as const,
+};
+
 export const fimKeys = {
     map: (filters: Record<string, unknown>) => ['fim', 'map', filters] as const,
     cables: (filters: Record<string, unknown> = {}) => ['fim', 'cables', filters] as const,
