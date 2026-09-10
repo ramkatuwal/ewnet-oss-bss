@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\V1;
 
+use App\Models\RoutingInstance;
 use App\Models\RoutingL3Interface;
 use App\Models\RoutingL3InterfaceAddress;
 use App\Models\Vlan;
@@ -86,6 +87,13 @@ class AuditLogResource extends JsonResource
         ], true) && isset($metadata['memberships']) && is_array($metadata['memberships'])) {
             $vlans = Vlan::whereIn('id', collect($metadata['memberships'])->pluck('vlan_id')->filter()->all())->get()->keyBy('id');
             $metadata['memberships'] = array_values(array_filter($metadata['memberships'], fn (array $membership) => isset($membership['vlan_id']) && isset($vlans[$membership['vlan_id']]) && $request->user()?->can('view', $vlans[$membership['vlan_id']])));
+        }
+
+        if (in_array($this->action, ['net.routing-instance-created', 'net.routing-instance-retired'], true)) {
+            $instance = isset($metadata['routing_instance_id']) ? RoutingInstance::withTrashed()->find($metadata['routing_instance_id']) : null;
+            if (! $instance || ! $request->user()?->can('view', $instance)) {
+                unset($metadata['asset_id'], $metadata['company_id'], $metadata['routing_instance_id']);
+            }
         }
 
         if (in_array($this->action, ['net.routing-l3-interface-created', 'net.routing-l3-interface-retired'], true)) {

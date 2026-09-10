@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Resources\V1\AuditLogResource;
 use App\Models\Asset;
 use App\Models\AuditLog;
 use App\Models\Company;
@@ -11,6 +12,7 @@ use App\Models\User;
 use App\Models\UserManagementScope;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -113,6 +115,26 @@ class RoutingInstanceTest extends TestCase
 
         $this->actingAs($user)->getJson("/api/v1/assets/{$asset->id}/routing-instances")->assertForbidden();
         $this->actingAs($user)->getJson("/api/v1/routing-instances/{$instance->id}")->assertForbidden();
+    }
+
+    public function test_audit_resource_redacts_hidden_routing_instance_identifiers(): void
+    {
+        $company = Company::factory()->create();
+        $asset = $this->asset($company);
+        $instance = RoutingInstance::create(['asset_id' => $asset->id, 'company_id' => $company->id, 'name' => 'main', 'kind' => 'default']);
+        $log = AuditLog::create(['action' => 'net.routing-instance-created', 'result' => 'success', 'metadata' => [
+            'routing_instance_id' => $instance->id,
+            'asset_id' => $asset->id,
+            'company_id' => $company->id,
+            'name' => $instance->name,
+            'kind' => $instance->kind,
+        ]]);
+        $request = Request::create('/');
+        $request->setUserResolver(fn () => User::factory()->create());
+
+        $metadata = (new AuditLogResource($log))->toArray($request)['metadata'];
+
+        $this->assertSame(['name' => 'main', 'kind' => 'default'], $metadata);
     }
 
     private function expectQueryException(callable $operation): void
