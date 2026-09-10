@@ -122,6 +122,9 @@ class SystemPermissionSeeder extends Seeder
             'net.port-switching-configs.view',
             'net.port-switching-configs.configure',
             'net.port-switching-configs.delete',
+            'net.routing-instances.view',
+            'net.routing-instances.create',
+            'net.routing-instances.delete',
         ];
 
         foreach ($permissions as $permission) {

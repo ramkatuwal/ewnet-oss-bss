@@ -23,6 +23,7 @@ use App\Models\PhysicalConnection;
 use App\Models\PonDomain;
 use App\Models\PonMembership;
 use App\Models\Region;
+use App\Models\RoutingInstance;
 use App\Models\Site;
 use App\Models\SplitterBranch;
 use App\Models\SplitterProfile;
@@ -171,6 +172,9 @@ class ManagementScopeService
         if ($resource instanceof Vlan) {
             return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
         }
+        if ($resource instanceof RoutingInstance) {
+            return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
+        }
         if ($resource instanceof Integration) {
             // Global (system-level) integrations are only reachable via the global scope
             if ($resource->company_id === null) {
@@ -307,6 +311,10 @@ class ManagementScopeService
             } elseif ($modelClass === Vlan::class) {
                 if ($type === 'company') {
                     $ids = array_merge($ids, Vlan::where('company_id', $id)->pluck('id')->toArray());
+                }
+            } elseif ($modelClass === RoutingInstance::class) {
+                if ($type === 'company') {
+                    $ids = array_merge($ids, RoutingInstance::where('company_id', $id)->pluck('id')->toArray());
                 }
             } elseif ($modelClass === User::class) {
                 $ids = array_merge($ids, static::getUserIdsForScope($type, $id));

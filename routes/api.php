@@ -33,6 +33,7 @@ use App\Http\Controllers\Api\V1\PonMembershipController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\PublicBrandingController;
 use App\Http\Controllers\Api\V1\RegionController;
+use App\Http\Controllers\Api\V1\RoutingInstanceController;
 use App\Http\Controllers\Api\V1\RoleController;
 use App\Http\Controllers\Api\V1\SiteController;
 use App\Http\Controllers\Api\V1\SplitterBranchController;
@@ -109,6 +110,10 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::get('/network-ports/{networkPort}/switching-configuration', [NetworkPortSwitchingConfigController::class, 'show']);
     Route::put('/network-ports/{networkPort}/switching-configuration', [NetworkPortSwitchingConfigController::class, 'replace']);
     Route::delete('/network-ports/{networkPort}/switching-configuration', [NetworkPortSwitchingConfigController::class, 'destroy']);
+    Route::get('/assets/{asset}/routing-instances', [RoutingInstanceController::class, 'index']);
+    Route::post('/assets/{asset}/routing-instances', [RoutingInstanceController::class, 'store']);
+    Route::get('/routing-instances/{routingInstance}', [RoutingInstanceController::class, 'show']);
+    Route::delete('/routing-instances/{routingInstance}', [RoutingInstanceController::class, 'destroy']);
 
     // PON Domains (logical PON identity)
     Route::get('/network-ports/{networkPort}/pon-domains', [PonDomainController::class, 'index']);

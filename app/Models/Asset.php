@@ -162,6 +162,11 @@ class Asset extends Model
         return $this->hasMany(NetworkPort::class);
     }
 
+    public function routingInstances(): HasMany
+    {
+        return $this->hasMany(RoutingInstance::class);
+    }
+
     public function ipAddresses(): HasManyThrough
     {
         return $this->hasManyThrough(
