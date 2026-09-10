@@ -52,7 +52,7 @@ export const navigationItems: NavItem[] = [
         children: [
             { label: 'Sites', path: '/network/sites', icon: <LocationOnIcon />, permission: 'sites.view' },
             { label: 'Assets', path: '/network/assets', icon: <InventoryIcon />, permission: 'assets.view' },
-            { label: 'Network Operations', path: '/network/operations', icon: <LanIcon />, permission: 'network-ports.view' },
+            { label: 'Network Operations', path: '/network/operations', icon: <LanIcon />, permission: 'net.network-ports.view' },
         ],
     },
     {

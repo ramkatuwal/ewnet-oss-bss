@@ -79,7 +79,7 @@ export const AppRouter = () => (
                             <Route path="assets" element={<AssetsPage />} />
                             <Route path="assets/:id" element={<AssetDetailPage />} />
                         </Route>
-                        <Route element={<PermissionRoute permission="network-ports.view" />}>
+                        <Route element={<PermissionRoute permission="net.network-ports.view" />}>
                             <Route path="operations" element={<NetworkOperationsPage />} />
                         </Route>
                     </Route>
