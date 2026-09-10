@@ -337,7 +337,7 @@ class StrandContinuityService
 
         $ncp = $this->resolveTerminationNcp($core);
         if ($ncp !== null && ManagementScopeService::isInScope($user, $ncp)) {
-            $data['network_connection_point'] = $ncp->only(['id', 'ncp_type', 'name']);
+            $data['network_connection_point'] = $ncp->only(['id', 'point_type', 'name']);
             if ($ncp->site !== null) {
                 $data['site'] = $ncp->site->only(['id', 'name']);
             }
@@ -367,7 +367,7 @@ class StrandContinuityService
 
         $ncp = $splice->terminationA->networkConnectionPoint;
         if ($ncp !== null && ManagementScopeService::isInScope($user, $ncp)) {
-            $data['network_connection_point'] = $ncp->only(['id', 'ncp_type', 'name']);
+            $data['network_connection_point'] = $ncp->only(['id', 'point_type', 'name']);
         }
 
         return $data;
@@ -379,7 +379,7 @@ class StrandContinuityService
 
         $ncp = $port->networkConnectionPoint;
         if ($ncp !== null && ManagementScopeService::isInScope($user, $ncp)) {
-            $data['network_connection_point'] = $ncp->only(['id', 'ncp_type', 'name']);
+            $data['network_connection_point'] = $ncp->only(['id', 'point_type', 'name']);
             if ($ncp->site !== null) {
                 $data['site'] = $ncp->site->only(['id', 'name']);
             }

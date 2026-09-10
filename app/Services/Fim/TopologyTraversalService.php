@@ -368,7 +368,7 @@ class TopologyTraversalService
             $data['fiber_core'] = $t->fiberCore->only(['id', 'fiber_segment_id', 'core_number', 'status', 'metadata']);
             $data['fiber_segment'] = $t->fiberCore->fiberSegment->only(['id', 'fiber_cable_id', 'endpoint_a_id', 'endpoint_b_id', 'sequence', 'length_meters', 'status']);
             $data['fiber_cable'] = $t->fiberCore->fiberSegment->fiberCable->only(['id', 'name', 'cable_type', 'fiber_count', 'status']);
-            $data['network_connection_point'] = $t->networkConnectionPoint->only(['id', 'ncp_type', 'label']);
+            $data['network_connection_point'] = $t->networkConnectionPoint->only(['id', 'point_type', 'name']);
             if ($t->networkConnectionPoint->site) {
                 $data['site'] = $t->networkConnectionPoint->site->only(['id', 'name']);
             }
@@ -379,11 +379,11 @@ class TopologyTraversalService
 
     private function hydratePort(PassiveOpticalPort $p, bool $includeContainment): array
     {
-        $data = $p->only(['id', 'asset_id', 'company_id', 'network_connection_point_id', 'port_number', 'label', 'port_role', 'status', 'metadata', 'created_at']);
+        $data = $p->only(['id', 'asset_id', 'company_id', 'network_connection_point_id', 'port_number', 'connector_type', 'port_role', 'metadata', 'created_at']);
 
         if ($includeContainment) {
             $data['asset'] = $p->asset->only(['id', 'name', 'serial_number', 'status']);
-            $data['network_connection_point'] = $p->networkConnectionPoint->only(['id', 'ncp_type', 'label']);
+            $data['network_connection_point'] = $p->networkConnectionPoint->only(['id', 'point_type', 'name']);
             if ($p->networkConnectionPoint->site) {
                 $data['site'] = $p->networkConnectionPoint->site->only(['id', 'name']);
             }

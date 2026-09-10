@@ -177,6 +177,34 @@ class ImportPipelineTest extends TestCase
         ]);
     }
 
+    public function test_uisp_coordinates_initialize_only_an_empty_canonical_site_location(): void
+    {
+        Http::fake();
+        $integration = $this->uispIntegration();
+
+        $this->actingAs($this->admin['uisp'])->postJson("/api/v1/integrations/{$integration->id}/uisp/import/execute", [
+            'sites' => [[
+                'external_id' => 'site-location', 'name' => 'Observed Site',
+                'location' => ['latitude' => 28.97354, 'longitude' => 81.52572],
+            ]],
+        ])->assertOk();
+
+        $site = Site::where('name', 'Observed Site')->firstOrFail();
+        $this->assertSame('28.9735400', $site->latitude);
+        $this->assertSame('81.5257200', $site->longitude);
+
+        $this->actingAs($this->admin['uisp'])->postJson("/api/v1/integrations/{$integration->id}/uisp/import/execute", [
+            'sites' => [[
+                'external_id' => 'site-location', 'name' => 'Observed Site',
+                'location' => ['latitude' => 27.71725, 'longitude' => 85.32396],
+            ]],
+        ])->assertOk();
+
+        $site->refresh();
+        $this->assertSame('28.9735400', $site->latitude);
+        $this->assertSame('81.5257200', $site->longitude);
+    }
+
     public function test_uisp_site_and_device_respect_action_from_analysis(): void
     {
         Http::fake();

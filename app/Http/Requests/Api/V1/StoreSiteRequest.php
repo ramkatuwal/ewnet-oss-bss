@@ -5,6 +5,7 @@ namespace App\Http\Requests\Api\V1;
 use App\Models\Branch;
 use App\Models\Region;
 use App\Models\Site;
+use App\Rules\GeoJsonPoint;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -25,6 +26,7 @@ class StoreSiteRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'notes' => ['nullable', 'string'],
             'metadata' => ['nullable', 'array'],
+            'geometry' => ['nullable', 'array', new GeoJsonPoint],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'altitude' => ['nullable', 'numeric'],

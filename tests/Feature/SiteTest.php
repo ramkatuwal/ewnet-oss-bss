@@ -9,7 +9,9 @@ use App\Models\Region;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\UserManagementScope;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class SiteTest extends TestCase
@@ -76,6 +78,26 @@ class SiteTest extends TestCase
 
         $response->assertStatus(201);
         $this->assertDatabaseHas('sites', ['site_code' => 'PKR-POP-001', 'latitude' => 28.2096]);
+    }
+
+    public function test_geojson_point_is_canonical_and_compatibility_coordinates_remain_stable(): void
+    {
+        $user = User::factory()->create();
+        $user->givePermissionTo(['sites.create', 'sites.update', 'sites.view']);
+
+        $site = $this->actingAs($user)->postJson('/api/v1/sites', [
+            'site_code' => 'GEO-001', 'name' => 'Surveyed Site', 'type' => 'pop', 'status' => 'active',
+            'geometry' => ['type' => 'Point', 'coordinates' => [85.3239605, 27.7172456]],
+        ])->assertCreated()->assertJsonPath('data.geometry.coordinates.0', 85.3239605)->json('data.id');
+
+        $this->assertDatabaseHas('sites', ['id' => $site, 'latitude' => 27.7172456, 'longitude' => 85.3239605]);
+        $raw = DB::selectOne('SELECT ST_SRID(geometry) AS srid, GeometryType(geometry) AS type FROM sites WHERE id = ?', [$site]);
+        $this->assertSame(4326, (int) $raw->srid);
+        $this->assertSame('POINT', $raw->type);
+        $this->actingAs($user)->putJson("/api/v1/sites/{$site}", ['geometry' => ['type' => 'LineString', 'coordinates' => [[85, 27], [86, 28]]]])->assertUnprocessable();
+
+        $this->expectException(QueryException::class);
+        DB::table('sites')->where('id', $site)->update(['geometry' => DB::raw("ST_SetSRID(ST_GeomFromText('LINESTRING(85 27, 86 28)'), 4326)")]);
     }
 
     public function test_invalid_latitude_is_rejected()

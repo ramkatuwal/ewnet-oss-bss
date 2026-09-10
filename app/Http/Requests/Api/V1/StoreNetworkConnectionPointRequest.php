@@ -6,6 +6,7 @@ use App\Models\Asset;
 use App\Models\Company;
 use App\Models\NetworkPort;
 use App\Models\Site;
+use App\Rules\GeoJsonPoint;
 use App\Services\ManagementScopeService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -27,7 +28,7 @@ class StoreNetworkConnectionPointRequest extends FormRequest
             'asset_id' => ['nullable', 'integer', 'exists:assets,id'],
             'asset_interface_id' => ['nullable', 'integer', 'exists:asset_interfaces,id'],
             'network_port_id' => ['nullable', 'integer', 'exists:network_ports,id'],
-            'geometry' => ['nullable', 'array'],
+            'geometry' => ['nullable', 'array', new GeoJsonPoint],
             'company_id' => ['nullable', 'integer', 'exists:companies,id'],
             'status' => ['required', Rule::in(['active', 'inactive', 'planned'])],
             'metadata' => ['nullable', 'array'],

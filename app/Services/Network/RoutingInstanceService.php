@@ -4,6 +4,7 @@ namespace App\Services\Network;
 
 use App\Models\Asset;
 use App\Models\RoutingInstance;
+use App\Models\RoutingL3Interface;
 use App\Models\StaticRoute;
 use App\Models\User;
 use Illuminate\Database\QueryException;
@@ -48,6 +49,9 @@ class RoutingInstanceService
                 $routingInstance = RoutingInstance::lockForUpdate()->findOrFail($routingInstance->id);
                 $asset = Asset::withTrashed()->lockForUpdate()->findOrFail($routingInstance->asset_id);
                 $this->validateAsset($asset);
+                if (RoutingL3Interface::where('routing_instance_id', $routingInstance->id)->exists()) {
+                    throw ValidationException::withMessages(['routing_instance' => 'Retire live L3 interfaces first.']);
+                }
                 if (StaticRoute::where('routing_instance_id', $routingInstance->id)->exists()) {
                     throw ValidationException::withMessages(['routing_instance' => 'Retire static routes first.']);
                 }

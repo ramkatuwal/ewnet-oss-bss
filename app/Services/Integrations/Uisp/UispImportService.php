@@ -105,10 +105,15 @@ class UispImportService
             if ($existingRef) {
                 $site = Site::find($existingRef->site_id);
                 if ($site) {
+                    $location = $this->location($data);
+                    $locationUpdates = ($site->latitude === null && $site->longitude === null && $location !== null)
+                        ? ['latitude' => $location['latitude'], 'longitude' => $location['longitude']]
+                        : [];
                     $site->update([
                         'name' => $data['name'] ?? $site->name,
                         'description' => $data['description'] ?? $site->description,
                         'metadata' => array_merge($site->metadata ?? [], ['last_synced' => now()]),
+                        ...$locationUpdates,
                     ]);
                     $results['updated']++;
 
@@ -119,6 +124,7 @@ class UispImportService
                 $existingRef->delete();
             }
 
+            $location = $this->location($data);
             $site = Site::create([
                 'site_code' => 'UISP-'.substr(md5($externalId), 0, 8),
                 'name' => $data['name'] ?? 'UISP Site '.$externalId,
@@ -126,6 +132,8 @@ class UispImportService
                 'status' => 'active',
                 'company_id' => $this->integration->company_id,
                 'metadata' => ['source' => 'uisp', 'external_id' => $externalId],
+                'latitude' => $location['latitude'] ?? null,
+                'longitude' => $location['longitude'] ?? null,
             ]);
 
             SiteExternalReference::create([
@@ -372,6 +380,7 @@ class UispImportService
         $siteExternal = $externalId ?: ($data['site_external_id'] ?? $data['site_id_external'] ?? null);
         $name = $data['site_name'] ?? ($siteExternal ? 'UISP Site '.$siteExternal : 'UISP Device Site');
 
+        $location = $this->location($data);
         $site = Site::create([
             'site_code' => 'UISP-'.substr(md5((string) ($siteExternal ?: $name)), 0, 8),
             'name' => $name,
@@ -379,6 +388,8 @@ class UispImportService
             'status' => 'active',
             'company_id' => $this->integration->company_id,
             'metadata' => ['source' => 'uisp', 'external_id' => $siteExternal],
+            'latitude' => $location['latitude'] ?? null,
+            'longitude' => $location['longitude'] ?? null,
         ]);
 
         if ($siteExternal) {
@@ -407,5 +418,20 @@ class UispImportService
         }
 
         return $summary;
+    }
+
+    private function location(array $data): ?array
+    {
+        $location = $data['location'] ?? $data['description']['location'] ?? [];
+        $latitude = $data['latitude'] ?? $location['latitude'] ?? $location['lat'] ?? null;
+        $longitude = $data['longitude'] ?? $location['longitude'] ?? $location['lon'] ?? null;
+
+        if (! is_numeric($latitude) || ! is_numeric($longitude)
+            || (float) $latitude < -90 || (float) $latitude > 90
+            || (float) $longitude < -180 || (float) $longitude > 180) {
+            return null;
+        }
+
+        return ['latitude' => $latitude, 'longitude' => $longitude];
     }
 }

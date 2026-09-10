@@ -5,6 +5,7 @@ namespace App\Http\Requests\Api\V1;
 use App\Models\Asset;
 use App\Models\Company;
 use App\Models\Site;
+use App\Rules\GeoJsonPoint;
 use App\Services\ManagementScopeService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -26,7 +27,7 @@ class UpdateNetworkConnectionPointRequest extends FormRequest
             'asset_id' => ['sometimes', 'nullable', 'integer', 'exists:assets,id'],
             'asset_interface_id' => ['sometimes', 'nullable', 'integer', 'exists:asset_interfaces,id'],
             'network_port_id' => ['sometimes', 'nullable', 'integer', 'exists:network_ports,id'],
-            'geometry' => ['sometimes', 'nullable', 'array'],
+            'geometry' => ['sometimes', 'nullable', 'array', new GeoJsonPoint],
             'company_id' => ['sometimes', 'nullable', 'integer', 'exists:companies,id'],
             'status' => ['sometimes', Rule::in(['active', 'inactive', 'planned'])],
             'metadata' => ['sometimes', 'nullable', 'array'],

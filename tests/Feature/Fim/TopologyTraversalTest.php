@@ -447,6 +447,8 @@ class TopologyTraversalTest extends TestCase
         $this->assertArrayHasKey('fiber_segment', $nodeData);
         $this->assertArrayHasKey('fiber_cable', $nodeData);
         $this->assertArrayHasKey('network_connection_point', $nodeData);
+        $this->assertArrayHasKey('point_type', $nodeData['network_connection_point']);
+        $this->assertArrayHasKey('name', $nodeData['network_connection_point']);
     }
 
     public function test_containment_data_excluded_when_disabled(): void

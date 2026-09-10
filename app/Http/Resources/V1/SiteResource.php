@@ -18,6 +18,7 @@ class SiteResource extends JsonResource
             'description' => $this->description,
             'notes' => $this->notes,
             'metadata' => $this->metadata,
+            'geometry' => $this->geometry_geojson === null ? null : json_decode($this->geometry_geojson, true, flags: JSON_THROW_ON_ERROR),
             'latitude' => $this->latitude,
             'longitude' => $this->longitude,
             'altitude' => $this->altitude,

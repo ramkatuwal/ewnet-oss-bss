@@ -6,7 +6,9 @@ use App\Http\Resources\V1\AuditLogResource;
 use App\Models\Asset;
 use App\Models\AuditLog;
 use App\Models\Company;
+use App\Models\NetworkPort;
 use App\Models\RoutingInstance;
+use App\Models\RoutingL3Interface;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\UserManagementScope;
@@ -86,6 +88,19 @@ class RoutingInstanceTest extends TestCase
         $this->actingAs($user)->postJson("/api/v1/assets/{$asset->id}/routing-instances", ['name' => 'main', 'kind' => 'default'])->assertCreated()->assertJsonPath('data.id', fn ($id) => $id !== $first);
         $this->expectException(QueryException::class);
         DB::table('routing_instances')->where('id', $first)->update(['deleted_at' => null]);
+    }
+
+    public function test_routing_instance_retirement_requires_live_l3_interfaces_to_retire_first(): void
+    {
+        $company = Company::factory()->create();
+        $user = $this->user($company, $this->permissions());
+        $asset = $this->asset($company);
+        $instance = RoutingInstance::create(['asset_id' => $asset->id, 'company_id' => $company->id, 'name' => 'main', 'kind' => 'default']);
+        $port = NetworkPort::factory()->create(['asset_id' => $asset->id, 'company_id' => $company->id]);
+        RoutingL3Interface::create(['routing_instance_id' => $instance->id, 'asset_id' => $asset->id, 'company_id' => $company->id, 'name' => 'xe-0/0/0', 'kind' => 'physical', 'network_port_id' => $port->id]);
+
+        $this->actingAs($user)->deleteJson("/api/v1/routing-instances/{$instance->id}")
+            ->assertUnprocessable()->assertJsonValidationErrors('routing_instance');
     }
 
     public function test_raw_database_and_parent_history_protections_hold(): void

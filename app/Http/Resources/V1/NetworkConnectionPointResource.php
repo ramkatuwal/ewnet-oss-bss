@@ -18,7 +18,7 @@ class NetworkConnectionPointResource extends JsonResource
             'asset_id' => $this->asset_id,
             'asset_interface_id' => $this->asset_interface_id,
             'network_port_id' => $this->network_port_id,
-            'geometry' => $this->geometry,
+            'geometry' => $this->geometry_geojson === null ? null : json_decode($this->geometry_geojson, true, flags: JSON_THROW_ON_ERROR),
             'company_id' => $this->company_id,
             'status' => $this->status,
             'metadata' => $this->metadata,

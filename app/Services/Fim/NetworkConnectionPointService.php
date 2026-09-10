@@ -15,10 +15,6 @@ class NetworkConnectionPointService
 
         $attributes = $validated + ['created_by' => $user->id, 'updated_by' => $user->id];
 
-        if ($geojson !== null) {
-            $attributes['geometry'] = DB::raw('ST_SetSRID(ST_GeomFromGeoJSON(?), 4326)');
-        }
-
         $point = NetworkConnectionPoint::create($attributes);
 
         if ($geojson !== null) {
@@ -28,27 +24,29 @@ class NetworkConnectionPointService
             );
         }
 
-        return $point->fresh()->load(['site', 'asset', 'assetInterface']);
+        return $this->findWithGeoJson($point->id)->load(['site', 'asset', 'assetInterface']);
     }
 
     public function update(NetworkConnectionPoint $point, array $validated, User $user): NetworkConnectionPoint
     {
+        $hasGeometry = array_key_exists('geometry', $validated);
         $geojson = $validated['geometry'] ?? null;
         unset($validated['geometry']);
 
         $validated['updated_by'] = $user->id;
 
-        if ($geojson !== null) {
+        if ($hasGeometry) {
+            $point->update($validated);
             DB::update(
-                'UPDATE network_connection_points SET geometry = ST_SetSRID(ST_GeomFromGeoJSON(?), 4326), updated_by = ?, updated_at = ? WHERE id = ?',
-                [json_encode($geojson), $user->id, now(), $point->id]
+                'UPDATE network_connection_points SET geometry = CASE WHEN ? IS NULL THEN NULL ELSE ST_SetSRID(ST_GeomFromGeoJSON(?), 4326) END, updated_by = ?, updated_at = ? WHERE id = ?',
+                [$geojson === null ? null : json_encode($geojson, JSON_THROW_ON_ERROR), $geojson === null ? null : json_encode($geojson, JSON_THROW_ON_ERROR), $user->id, now(), $point->id]
             );
             $point->refresh();
         } else {
             $point->update($validated);
         }
 
-        return $point->fresh()->load(['site', 'asset', 'assetInterface']);
+        return $this->findWithGeoJson($point->id)->load(['site', 'asset', 'assetInterface']);
     }
 
     public function findWithGeoJson(int $id): NetworkConnectionPoint

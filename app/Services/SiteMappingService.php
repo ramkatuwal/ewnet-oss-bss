@@ -98,7 +98,7 @@ class SiteMappingService
     private function enrichGps(Site $site, $lat, $lng): void
     {
         // Conservative enrichment: only update if Site has no GPS
-        if (($site->latitude === null || $site->longitude === null) && $lat && $lng) {
+        if ($site->latitude === null && $site->longitude === null && is_numeric($lat) && is_numeric($lng)) {
             $site->update([
                 'latitude' => $lat,
                 'longitude' => $lng,

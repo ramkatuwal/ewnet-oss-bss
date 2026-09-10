@@ -14,15 +14,18 @@ use App\Services\AuditService;
 use App\Services\ManagementScopeService;
 use App\Services\SiteDashboardService;
 use App\Services\SiteExportService;
+use App\Services\SiteLocationService;
 use Illuminate\Http\Request;
 
 class SiteController extends Controller
 {
+    public function __construct(protected SiteLocationService $locations) {}
+
     public function index(Request $request)
     {
         $this->authorize('viewAny', Site::class);
 
-        $query = Site::with(['company', 'region', 'branch'])->withCount('assets');
+        $query = Site::with(['company', 'region', 'branch'])->select('sites.*')->selectRaw('ST_AsGeoJSON(sites.geometry) AS geometry_geojson')->withCount('assets');
         $query = ManagementScopeService::applyScopeToQuery($query, $request->user(), Site::class);
 
         if ($request->filled('search')) {
@@ -61,23 +64,23 @@ class SiteController extends Controller
 
     public function store(StoreSiteRequest $request)
     {
-        $site = Site::create($request->validated());
+        $site = $this->locations->create($request->validated());
 
         AuditService::log('site.created', 'success', $site, $request->validated());
 
-        return new SiteResource($site->load(['company', 'region', 'branch']));
+        return (new SiteResource($site->load(['company', 'region', 'branch'])))->response()->setStatusCode(201);
     }
 
     public function show(Site $site)
     {
         $this->authorize('view', $site);
 
-        return new SiteResource($site->load(['company', 'region', 'branch']));
+        return new SiteResource($this->locations->findWithGeoJson($site->id)->load(['company', 'region', 'branch']));
     }
 
     public function update(UpdateSiteRequest $request, Site $site)
     {
-        $site->update($request->validated());
+        $site = $this->locations->update($site, $request->validated());
 
         AuditService::log('site.updated', 'success', $site, $request->validated());
 

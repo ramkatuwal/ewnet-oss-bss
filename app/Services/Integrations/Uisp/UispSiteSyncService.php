@@ -129,7 +129,7 @@ class UispSiteSyncService
 
     protected function mapSiteData(array $uispSite): array
     {
-        $location = $uispSite['location'] ?? [];
+        $location = $uispSite['description']['location'] ?? $uispSite['location'] ?? [];
         $address = $uispSite['address'] ?? [];
 
         $status = match ($uispSite['status'] ?? null) {
@@ -142,8 +142,8 @@ class UispSiteSyncService
             'name' => $uispSite['name'] ?? 'Unknown Site',
             'type' => 'pop',
             'status' => $status,
-            'latitude' => $location['lat'] ?? null,
-            'longitude' => $location['lon'] ?? null,
+            'latitude' => null,
+            'longitude' => null,
             'address' => $address['fullAddress'] ?? null,
             'metadata' => [
                 'uisp_parent_id' => $uispSite['parent'] ?? null,
@@ -152,6 +152,15 @@ class UispSiteSyncService
                 'synced_at' => now()->toISOString(),
             ],
         ];
+
+        $latitude = $location['latitude'] ?? $location['lat'] ?? null;
+        $longitude = $location['longitude'] ?? $location['lon'] ?? null;
+        if (is_numeric($latitude) && is_numeric($longitude)
+            && (float) $latitude >= -90 && (float) $latitude <= 90
+            && (float) $longitude >= -180 && (float) $longitude <= 180) {
+            $siteData['latitude'] = $latitude;
+            $siteData['longitude'] = $longitude;
+        }
 
         // Preserve existing metadata if updating
         return $siteData;
@@ -163,13 +172,20 @@ class UispSiteSyncService
      */
     protected function getUispOwnedFields(Site $site, array $newData): array
     {
-        $allowed = ['name', 'status', 'latitude', 'longitude', 'address'];
+        $allowed = ['name', 'status', 'address'];
         $updates = [];
 
         foreach ($allowed as $field) {
             if (isset($newData[$field]) && $site->{$field} != $newData[$field]) {
                 $updates[$field] = $newData[$field];
             }
+        }
+
+        // Provider observations may initialize, but never replace, canonical local location.
+        if ($site->latitude === null && $site->longitude === null
+            && isset($newData['latitude'], $newData['longitude'])) {
+            $updates['latitude'] = $newData['latitude'];
+            $updates['longitude'] = $newData['longitude'];
         }
 
         // Merge metadata (preserve existing keys)
@@ -183,11 +199,16 @@ class UispSiteSyncService
 
     protected function hasChanges(Site $site, array $newData): bool
     {
-        $allowed = ['name', 'status', 'latitude', 'longitude', 'address'];
+        $allowed = ['name', 'status', 'address'];
         foreach ($allowed as $field) {
             if (isset($newData[$field]) && $site->{$field} != $newData[$field]) {
                 return true;
             }
+        }
+
+        if ($site->latitude === null && $site->longitude === null
+            && isset($newData['latitude'], $newData['longitude'])) {
+            return true;
         }
 
         // Check metadata changes (only for UISP keys)
