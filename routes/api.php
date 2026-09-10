@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\V1\FiberCoreController;
 use App\Http\Controllers\Api\V1\FiberSegmentController;
 use App\Http\Controllers\Api\V1\FiberTerminationController;
 use App\Http\Controllers\Api\V1\FiberTerminationPortAttachmentController;
+use App\Http\Controllers\Api\V1\FimMapController;
 use App\Http\Controllers\Api\V1\ImportHistoryController;
 use App\Http\Controllers\Api\V1\IntegrationController;
 use App\Http\Controllers\Api\V1\IntegrationCredentialController;
@@ -191,6 +192,7 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::delete('/fim/splitter-branches/{splitterBranch}', [SplitterBranchController::class, 'destroy']);
 
     // FIM — Physical Topology Traversal (read-only)
+    Route::get('/fim/map', [FimMapController::class, 'index']);
     Route::get('/fim/topology/terminations/{fiberTermination}', [TopologyTraversalController::class, 'fromTermination']);
     Route::get('/fim/topology/ports/{passiveOpticalPort}', [TopologyTraversalController::class, 'fromPort']);
 

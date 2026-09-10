@@ -58,6 +58,7 @@ export const navigationItems: NavItem[] = [
         icon: <CableIcon />,
         children: [
             { label: 'Operations', path: '/fim', icon: <CableIcon />, permission: 'fim.cables.view' },
+            { label: 'Map', path: '/fim/map', icon: <LocationOnIcon />, permission: 'fim.cables.view' },
         ],
     },
     {

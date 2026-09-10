@@ -10,6 +10,7 @@ export const infrastructureKeys = {
 };
 
 export const fimKeys = {
+    map: (filters: Record<string, unknown>) => ['fim', 'map', filters] as const,
     cables: (filters: Record<string, unknown> = {}) => ['fim', 'cables', filters] as const,
     points: (filters: Record<string, unknown> = {}) => ['fim', 'connection-points', filters] as const,
     segments: (filters: Record<string, unknown> = {}) => ['fim', 'segments', filters] as const,

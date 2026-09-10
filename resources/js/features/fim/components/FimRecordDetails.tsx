@@ -1,4 +1,5 @@
-import { Box, Chip, Stack, Typography } from '@mui/material';
+import { Box, Button, Chip, Stack, Typography } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
 import type { ConnectionPoint, FiberCable, FiberCore, FiberSegment, PhysicalConnection } from '../api/fim';
 
 type Record = FiberCable | ConnectionPoint | FiberSegment | FiberCore | PhysicalConnection;
@@ -11,5 +12,6 @@ export function FimRecordDetails({ kind, record, cables, points, segments, cores
     if (kind === 'segments') { const item = record as FiberSegment; title = `Segment ${item.sequence} of ${cable(item.fiber_cable_id)?.cable_code ?? `cable #${item.fiber_cable_id}`}`; relationships = [`A: ${point(item.endpoint_a_id)?.name ?? `NCP #${item.endpoint_a_id}`}`, `B: ${point(item.endpoint_b_id)?.name ?? `NCP #${item.endpoint_b_id}`}`, `Length: ${item.calculated_length_meters ?? item.length_meters ?? 'not recorded'} m`]; }
     if (kind === 'cores') { const item = record as FiberCore; title = `Core ${item.core_number} in ${segment(item.fiber_segment_id) ? `segment #${item.fiber_segment_id}` : `segment #${item.fiber_segment_id}`}`; relationships = [`Status: ${item.status}`, `Color: ${item.color_code || 'not recorded'}`]; }
     if (kind === 'connections') { const item = record as PhysicalConnection; title = `Explicit ${item.connection_type.replace('_', ' ')}`; relationships = [`Termination A: #${item.termination_a_id}${core(item.termination_a_id) ? '' : ''}`, `Termination B: #${item.termination_b_id}`, 'No logical or inferred topology edge is displayed.']; }
-    return <Box sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 1 }}><Stack direction="row" justifyContent="space-between" alignItems="center"><Typography variant="h6">{title}</Typography><Chip size="small" label={kind} /></Stack>{relationships.map(item => <Typography key={item} variant="body2" sx={{ mt: 0.5 }}>{item}</Typography>)}</Box>;
+    const mapLink = kind === 'cables' ? `cable:${record.id}` : kind === 'points' ? `point:${record.id}` : null;
+    return <Box sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 1 }}><Stack direction="row" justifyContent="space-between" alignItems="center"><Typography variant="h6">{title}</Typography><Chip size="small" label={kind} /></Stack>{relationships.map(item => <Typography key={item} variant="body2" sx={{ mt: 0.5 }}>{item}</Typography>)}{mapLink && <Button component={RouterLink} to={`/fim/map?feature=${mapLink}`} size="small" sx={{ mt: 1 }}>View on map</Button>}{kind === 'connections' && <Button component={RouterLink} to={`/fim/map?topology=termination:${(record as PhysicalConnection).termination_a_id}`} size="small" sx={{ mt: 1 }}>Trace explicit topology</Button>}</Box>;
 }

@@ -12,12 +12,16 @@ export interface TerminationPortAttachment { id: number; fiber_termination_id: n
 export interface NetworkPortAttachment { id: number; network_port_id: number; fiber_termination_id: number; company_id: number; }
 export interface SplitterProfile { id: number; asset_id: number; company_id: number; input_port_count: number; output_port_count: number; split_ratio: string | null; }
 export interface SplitterBranch { id: number; splitter_profile_id: number; input_port_id: number; output_port_id: number; }
+export interface FimMapFeature { type: 'Feature'; id: string; geometry: GeoJSON.Geometry; properties: { kind: 'cable' | 'point'; id: number; label: string; status: string; }; }
+export interface FimMapFeatureCollection { type: 'FeatureCollection'; features: FimMapFeature[]; }
+export interface TopologyPath { nodes: Array<{ type: string; id: number; data: Record<string, unknown> }>; edges: Array<{ type: string; id: number; from: string; to: string; data: Record<string, unknown> }>; start_node: string; depth: number; truncated: boolean; }
 
 const page = <T>(path: string, params?: Record<string, unknown>) => apiClient.get<Page<T>>(path, { params }).then(r => r.data);
 const item = <T>(path: string, body?: unknown) => apiClient.post<{ data: T }>(path, body).then(r => r.data.data);
 const update = <T>(path: string, body: Record<string, unknown>) => apiClient.patch<{ data: T }>(path, body).then(r => r.data.data);
 const remove = (path: string) => apiClient.delete(path).then(r => r.data);
 export const fimApi = {
+    map: (params: { west: number; south: number; east: number; north: number; layers: Array<'cables' | 'points'>; cable_status?: string; point_status?: string }, signal?: AbortSignal) => apiClient.get<FimMapFeatureCollection>('/api/v1/fim/map', { params, signal }).then(r => r.data),
     cables: (params?: Record<string, unknown>) => page<FiberCable>('/api/v1/fim/fiber-cables', params),
     points: (params?: Record<string, unknown>) => page<ConnectionPoint>('/api/v1/fim/connection-points', params),
     segments: (params?: Record<string, unknown>) => page<FiberSegment>('/api/v1/fim/fiber-segments', params),
@@ -50,4 +54,6 @@ export const fimApi = {
     retirePoint: (id: number) => update<ConnectionPoint>(`/api/v1/fim/connection-points/${id}`, { status: 'inactive' }),
     capacity: (kind: 'cable' | 'segment' | 'splitter', id: number) => apiClient.get(`/api/v1/fim/${kind === 'cable' ? 'cables' : kind === 'segment' ? 'fiber-segments' : 'splitter-profiles'}/${id}/capacity`).then(r => r.data.data),
     continuity: (coreId: number) => apiClient.get(`/api/v1/fim/fiber-cores/${coreId}/strand-path`, { params: { mode: 'physical-strand', max_depth: 20 } }).then(r => r.data.data),
+    topologyFromTermination: (id: number) => apiClient.get<{ data: TopologyPath }>(`/api/v1/fim/topology/terminations/${id}`).then(r => r.data.data),
+    topologyFromPort: (id: number) => apiClient.get<{ data: TopologyPath }>(`/api/v1/fim/topology/ports/${id}`).then(r => r.data.data),
 };
