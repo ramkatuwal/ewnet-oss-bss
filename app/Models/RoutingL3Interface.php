@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class RoutingL3Interface extends Model
@@ -44,6 +45,11 @@ class RoutingL3Interface extends Model
     public function parent(): BelongsTo
     {
         return $this->belongsTo(self::class, 'parent_routing_l3_interface_id');
+    }
+
+    public function addresses(): HasMany
+    {
+        return $this->hasMany(RoutingL3InterfaceAddress::class);
     }
 
     public function createdBy(): BelongsTo

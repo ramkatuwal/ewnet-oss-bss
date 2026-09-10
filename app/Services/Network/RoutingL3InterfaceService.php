@@ -5,6 +5,7 @@ namespace App\Services\Network;
 use App\Models\NetworkPort;
 use App\Models\RoutingInstance;
 use App\Models\RoutingL3Interface;
+use App\Models\RoutingL3InterfaceAddress;
 use App\Models\User;
 use App\Models\Vlan;
 use Illuminate\Database\QueryException;
@@ -43,7 +44,11 @@ class RoutingL3InterfaceService
                 $interface = RoutingL3Interface::lockForUpdate()->findOrFail($interface->id);
                 if (RoutingL3Interface::where('parent_routing_l3_interface_id', $interface->id)->exists()) {
                     throw ValidationException::withMessages(['routing_l3_interface' => 'Retire child subinterfaces first.']);
-                } $interface->update(['updated_by' => $user->id]);
+                }
+                if (RoutingL3InterfaceAddress::where('routing_l3_interface_id', $interface->id)->exists()) {
+                    throw ValidationException::withMessages(['routing_l3_interface' => 'Retire authoritative addresses first.']);
+                }
+                $interface->update(['updated_by' => $user->id]);
                 $interface->delete();
             });
         } catch (QueryException $e) {

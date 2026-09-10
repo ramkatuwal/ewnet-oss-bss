@@ -4,18 +4,27 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class RoutingInstance extends Model
+class RoutingL3InterfaceAddress extends Model
 {
     use SoftDeletes;
 
-    public const KINDS = ['default', 'vrf'];
+    public const ROLES = ['primary', 'secondary'];
 
-    protected $fillable = ['asset_id', 'company_id', 'name', 'kind', 'metadata', 'created_by', 'updated_by'];
+    protected $fillable = ['routing_l3_interface_id', 'routing_instance_id', 'asset_id', 'company_id', 'address', 'prefix_length', 'address_role', 'metadata', 'created_by', 'updated_by'];
 
-    protected $casts = ['metadata' => 'array'];
+    protected $casts = ['metadata' => 'array', 'prefix_length' => 'integer'];
+
+    public function routingL3Interface(): BelongsTo
+    {
+        return $this->belongsTo(RoutingL3Interface::class);
+    }
+
+    public function routingInstance(): BelongsTo
+    {
+        return $this->belongsTo(RoutingInstance::class);
+    }
 
     public function asset(): BelongsTo
     {
@@ -35,15 +44,5 @@ class RoutingInstance extends Model
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
-    }
-
-    public function routingL3Interfaces(): HasMany
-    {
-        return $this->hasMany(RoutingL3Interface::class);
-    }
-
-    public function routingL3InterfaceAddresses(): HasMany
-    {
-        return $this->hasMany(RoutingL3InterfaceAddress::class);
     }
 }
