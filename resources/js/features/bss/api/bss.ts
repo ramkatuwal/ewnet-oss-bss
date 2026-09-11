@@ -13,6 +13,7 @@ export type LeadStatus = 'new' | 'qualified' | 'converted' | 'lost';
 export interface Lead { id: number; company_id: number; lead_code: string; name: string; email: string | null; phone: string | null; status: LeadStatus; qualification: Record<string, unknown> | null; converted_customer_id: number | null; }
 export interface Customer360 extends Customer { contacts: { id: number; kind: string; value: string; verified: boolean }[]; contact_persons: { id: number; name: string; role: string | null; email: string | null; phone: string | null }[]; addresses: { id: number; kind: string; line1: string; city: string | null; country_code: string | null }[]; business_profile: { legal_name: string | null; registration_number: string | null; tax_number: string | null; industry: string | null } | null; verifications: { id: number; kind: string; status: string; reference: string | null; reason: string | null }[]; notes: { id: number; body: string; created_at: string }[]; }
 export type CustomerInput = Omit<Customer, 'id' | 'status'> & { status?: Exclude<CustomerStatus, 'retired'> };
+export type CustomerOnboardingInput = CustomerInput & { source_id?: number; initial_contact?: { kind: 'email' | 'phone' | 'other'; value: string }; initial_address?: { kind?: 'billing' | 'service' | 'other'; line1: string }; business_profile?: { legal_name?: string; registration_number?: string }; verification?: { kind: string; status: 'pending' | 'verified' | 'rejected'; reference?: string } };
 export type ServiceInput = Omit<Service, 'id' | 'status'> & { status?: Exclude<ServiceStatus, 'retired'> };
 
 const collection = <T>(path: string, params?: Record<string, unknown>) => apiClient.get<PaginatedResponse<T>>(path, { params }).then(response => response.data);
@@ -22,6 +23,8 @@ export const bssApi = {
     customers: (params?: Record<string, unknown>) => collection<Customer>('/api/v1/bss/customers', params),
     customer: (id: number) => data<Customer>(apiClient.get(`/api/v1/bss/customers/${id}`)),
     createCustomer: (body: CustomerInput) => data<Customer>(apiClient.post('/api/v1/bss/customers', body)),
+    onboardCustomer: (body: CustomerOnboardingInput) => data<Customer>(apiClient.post('/api/v1/bss/customers/onboard', body)),
+    customerDuplicateCandidates: (params: { company_id: number; name?: string; email?: string; phone?: string }) => data<Customer[]>(apiClient.get('/api/v1/bss/customers/duplicate-candidates', { params })),
     updateCustomer: (id: number, body: Partial<CustomerInput>) => data<Customer>(apiClient.patch(`/api/v1/bss/customers/${id}`, body)),
     retireCustomer: (id: number) => apiClient.delete(`/api/v1/bss/customers/${id}`),
     customer360: (id: number) => data<Customer360>(apiClient.get(`/api/v1/bss/customers/${id}/360`)),
@@ -31,6 +34,9 @@ export const bssApi = {
     saveBusinessProfile: (id: number, body: { legal_name?: string; registration_number?: string; tax_number?: string; industry?: string }) => data(apiClient.put(`/api/v1/bss/customers/${id}/business-profile`, body)),
     addVerification: (id: number, body: { kind: string; status: 'pending' | 'verified' | 'rejected'; reference?: string; reason?: string }) => data(apiClient.post(`/api/v1/bss/customers/${id}/verifications`, body)),
     addNote: (id: number, body: { body: string }) => data(apiClient.post(`/api/v1/bss/customers/${id}/notes`, body)),
+    tags: (companyId: number, kind: 'tag' | 'flag') => data<{ id: number; name: string; kind: 'tag' | 'flag' }[]>(apiClient.get('/api/v1/bss/tags', { params: { company_id: companyId, kind } })),
+    createTag: (body: { company_id: number; kind: 'tag' | 'flag'; name: string; color?: string }) => data(apiClient.post('/api/v1/bss/tags', body)),
+    assignTag: (customerId: number, tagId: number) => apiClient.post(`/api/v1/bss/customers/${customerId}/tags`, { tag_id: tagId }),
     services: (params?: Record<string, unknown>) => collection<Service>('/api/v1/bss/services', params),
     service: (id: number) => data<Service>(apiClient.get(`/api/v1/bss/services/${id}`)),
     createService: (body: ServiceInput) => data<Service>(apiClient.post('/api/v1/bss/services', body)),

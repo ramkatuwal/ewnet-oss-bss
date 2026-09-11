@@ -2,9 +2,14 @@
 
 namespace App\Services;
 
+use App\Models\BssSource;
 use App\Models\Company;
 use App\Models\Customer;
+use App\Models\CustomerAddress;
+use App\Models\CustomerBusinessProfile;
+use App\Models\CustomerContact;
 use App\Models\CustomerService;
+use App\Models\CustomerVerification;
 use App\Models\Service;
 use App\Models\User;
 use Illuminate\Database\QueryException;
@@ -17,6 +22,35 @@ class BssService
     public function createCustomer(array $attributes, User $actor): Customer
     {
         return $this->createScoped(Customer::class, $attributes, $actor, 'customer_code');
+    }
+
+    public function onboardCustomer(array $attributes, User $actor): Customer
+    {
+        return DB::transaction(function () use ($attributes, $actor) {
+            $sourceId = $attributes['source_id'] ?? null;
+            $company = Company::lockForUpdate()->findOrFail($attributes['company_id']);
+            if ($sourceId && ! BssSource::whereKey($sourceId)->where('company_id', $company->id)->where('active', true)->exists()) {
+                throw ValidationException::withMessages(['source_id' => 'Source must be active and belong to this company.']);
+            }
+            if (Customer::where('company_id', $company->id)->where('customer_code', $attributes['customer_code'])->exists()) {
+                throw ValidationException::withMessages(['customer_code' => 'This code already exists for this company.']);
+            }
+            $customer = Customer::create([...Arr::only($attributes, ['company_id', 'source_id', 'customer_code', 'name', 'type', 'status', 'email', 'phone', 'address', 'metadata']), 'created_by' => $actor->id, 'updated_by' => $actor->id]);
+            if ($contact = $attributes['initial_contact'] ?? null) {
+                CustomerContact::create([...$contact, 'customer_id' => $customer->id, 'company_id' => $company->id, 'is_primary' => true]);
+            }
+            if ($address = $attributes['initial_address'] ?? null) {
+                CustomerAddress::create([...$address, 'customer_id' => $customer->id, 'company_id' => $company->id, 'is_primary' => true]);
+            }
+            if ($profile = $attributes['business_profile'] ?? null) {
+                CustomerBusinessProfile::create([...$profile, 'customer_id' => $customer->id, 'company_id' => $company->id]);
+            }
+            if ($verification = $attributes['verification'] ?? null) {
+                CustomerVerification::create([...$verification, 'customer_id' => $customer->id, 'company_id' => $company->id, 'verified_by' => $actor->id, 'verified_at' => $verification['status'] === 'pending' ? null : now()]);
+            }
+
+            return $customer;
+        });
     }
 
     public function createService(array $attributes, User $actor): Service

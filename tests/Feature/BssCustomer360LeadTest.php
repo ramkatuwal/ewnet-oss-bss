@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\BssSource;
 use App\Models\Company;
 use App\Models\Customer;
 use App\Models\Lead;
@@ -57,5 +58,17 @@ class BssCustomer360LeadTest extends TestCase
         $foreign = Customer::create(['company_id' => $other->id, 'customer_code' => 'OTHER', 'name' => 'Other', 'type' => 'individual']);
         $lead = Lead::create(['company_id' => $company->id, 'lead_code' => 'LEAD-2', 'name' => 'Second', 'status' => 'qualified']);
         $this->actingAs($user)->postJson("/api/v1/bss/leads/{$lead->id}/convert", ['customer_code' => 'NOPE', 'use_customer_id' => $foreign->id])->assertUnprocessable();
+    }
+
+    public function test_direct_customer_onboarding_is_transactional_and_scoped(): void
+    {
+        $company = Company::factory()->create();
+        $user = $this->user($company, ['bss.customers.create', 'bss.customers.view']);
+        $source = BssSource::create(['company_id' => $company->id, 'code' => 'walkin', 'name' => 'Walk-in']);
+        $this->actingAs($user)->postJson('/api/v1/bss/customers/onboard', ['company_id' => $company->id, 'source_id' => $source->id, 'customer_code' => 'ONBOARD-1', 'name' => 'Onboarded', 'type' => 'organization', 'initial_contact' => ['kind' => 'email', 'value' => 'onboard@example.test'], 'initial_address' => ['line1' => 'Main'], 'business_profile' => ['legal_name' => 'Onboarded Ltd'], 'verification' => ['kind' => 'kyc', 'status' => 'verified', 'reference' => 'REF-1']])->assertCreated();
+        $customer = Customer::where('customer_code', 'ONBOARD-1')->firstOrFail();
+        $this->assertSame($source->id, $customer->source_id);
+        $this->assertDatabaseHas('customer_contacts', ['customer_id' => $customer->id, 'is_primary' => true]);
+        $this->assertDatabaseHas('customer_verifications', ['customer_id' => $customer->id, 'reference' => 'REF-1']);
     }
 }

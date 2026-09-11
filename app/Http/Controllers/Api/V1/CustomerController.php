@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\StoreCustomerOnboardingRequest;
 use App\Http\Requests\Api\V1\StoreCustomerRequest;
 use App\Http\Requests\Api\V1\UpdateCustomerRequest;
 use App\Http\Resources\V1\CustomerResource;
@@ -41,6 +42,33 @@ class CustomerController extends Controller
         AuditService::log('bss.customer.created', 'success', $customer, $this->metadata($customer));
 
         return (new CustomerResource($customer))->response()->setStatusCode(201);
+    }
+
+    public function onboard(StoreCustomerOnboardingRequest $request)
+    {
+        $this->authorize('create', Customer::class);
+        $customer = $this->bss->onboardCustomer($request->validated(), $request->user());
+        AuditService::log('bss.customer.onboarded', 'success', $customer, $this->metadata($customer));
+
+        return (new CustomerResource($customer))->response()->setStatusCode(201);
+    }
+
+    public function duplicateCandidates(Request $request)
+    {
+        $this->authorize('viewAny', Customer::class);
+        $data = $request->validate(['company_id' => ['required', 'integer'], 'name' => ['nullable', 'string'], 'email' => ['nullable', 'email'], 'phone' => ['nullable', 'string']]);
+        $query = ManagementScopeService::applyScopeToQuery(Customer::query(), $request->user(), Customer::class)->where('company_id', $data['company_id']);
+        $query->where(function ($q) use ($data) {
+            if (! empty($data['name'])) {
+                $q->whereRaw('lower(name) = ?', [strtolower($data['name'])]);
+            } if (! empty($data['email'])) {
+                $q->orWhereRaw('lower(email) = ?', [strtolower($data['email'])]);
+            } if (! empty($data['phone'])) {
+                $q->orWhere('phone', $data['phone']);
+            }
+        });
+
+        return CustomerResource::collection($query->limit(20)->get());
     }
 
     public function show(Customer $customer)

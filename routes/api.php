@@ -91,6 +91,8 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::apiResource('/organization/users', UserController::class);
 
     // BSS foundation: authoritative commercial identities only, no network bindings.
+    Route::get('/bss/customers/duplicate-candidates', [CustomerController::class, 'duplicateCandidates']);
+    Route::post('/bss/customers/onboard', [CustomerController::class, 'onboard']);
     Route::apiResource('/bss/customers', CustomerController::class);
     Route::get('/bss/customers/{customer}/360', [BssCustomer360Controller::class, 'show']);
     Route::post('/bss/customers/{customer}/contacts', [BssCustomer360Controller::class, 'storeContact']);

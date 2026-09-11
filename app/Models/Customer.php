@@ -13,7 +13,7 @@ class Customer extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $fillable = ['company_id', 'customer_code', 'name', 'type', 'status', 'email', 'phone', 'address', 'metadata', 'created_by', 'updated_by'];
+    protected $fillable = ['company_id', 'source_id', 'customer_code', 'name', 'type', 'status', 'email', 'phone', 'address', 'metadata', 'created_by', 'updated_by'];
 
     protected $casts = ['metadata' => 'array'];
 
