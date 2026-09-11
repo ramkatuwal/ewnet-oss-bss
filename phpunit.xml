@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
-         bootstrap="vendor/autoload.php"
+         bootstrap="tests/bootstrap.php"
          colors="true"
 >
     <testsuites>
@@ -13,22 +13,25 @@
         </testsuite>
     </testsuites>
     <php>
-        <env name="APP_ENV" value="testing"/>
-        <env name="BCRYPT_ROUNDS" value="4"/>
         <!-- Safety: pin the test database and non-Redis stores here so tests can
-             never run against the production `ewnet` database. Laravel's env
-             loader is immutable for variables already present in the real
-             environment, so the values below win over both `.env` and
-             `.env.testing` regardless of how PHPUnit is launched (phpunit
-             binary or `php artisan test`). -->
-        <env name="DB_CONNECTION" value="pgsql"/>
-        <env name="DB_DATABASE" value="ewnet_test"/>
-        <env name="DB_USERNAME" value="ewnet"/>
-        <env name="DB_PASSWORD" value="ewnet123"/>
-        <env name="CACHE_STORE" value="array"/>
-        <env name="MAIL_MAILER" value="array"/>
-        <env name="QUEUE_CONNECTION" value="sync"/>
-        <env name="SESSION_DRIVER" value="array"/>
-        <env name="TELESCOPE_ENABLED" value="false"/>
+             never run against the production `ewnet` database. `force="true"`
+             is REQUIRED: this repository injects DB_DATABASE=ewnet into the
+             real process environment via docker-compose, and PHPUnit only
+             overrides an existing variable when force is enabled. Without it,
+             a `RefreshDatabase`-based suite would run `migrate:fresh` against
+             the development `ewnet` database and wipe it. -->
+        <env name="APP_ENV" value="testing" force="true"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <env name="DB_CONNECTION" value="pgsql" force="true"/>
+        <env name="DB_HOST" value="postgres" force="true"/>
+        <env name="DB_PORT" value="5432" force="true"/>
+        <env name="DB_DATABASE" value="ewnet_test" force="true"/>
+        <env name="DB_USERNAME" value="ewnet" force="true"/>
+        <env name="DB_PASSWORD" value="ewnet123" force="true"/>
+        <env name="CACHE_STORE" value="array" force="true"/>
+        <env name="MAIL_MAILER" value="array" force="true"/>
+        <env name="QUEUE_CONNECTION" value="sync" force="true"/>
+        <env name="SESSION_DRIVER" value="array" force="true"/>
+        <env name="TELESCOPE_ENABLED" value="false" force="true"/>
     </php>
 </phpunit>
