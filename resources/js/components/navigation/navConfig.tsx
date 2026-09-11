@@ -61,6 +61,8 @@ export const navigationItems: NavItem[] = [
         icon: <ReceiptLongIcon />,
         children: [
             { label: 'Customers & Services', path: '/bss', icon: <ReceiptLongIcon />, permission: 'bss.customers.view' },
+            { label: 'Leads', path: '/bss/leads', icon: <ReceiptLongIcon />, permission: 'bss.leads.view' },
+            { label: 'Feasibility', path: '/bss/feasibility', icon: <ReceiptLongIcon />, permission: 'bss.feasibility.view' },
         ],
     },
     {

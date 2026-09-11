@@ -64,4 +64,52 @@ describe('BSS API workflows', () => {
         expect(post).toHaveBeenCalledWith('/api/v1/bss/customer-services/12/transition', { status: 'active' });
         expect(post).toHaveBeenCalledWith('/api/v1/bss/leads', expect.objectContaining({ lead_code: 'LD-1' }));
     });
+
+    it('requests feasibility from a lead with coordinates and refines it via assessment steps', async () => {
+        const { bssApi } = await import('./bss');
+        await bssApi.createFeasibility({ lead_id: 3, requested_service_summary: 'Broadband 50 Mbps', requested_location_lat: 27.7172, requested_location_lng: 85.324 });
+        await bssApi.updateFeasibility(7, { assessment_method: 'desk_review', internal_notes: 'Checked hub capacity.' });
+        await bssApi.assignFeasibility(7, 12);
+        await bssApi.startFeasibilityAssessment(7);
+        expect(post).toHaveBeenCalledWith('/api/v1/bss/feasibility-checks', expect.objectContaining({ lead_id: 3, requested_service_summary: 'Broadband 50 Mbps', requested_location_lat: 27.7172, requested_location_lng: 85.324 }));
+        expect(post).toHaveBeenCalledWith('/api/v1/bss/feasibility-checks/7', expect.objectContaining({ assessment_method: 'desk_review' }));
+        expect(post).toHaveBeenCalledWith('/api/v1/bss/feasibility-checks/7/assign', { assigned_assessor_user_id: 12 });
+        expect(post).toHaveBeenCalledWith('/api/v1/bss/feasibility-checks/7/start-assessment');
+    });
+
+    it('drives survey, evidence, conditions, decision, and confirmation lifecycle endpoints', async () => {
+        const { bssApi } = await import('./bss');
+        await bssApi.startFeasibilitySurvey(7, { assigned_to: 12, scheduled_at: '2026-09-20T10:00:00' });
+        await bssApi.completeFeasibilitySurvey(7, { location_verified: true, civil_work_required: false, recommended_outcome: 'feasible', installation_complexity: 'moderate' });
+        await bssApi.feasibilityEvidence(7);
+        await bssApi.addFeasibilityEvidence(7, { evidence_type: 'site_observation', observation_summary: 'CLE visible.' });
+        await bssApi.feasibilityConditions(7);
+        await bssApi.addFeasibilityCondition(7, { condition_type: 'pole_permission', description: 'Permission letter required.', is_mandatory: true });
+        await bssApi.resolveFeasibilityCondition(9, { status: 'resolved', resolution_notes: 'Letter received.' });
+        await bssApi.decideFeasibility(7, { outcome: 'feasible', valid_until: '2026-12-31', conditions_summary: 'None.', estimated_work_summary: '2 days' });
+        await bssApi.feasibilityConfirmations(7);
+        await bssApi.createFeasibilityConfirmation(7, { channel: 'phone', presented_summary: 'Customer confirmed intent.', notes: 'Spoke to owner.' });
+        await bssApi.confirmCustomerConfirmation(21);
+        await bssApi.declineCustomerConfirmation(22);
+        await bssApi.leadFeasibility(3);
+        expect(post).toHaveBeenCalledWith('/api/v1/bss/feasibility-checks/7/start-survey', expect.objectContaining({ assigned_to: 12, scheduled_at: '2026-09-20T10:00:00' }));
+        expect(post).toHaveBeenCalledWith('/api/v1/bss/feasibility-checks/7/complete-survey', expect.objectContaining({ location_verified: true, installation_complexity: 'moderate', recommended_outcome: 'feasible' }));
+        expect(get).toHaveBeenCalledWith('/api/v1/bss/feasibility-checks/7/evidence');
+        expect(post).toHaveBeenCalledWith('/api/v1/bss/feasibility-checks/7/evidence', expect.objectContaining({ evidence_type: 'site_observation' }));
+        expect(get).toHaveBeenCalledWith('/api/v1/bss/feasibility-checks/7/conditions');
+        expect(post).toHaveBeenCalledWith('/api/v1/bss/feasibility-checks/7/conditions', expect.objectContaining({ condition_type: 'pole_permission', is_mandatory: true }));
+        expect(post).toHaveBeenCalledWith('/api/v1/bss/feasibility-conditions/9/resolve', expect.objectContaining({ status: 'resolved' }));
+        expect(post).toHaveBeenCalledWith('/api/v1/bss/feasibility-checks/7/decide', expect.objectContaining({ outcome: 'feasible' }));
+        expect(get).toHaveBeenCalledWith('/api/v1/bss/feasibility-checks/7/confirmations');
+        expect(post).toHaveBeenCalledWith('/api/v1/bss/feasibility-checks/7/confirmations', expect.objectContaining({ channel: 'phone', presented_summary: 'Customer confirmed intent.' }));
+        expect(post).toHaveBeenCalledWith('/api/v1/bss/confirmations/21/confirm');
+        expect(post).toHaveBeenCalledWith('/api/v1/bss/confirmations/22/decline');
+        expect(get).toHaveBeenCalledWith('/api/v1/bss/leads/3/feasibility');
+    });
+
+    it('supports bounded feasibility list queries', async () => {
+        const { bssApi } = await import('./bss');
+        await bssApi.feasibilityChecks({ company_id: 1, status: 'reviewing', per_page: 25 });
+        expect(get).toHaveBeenCalledWith('/api/v1/bss/feasibility-checks', { params: { company_id: 1, status: 'reviewing', per_page: 25 } });
+    });
 });

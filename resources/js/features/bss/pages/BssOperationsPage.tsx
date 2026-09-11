@@ -16,10 +16,10 @@ import { ServiceFormDrawer } from '../components/ServiceFormDrawer';
 
 const statusColor = (status: string): 'default' | 'success' | 'warning' | 'error' => status === 'active' ? 'success' : status === 'suspended' || status === 'pending' ? 'warning' : status === 'terminated' || status === 'retired' ? 'error' : 'default';
 
-export const BssOperationsPage = () => {
+export const BssOperationsPage = ({ initialTab = 0 }: { initialTab?: number }) => {
     const queryClient = useQueryClient(); const { showToast } = useToast();
     const navigate = useNavigate();
-    const [tab, setTab] = useState(0); const [search, setSearch] = useState(''); const deferredSearch = useDeferredValue(search); const [leadOpen, setLeadOpen] = useState(false); const [leadForm, setLeadForm] = useState({ company_id: '', lead_code: '', name: '', email: '', phone: '' });
+    const [tab, setTab] = useState(initialTab); const [search, setSearch] = useState(''); const deferredSearch = useDeferredValue(search); const [leadOpen, setLeadOpen] = useState(false); const [leadForm, setLeadForm] = useState({ company_id: '', lead_code: '', name: '', email: '', phone: '' });
     const [customerForm, setCustomerForm] = useState<Customer | null>(null); const [serviceForm, setServiceForm] = useState<Service | null>(null); const [assignmentOpen, setAssignmentOpen] = useState(false); const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null); const [selectedService, setSelectedService] = useState<Service | null>(null);
     const customers = useQuery({ queryKey: bssKeys.customers({ search: deferredSearch, per_page: 25 }), queryFn: () => bssApi.customers({ search: deferredSearch || undefined, per_page: 25 }), enabled: tab === 0 || assignmentOpen });
     const services = useQuery({ queryKey: bssKeys.services({ search: deferredSearch, per_page: 100 }), queryFn: () => bssApi.services({ search: deferredSearch || undefined, per_page: 100 }), enabled: tab === 1 || assignmentOpen });

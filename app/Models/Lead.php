@@ -37,4 +37,9 @@ class Lead extends Model
     {
         return $this->hasMany(LeadLifecycleHistory::class);
     }
+
+    public function feasibilityChecks(): HasMany
+    {
+        return $this->hasMany(FeasibilityCheck::class);
+    }
 }

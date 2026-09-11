@@ -7,11 +7,13 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BranchController;
 use App\Http\Controllers\Api\V1\BssCustomer360Controller;
 use App\Http\Controllers\Api\V1\CompanyController;
+use App\Http\Controllers\Api\V1\CustomerConfirmationController;
 use App\Http\Controllers\Api\V1\CustomerController;
 use App\Http\Controllers\Api\V1\CustomerServiceController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DebugController;
 use App\Http\Controllers\Api\V1\DepartmentController;
+use App\Http\Controllers\Api\V1\FeasibilityCheckController;
 use App\Http\Controllers\Api\V1\FiberCableController;
 use App\Http\Controllers\Api\V1\FiberCoreController;
 use App\Http\Controllers\Api\V1\FiberSegmentController;
@@ -120,6 +122,27 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::post('/bss/customer-services/{customerService}/transition', [CustomerServiceController::class, 'transition']);
     Route::delete('/bss/customer-services/{customerService}', [CustomerServiceController::class, 'destroy']);
     Route::post('/sites/import', [SiteController::class, 'import']);
+
+    // BSS-003 Feasibility, Coverage, and Customer Confirmation
+    Route::get('/bss/leads/{lead}/feasibility', [FeasibilityCheckController::class, 'forLead']);
+    Route::get('/bss/feasibility-checks', [FeasibilityCheckController::class, 'index']);
+    Route::post('/bss/feasibility-checks', [FeasibilityCheckController::class, 'store']);
+    Route::get('/bss/feasibility-checks/{feasibilityCheck}', [FeasibilityCheckController::class, 'show']);
+    Route::patch('/bss/feasibility-checks/{feasibilityCheck}', [FeasibilityCheckController::class, 'update']);
+    Route::post('/bss/feasibility-checks/{feasibilityCheck}/assign', [FeasibilityCheckController::class, 'assign']);
+    Route::post('/bss/feasibility-checks/{feasibilityCheck}/start-assessment', [FeasibilityCheckController::class, 'startAssessment']);
+    Route::post('/bss/feasibility-checks/{feasibilityCheck}/start-survey', [FeasibilityCheckController::class, 'startSurvey']);
+    Route::post('/bss/feasibility-checks/{feasibilityCheck}/complete-survey', [FeasibilityCheckController::class, 'completeSurvey']);
+    Route::get('/bss/feasibility-checks/{feasibilityCheck}/evidence', [FeasibilityCheckController::class, 'evidence']);
+    Route::post('/bss/feasibility-checks/{feasibilityCheck}/evidence', [FeasibilityCheckController::class, 'storeEvidence']);
+    Route::get('/bss/feasibility-checks/{feasibilityCheck}/conditions', [FeasibilityCheckController::class, 'conditions']);
+    Route::post('/bss/feasibility-checks/{feasibilityCheck}/conditions', [FeasibilityCheckController::class, 'storeCondition']);
+    Route::post('/bss/feasibility-conditions/{condition}/resolve', [FeasibilityCheckController::class, 'resolveCondition']);
+    Route::post('/bss/feasibility-checks/{feasibilityCheck}/decide', [FeasibilityCheckController::class, 'decide']);
+    Route::get('/bss/feasibility-checks/{feasibilityCheck}/confirmations', [FeasibilityCheckController::class, 'confirmations']);
+    Route::post('/bss/feasibility-checks/{feasibilityCheck}/confirmations', [FeasibilityCheckController::class, 'storeConfirmation']);
+    Route::post('/bss/confirmations/{confirmation}/confirm', [CustomerConfirmationController::class, 'confirm']);
+    Route::post('/bss/confirmations/{confirmation}/decline', [CustomerConfirmationController::class, 'decline']);
 
     // Site Photos
     Route::get('/sites/{site}/photos', [PhotoController::class, 'sitePhotos']);

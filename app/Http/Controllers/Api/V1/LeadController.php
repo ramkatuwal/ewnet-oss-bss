@@ -17,7 +17,7 @@ class LeadController extends Controller
     public function index(Request $request)
     {
         $this->authorize('viewAny', Lead::class);
-        $request->validate(['company_id' => ['nullable', 'integer'], 'status' => ['nullable', 'in:new,qualified,converted,lost'], 'search' => ['nullable', 'string', 'max:255']]);
+        $request->validate(['company_id' => ['nullable', 'integer'], 'status' => ['nullable', 'in:new,qualified,converted,lost,feasibility_pending,feasible,not_feasible,confirmed'], 'search' => ['nullable', 'string', 'max:255']]);
         $query = ManagementScopeService::applyScopeToQuery(Lead::query(), $request->user(), Lead::class);
         foreach (['company_id', 'status'] as $field) {
             if ($request->filled($field)) {
@@ -59,7 +59,7 @@ class LeadController extends Controller
     public function update(Request $request, Lead $lead)
     {
         $this->authorize('update', $lead);
-        if (in_array($lead->status, ['converted', 'lost'], true)) {
+        if (in_array($lead->status, ['converted', 'lost', 'feasible', 'not_feasible', 'confirmed'], true)) {
             throw ValidationException::withMessages(['status' => 'Closed leads cannot be edited.']);
         }
         $lead->update([...$this->validatedLead($request, false), 'updated_by' => $request->user()->id]);

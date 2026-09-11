@@ -30,6 +30,12 @@ export const bssKeys = {
     leads: (filters: Record<string, unknown> = {}) => ['bss', 'leads', filters] as const,
     lead: (id: number) => ['bss', 'lead', id] as const,
     customer360: (id: number) => ['bss', 'customer-360', id] as const,
+    leadFeasibility: (leadId: number) => ['bss', 'lead', leadId, 'feasibility'] as const,
+    feasibilityChecks: (filters: Record<string, unknown> = {}) => ['bss', 'feasibility-checks', filters] as const,
+    feasibilityCheck: (id: number) => ['bss', 'feasibility-check', id] as const,
+    feasibilityEvidence: (id: number) => ['bss', 'feasibility-check', id, 'evidence'] as const,
+    feasibilityConditions: (id: number) => ['bss', 'feasibility-check', id, 'conditions'] as const,
+    feasibilityConfirmations: (id: number) => ['bss', 'feasibility-check', id, 'confirmations'] as const,
 };
 
 export const fimKeys = {

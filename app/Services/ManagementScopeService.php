@@ -6,8 +6,13 @@ use App\Models\Asset;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Customer;
+use App\Models\CustomerConfirmation;
 use App\Models\CustomerService;
 use App\Models\Department;
+use App\Models\FeasibilityCheck;
+use App\Models\FeasibilityCondition;
+use App\Models\FeasibilityEvidence;
+use App\Models\FeasibilitySurvey;
 use App\Models\FiberCable;
 use App\Models\FiberCore;
 use App\Models\FiberSegment;
@@ -104,6 +109,9 @@ class ManagementScopeService
             return $scopeType === 'company' && $resource->id === $scopeId;
         }
         if ($resource instanceof Customer || $resource instanceof Service || $resource instanceof CustomerService || $resource instanceof Lead) {
+            return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
+        }
+        if ($resource instanceof FeasibilityCheck || $resource instanceof FeasibilityEvidence || $resource instanceof FeasibilitySurvey || $resource instanceof FeasibilityCondition || $resource instanceof CustomerConfirmation) {
             return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
         }
         if ($resource instanceof Region) {
@@ -276,6 +284,10 @@ class ManagementScopeService
                     $ids = array_merge($ids, $assetIds);
                 }
             } elseif (in_array($modelClass, [Customer::class, Service::class, CustomerService::class, Lead::class], true)) {
+                if ($type === 'company') {
+                    $ids = array_merge($ids, $modelClass::where('company_id', $id)->pluck('id')->toArray());
+                }
+            } elseif (in_array($modelClass, [FeasibilityCheck::class, FeasibilityEvidence::class, FeasibilitySurvey::class, FeasibilityCondition::class, CustomerConfirmation::class], true)) {
                 if ($type === 'company') {
                     $ids = array_merge($ids, $modelClass::where('company_id', $id)->pluck('id')->toArray());
                 }
