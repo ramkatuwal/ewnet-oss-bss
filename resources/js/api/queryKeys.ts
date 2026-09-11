@@ -27,6 +27,7 @@ export const bssKeys = {
     services: (filters: Record<string, unknown> = {}) => ['bss', 'services', filters] as const,
     service: (id: number) => ['bss', 'service', id] as const,
     customerServices: (customerId: number, filters: Record<string, unknown> = {}) => ['bss', 'customer-services', customerId, filters] as const,
+    leads: (filters: Record<string, unknown> = {}) => ['bss', 'leads', filters] as const,
 };
 
 export const fimKeys = {

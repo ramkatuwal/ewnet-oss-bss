@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\AssetLifecycleController;
 use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BranchController;
+use App\Http\Controllers\Api\V1\BssCustomer360Controller;
 use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\CustomerController;
 use App\Http\Controllers\Api\V1\CustomerServiceController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\Api\V1\FimMapController;
 use App\Http\Controllers\Api\V1\ImportHistoryController;
 use App\Http\Controllers\Api\V1\IntegrationController;
 use App\Http\Controllers\Api\V1\IntegrationCredentialController;
+use App\Http\Controllers\Api\V1\LeadController;
 use App\Http\Controllers\Api\V1\LibreNMSImportController;
 use App\Http\Controllers\Api\V1\LibreNMSSiteController;
 use App\Http\Controllers\Api\V1\ManagementScopeController;
@@ -90,6 +92,22 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
 
     // BSS foundation: authoritative commercial identities only, no network bindings.
     Route::apiResource('/bss/customers', CustomerController::class);
+    Route::get('/bss/customers/{customer}/360', [BssCustomer360Controller::class, 'show']);
+    Route::post('/bss/customers/{customer}/contacts', [BssCustomer360Controller::class, 'storeContact']);
+    Route::post('/bss/customers/{customer}/contact-persons', [BssCustomer360Controller::class, 'storePerson']);
+    Route::post('/bss/customers/{customer}/addresses', [BssCustomer360Controller::class, 'storeAddress']);
+    Route::put('/bss/customers/{customer}/business-profile', [BssCustomer360Controller::class, 'storeBusinessProfile']);
+    Route::post('/bss/customers/{customer}/verifications', [BssCustomer360Controller::class, 'storeVerification']);
+    Route::post('/bss/customers/{customer}/notes', [BssCustomer360Controller::class, 'storeNote']);
+    Route::post('/bss/customers/{customer}/tags', [BssCustomer360Controller::class, 'assignTag']);
+    Route::get('/bss/sources', [BssCustomer360Controller::class, 'sources']);
+    Route::post('/bss/sources', [BssCustomer360Controller::class, 'storeSource']);
+    Route::get('/bss/tags', [BssCustomer360Controller::class, 'tags']);
+    Route::post('/bss/tags', [BssCustomer360Controller::class, 'storeTag']);
+    Route::apiResource('/bss/leads', LeadController::class)->only(['index', 'store', 'show']);
+    Route::post('/bss/leads/{lead}/qualify', [LeadController::class, 'qualify']);
+    Route::get('/bss/leads/{lead}/duplicate-candidates', [LeadController::class, 'duplicates']);
+    Route::post('/bss/leads/{lead}/convert', [LeadController::class, 'convert']);
     Route::apiResource('/bss/services', ServiceController::class);
     Route::get('/bss/customers/{customer}/services', [CustomerServiceController::class, 'index']);
     Route::post('/bss/customers/{customer}/services', [CustomerServiceController::class, 'store']);

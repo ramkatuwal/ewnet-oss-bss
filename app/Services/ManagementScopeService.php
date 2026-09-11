@@ -15,6 +15,7 @@ use App\Models\FiberTermination;
 use App\Models\FiberTerminationPortAttachment;
 use App\Models\Integration;
 use App\Models\IntegrationCredential;
+use App\Models\Lead;
 use App\Models\NetworkConnectionPoint;
 use App\Models\NetworkPort;
 use App\Models\NetworkPortFiberTerminationAttachment;
@@ -102,7 +103,7 @@ class ManagementScopeService
             // Only company scope grants access to a company
             return $scopeType === 'company' && $resource->id === $scopeId;
         }
-        if ($resource instanceof Customer || $resource instanceof Service || $resource instanceof CustomerService) {
+        if ($resource instanceof Customer || $resource instanceof Service || $resource instanceof CustomerService || $resource instanceof Lead) {
             return $scopeType === 'company' && (int) $resource->company_id === $scopeId;
         }
         if ($resource instanceof Region) {
@@ -274,7 +275,7 @@ class ManagementScopeService
                     $assetIds = Asset::whereIn('site_id', $siteIds)->pluck('id')->toArray();
                     $ids = array_merge($ids, $assetIds);
                 }
-            } elseif (in_array($modelClass, [Customer::class, Service::class, CustomerService::class], true)) {
+            } elseif (in_array($modelClass, [Customer::class, Service::class, CustomerService::class, Lead::class], true)) {
                 if ($type === 'company') {
                     $ids = array_merge($ids, $modelClass::where('company_id', $id)->pluck('id')->toArray());
                 }

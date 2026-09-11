@@ -9,6 +9,7 @@ use App\Models\FiberCore;
 use App\Models\FiberSegment;
 use App\Models\FiberTermination;
 use App\Models\FiberTerminationPortAttachment;
+use App\Models\Lead;
 use App\Models\NetworkConnectionPoint;
 use App\Models\PassiveOpticalPort;
 use App\Models\PhysicalConnection;
@@ -25,6 +26,7 @@ use App\Policies\FiberCorePolicy;
 use App\Policies\FiberSegmentPolicy;
 use App\Policies\FiberTerminationPolicy;
 use App\Policies\FiberTerminationPortAttachmentPolicy;
+use App\Policies\LeadPolicy;
 use App\Policies\NetworkConnectionPointPolicy;
 use App\Policies\PassiveOpticalPortPolicy;
 use App\Policies\PermissionPolicy;
@@ -56,6 +58,7 @@ class AuthServiceProvider extends ServiceProvider
         Customer::class => CustomerPolicy::class,
         Service::class => ServicePolicy::class,
         CustomerService::class => CustomerServicePolicy::class,
+        Lead::class => LeadPolicy::class,
         FiberCable::class => FiberCablePolicy::class,
         FiberCore::class => FiberCorePolicy::class,
         FiberSegment::class => FiberSegmentPolicy::class,
@@ -84,6 +87,7 @@ class AuthServiceProvider extends ServiceProvider
         Gate::policy(Customer::class, CustomerPolicy::class);
         Gate::policy(Service::class, ServicePolicy::class);
         Gate::policy(CustomerService::class, CustomerServicePolicy::class);
+        Gate::policy(Lead::class, LeadPolicy::class);
         Gate::policy(FiberCable::class, FiberCablePolicy::class);
         Gate::policy(FiberCore::class, FiberCorePolicy::class);
         Gate::policy(FiberSegment::class, FiberSegmentPolicy::class);
