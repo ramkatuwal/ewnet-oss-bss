@@ -56,6 +56,18 @@ class LeadController extends Controller
         return response()->json(['data' => $lead->load('lifecycleHistory')]);
     }
 
+    public function update(Request $request, Lead $lead)
+    {
+        $this->authorize('update', $lead);
+        if (in_array($lead->status, ['converted', 'lost'], true)) {
+            throw ValidationException::withMessages(['status' => 'Closed leads cannot be edited.']);
+        }
+        $lead->update([...$this->validatedLead($request, false), 'updated_by' => $request->user()->id]);
+        AuditService::log('bss.lead.updated', 'success', $lead, ['lead_id' => $lead->id, 'company_id' => $lead->company_id]);
+
+        return response()->json(['data' => $lead->fresh()]);
+    }
+
     public function qualify(Request $request, Lead $lead)
     {
         $this->authorize('update', $lead);
@@ -65,6 +77,33 @@ class LeadController extends Controller
         $qualification = $request->validate(['qualification' => ['required', 'array']])['qualification'];
         $lead->update(['status' => 'qualified', 'qualification' => $qualification, 'updated_by' => $request->user()->id]);
         $lead->lifecycleHistory()->create(['company_id' => $lead->company_id, 'from_status' => 'new', 'to_status' => 'qualified', 'context' => ['keys' => array_keys($qualification)], 'actor_id' => $request->user()->id]);
+
+        return response()->json(['data' => $lead->fresh()]);
+    }
+
+    public function unqualify(Request $request, Lead $lead)
+    {
+        $this->authorize('update', $lead);
+        if ($lead->status !== 'qualified') {
+            throw ValidationException::withMessages(['status' => 'Only qualified leads can be returned to new.']);
+        }
+        $lead->update(['status' => 'new', 'updated_by' => $request->user()->id]);
+        $lead->lifecycleHistory()->create(['company_id' => $lead->company_id, 'from_status' => 'qualified', 'to_status' => 'new', 'actor_id' => $request->user()->id]);
+
+        return response()->json(['data' => $lead->fresh()]);
+    }
+
+    public function lose(Request $request, Lead $lead)
+    {
+        $this->authorize('update', $lead);
+        if (! in_array($lead->status, ['new', 'qualified'], true)) {
+            throw ValidationException::withMessages(['status' => 'Only open leads can be marked lost.']);
+        }
+        $reason = $request->validate(['reason' => ['nullable', 'string', 'max:1000']])['reason'] ?? null;
+        $from = $lead->status;
+        $lead->update(['status' => 'lost', 'updated_by' => $request->user()->id]);
+        $lead->lifecycleHistory()->create(['company_id' => $lead->company_id, 'from_status' => $from, 'to_status' => 'lost', 'context' => ['reason' => $reason], 'actor_id' => $request->user()->id]);
+        AuditService::log('bss.lead.lost', 'success', $lead, ['lead_id' => $lead->id, 'company_id' => $lead->company_id]);
 
         return response()->json(['data' => $lead->fresh()]);
     }

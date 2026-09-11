@@ -42,6 +42,7 @@ const NetworkOperationsPage = lazy(() => import('@/features/network/pages/Networ
 const BssOperationsPage = lazy(() => import('@/features/bss/pages/BssOperationsPage'));
 const CustomerDetailPage = lazy(() => import('@/features/bss/pages/CustomerDetailPage'));
 const ServiceDetailPage = lazy(() => import('@/features/bss/pages/ServiceDetailPage'));
+const LeadDetailPage = lazy(() => import('@/features/bss/pages/LeadDetailPage'));
 
 const PageLoader = () => (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 2 }}>
@@ -97,6 +98,7 @@ export const AppRouter = () => (
                             <Route index element={<BssOperationsPage />} />
                             <Route path="customers/:id" element={<CustomerDetailPage />} />
                             <Route path="services/:id" element={<ServiceDetailPage />} />
+                            <Route path="leads/:id" element={<LeadDetailPage />} />
                         </Route>
                     </Route>
 

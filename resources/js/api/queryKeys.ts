@@ -28,6 +28,8 @@ export const bssKeys = {
     service: (id: number) => ['bss', 'service', id] as const,
     customerServices: (customerId: number, filters: Record<string, unknown> = {}) => ['bss', 'customer-services', customerId, filters] as const,
     leads: (filters: Record<string, unknown> = {}) => ['bss', 'leads', filters] as const,
+    lead: (id: number) => ['bss', 'lead', id] as const,
+    customer360: (id: number) => ['bss', 'customer-360', id] as const,
 };
 
 export const fimKeys = {

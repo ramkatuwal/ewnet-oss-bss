@@ -104,8 +104,10 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::post('/bss/sources', [BssCustomer360Controller::class, 'storeSource']);
     Route::get('/bss/tags', [BssCustomer360Controller::class, 'tags']);
     Route::post('/bss/tags', [BssCustomer360Controller::class, 'storeTag']);
-    Route::apiResource('/bss/leads', LeadController::class)->only(['index', 'store', 'show']);
+    Route::apiResource('/bss/leads', LeadController::class)->only(['index', 'store', 'show', 'update']);
     Route::post('/bss/leads/{lead}/qualify', [LeadController::class, 'qualify']);
+    Route::post('/bss/leads/{lead}/unqualify', [LeadController::class, 'unqualify']);
+    Route::post('/bss/leads/{lead}/lose', [LeadController::class, 'lose']);
     Route::get('/bss/leads/{lead}/duplicate-candidates', [LeadController::class, 'duplicates']);
     Route::post('/bss/leads/{lead}/convert', [LeadController::class, 'convert']);
     Route::apiResource('/bss/services', ServiceController::class);
