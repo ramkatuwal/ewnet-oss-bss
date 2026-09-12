@@ -188,6 +188,21 @@ export interface Asset {
         region?: { id: number; name: string };
         branch?: { id: number; name: string };
     };
+    provider_observations?: {
+        provider: string;
+        external_id: string | null;
+        provider_status: string | null;
+        observed_hostname: string | null;
+        observed_os: string | null;
+        observed_hardware: string | null;
+        observed_version: string | null;
+        observed_uptime: number | null;
+        ip_address: string | null;
+        serial_number: string | null;
+        mac_address: string | null;
+        last_observed_at: string | null;
+        last_synced: string | null;
+    } | null;
 }
 
 export interface IpAddress {

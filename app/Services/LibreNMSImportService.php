@@ -71,8 +71,11 @@ class LibreNMSImportService
         $hardware = $device['hardware'] ?? '';
         $serial = $device['serial'] ?? '';
         $mac = $device['mac'] ?? '';
+        $status = $device['status'] ?? null;
+        $uptime = $device['uptime'] ?? null;
+        $osVersion = $device['version'] ?? $device['os_version'] ?? null;
+        $lastPoll = $device['last_poll'] ?? null;
 
-        // Check for existing asset via external reference or hostname/IP/serial/MAC
         $existingRef = AssetExternalReference::where('provider', 'librenms')
             ->where('external_id', $deviceId)
             ->first();
@@ -81,15 +84,12 @@ class LibreNMSImportService
         if (! $existingAsset && $hostname) {
             $existingAsset = Asset::where('description', $hostname)->orWhere('asset_tag', $hostname)->first();
         }
-        // Check by serial number
         if (! $existingAsset && $serial) {
             $existingAsset = Asset::where('serial_number', $serial)->first();
         }
-        // Check by MAC in specifications
         if (! $existingAsset && $mac) {
             $existingAsset = Asset::whereJsonContains('specifications->mac_address', $mac)->first();
         }
-        // Check by IP in specifications
         if (! $existingAsset && $ip) {
             $existingAsset = Asset::whereJsonContains('specifications->ip_address', $ip)->first();
         }
@@ -104,7 +104,6 @@ class LibreNMSImportService
             $action = 'skip_unmapped';
         }
 
-        // Determine display name: prefer display, then hostname, then sysName
         $displayName = $display ?: ($hostname ?: $sysName);
 
         return [
@@ -116,17 +115,37 @@ class LibreNMSImportService
             'vendor' => $os,
             'model' => $hardware,
             'type' => $type,
+            'status' => $status,
             'site_name' => $siteMapping['site_name'] ?? 'Unmapped',
             'site_id' => $siteMapping['site_id'] ?? null,
             'action' => $action,
             'asset_id' => $existingAsset?->id,
             'evidence' => $existingAsset ? [['field' => 'hostname', 'value' => $hostname, 'strength' => 'strong']] : [],
-            // Include fields needed for site mapping in execute()
             'location' => $device['location'] ?? null,
             'lat' => $device['lat'] ?? null,
             'lng' => $device['lng'] ?? null,
             'serial' => $serial,
             'mac' => $mac,
+            'os_version' => $osVersion,
+            'uptime' => $uptime,
+            'last_poll' => $lastPoll,
+        ];
+    }
+
+    /**
+     * Build the provider observation payload from a LibreNMS device record.
+     * This is OBSERVED data — it must never overwrite authoritative Asset fields.
+     */
+    protected function buildObservations(array $fullDevice): array
+    {
+        return [
+            'provider_status' => $fullDevice['status'] ?? null,
+            'observed_hostname' => $fullDevice['hostname'] ?? null,
+            'observed_os' => $fullDevice['os'] ?? null,
+            'observed_hardware' => $fullDevice['hardware'] ?? null,
+            'observed_version' => $fullDevice['os_version'] ?? $fullDevice['version'] ?? null,
+            'observed_uptime' => $fullDevice['uptime'] ?? null,
+            'last_observed_at' => now()->toIso8601String(),
         ];
     }
 
@@ -143,20 +162,15 @@ class LibreNMSImportService
             foreach ($selectedDevices as $deviceData) {
                 try {
                     $deviceId = $deviceData['external_id'];
-                    $client = new LibreNMSClient($integration);
-                    // Fetch full details for this specific device if needed, or use what we have
                     $fullDevice = $deviceData;
-                    // The frontend sends `external_id`; the mapper expects `device_id`.
                     $fullDevice['device_id'] = $fullDevice['device_id'] ?? $fullDevice['external_id'] ?? null;
 
                     $siteMapping = $this->siteMapping->mapDevice($fullDevice, $integration);
                     if ($siteMapping['status'] !== 'mapped') {
                         $results['skipped']++;
-                        $skipReason = $siteMapping['message'] ?? 'No matching Site found';
                         Log::warning('LibreNMS device import skipped', [
                             'device_id' => $deviceId,
-                            'reason' => $skipReason,
-                            'site_mapping' => $siteMapping,
+                            'reason' => $siteMapping['message'] ?? 'No matching Site found',
                         ]);
 
                         continue;
@@ -168,7 +182,6 @@ class LibreNMSImportService
 
                     $asset = $existingRef ? Asset::find($existingRef->asset_id) : null;
 
-                    // Conflict check against Assets table: hostname/description, serial, MAC, IP
                     if (! $asset) {
                         $hostname = $fullDevice['hostname'] ?? '';
                         $serial = $fullDevice['serial'] ?? '';
@@ -189,15 +202,19 @@ class LibreNMSImportService
                         }
                     }
 
-                    // Display name: prefer display, then hostname, then sysName
                     $displayName = ($fullDevice['display'] ?? null)
                         ?: ($fullDevice['hostname'] ?? null)
                         ?: ($fullDevice['sysName'] ?? null);
 
+                    $observations = $this->buildObservations($fullDevice);
+
                     if ($asset) {
+                        // RE-SYNC: refresh provider observations ONLY.
+                        // Must NOT overwrite authoritative Asset identity fields.
                         $asset->update([
-                            // Monitoring observations must not rewrite canonical asset intent.
-                            'specifications' => array_merge($asset->specifications ?? [], ['last_synced' => now()]),
+                            'specifications' => array_merge($asset->specifications ?? [], [
+                                'last_synced' => now(),
+                            ] + $observations),
                         ]);
                         $results['updated']++;
                     } else {
@@ -222,13 +239,13 @@ class LibreNMSImportService
                             'quantity' => 1,
                             'unit' => 'pcs',
                             'serial_number' => $fullDevice['serial'] ?? null,
-                            'specifications' => [
+                            'specifications' => array_merge([
                                 'source' => 'librenms',
                                 'external_id' => $deviceId,
                                 'serial_number' => $fullDevice['serial'] ?? null,
                                 'mac_address' => $fullDevice['mac'] ?? null,
                                 'ip_address' => $fullDevice['ip'] ?? null,
-                            ],
+                            ], $observations),
                         ]);
 
                         AssetExternalReference::create([

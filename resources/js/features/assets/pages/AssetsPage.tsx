@@ -38,6 +38,7 @@ const DEFAULT_COLUMN_VISIBILITY: Record<string, boolean> = {
     device_name: true,
     type: true,
     status: true,
+    observed_status: false,
     site: true,
     manufacturer: true,
     model: true,
@@ -107,7 +108,7 @@ const AssetsPage: React.FC = () => {
     // other views (plain text column), just not overridden here.
     const effectiveColumnVisibility = useMemo(() => {
         if (categoryFilter === 'NETWORK') {
-            return { ...columnVisibilityModel, ip_address: true, mac_address: true };
+            return { ...columnVisibilityModel, ip_address: true, mac_address: true, observed_status: true };
         }
         return columnVisibilityModel;
     }, [categoryFilter, columnVisibilityModel]);
@@ -259,6 +260,29 @@ const AssetsPage: React.FC = () => {
                     sx={{ fontSize: '0.7rem', height: 24 }}
                 />
             ),
+        },
+        {
+            field: 'observed_status',
+            headerName: 'Provider Status',
+            flex: 0.7,
+            minWidth: 120,
+            sortable: false,
+            renderCell: (params: GridRenderCellParams) => {
+                const obs = params.row.provider_observations;
+                if (!obs) return <Typography variant="body2" color="text.secondary">—</Typography>;
+                const status = obs.provider_status;
+                if (!status) return <Typography variant="body2" color="text.secondary">—</Typography>;
+                const color = status === 'UP' ? 'success' : status === 'DOWN' ? 'error' : 'warning';
+                const freshness = obs.last_observed_at
+                    ? `${Math.round((Date.now() - new Date(obs.last_observed_at).getTime()) / 60000)}m ago`
+                    : '';
+                return (
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Chip label={status} size="small" color={color} sx={{ fontSize: '0.65rem', height: 20 }} />
+                        {freshness && <Typography variant="caption" color="text.secondary">{freshness}</Typography>}
+                    </Stack>
+                );
+            },
         },
         {
             field: 'site',

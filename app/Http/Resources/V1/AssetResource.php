@@ -32,12 +32,43 @@ class AssetResource extends JsonResource
             'notes' => $this->notes,
             'ip_address' => $this->primary_ip,
             'mac_address' => $this->primary_mac,
+            // Provider observation fields (extracted from specifications for convenience)
+            'provider_observations' => $this->extractObservations(),
             'created_by' => $this->created_by,
             'updated_by' => $this->updated_by,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             // Eager-loaded relationships
             'site' => new SiteResource($this->whenLoaded('site')),
+        ];
+    }
+
+    /**
+     * Extract provider observation fields from specifications.
+     * These are OBSERVED data — they never override authoritative Asset fields.
+     */
+    protected function extractObservations(): ?array
+    {
+        $specs = $this->specifications ?? [];
+        $source = $specs['source'] ?? null;
+        if (! $source) {
+            return null;
+        }
+
+        return [
+            'provider' => $source,
+            'external_id' => $specs['external_id'] ?? null,
+            'provider_status' => $specs['provider_status'] ?? null,
+            'observed_hostname' => $specs['observed_hostname'] ?? null,
+            'observed_os' => $specs['observed_os'] ?? null,
+            'observed_hardware' => $specs['observed_hardware'] ?? null,
+            'observed_version' => $specs['observed_version'] ?? null,
+            'observed_uptime' => $specs['observed_uptime'] ?? null,
+            'ip_address' => $specs['ip_address'] ?? null,
+            'serial_number' => $specs['serial_number'] ?? null,
+            'mac_address' => $specs['mac_address'] ?? null,
+            'last_observed_at' => $specs['last_observed_at'] ?? null,
+            'last_synced' => $specs['last_synced'] ?? null,
         ];
     }
 }

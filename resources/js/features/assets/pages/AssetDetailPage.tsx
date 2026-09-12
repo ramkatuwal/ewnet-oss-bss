@@ -261,19 +261,50 @@ const AssetDetailPage: React.FC = () => {
                                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
                                     <Typography variant="subtitle2">Observed Device</Typography>
                                     <AuthorityBadge authoritative={false} />
+                                    <Chip label="OBSERVED" size="small" color="info" variant="outlined" sx={{ fontSize: '0.65rem', height: 20 }} />
                                 </Stack>
                                 <Stack spacing={1.5}>
+                                    <DetailField label="Provider" value={specs.source ? String(specs.source).toUpperCase() : undefined} />
                                     {specs.external_id && (
                                         <DetailField label="Provider Device ID" value={specs.external_id} mono />
                                     )}
-                                    {asset.ip_address && (
-                                        <DetailField label="Management IP" value={asset.ip_address} mono />
+                                    {specs.observed_hostname && (
+                                        <DetailField label="Observed Hostname" value={specs.observed_hostname} mono />
                                     )}
-                                    {asset.mac_address && (
-                                        <DetailField label="MAC Address" value={asset.mac_address} mono />
+                                    {specs.ip_address && (
+                                        <DetailField label="Management IP" value={specs.ip_address} mono />
+                                    )}
+                                    {specs.observed_os && (
+                                        <DetailField label="OS / Platform" value={specs.observed_os} />
+                                    )}
+                                    {specs.observed_hardware && (
+                                        <DetailField label="Hardware" value={specs.observed_hardware} />
+                                    )}
+                                    {specs.observed_version && (
+                                        <DetailField label="Version" value={specs.observed_version} />
+                                    )}
+                                    {specs.provider_status && (
+                                        <Box>
+                                            <Typography variant="caption" color="text.secondary">Observed Status</Typography>
+                                            <Chip
+                                                label={specs.provider_status}
+                                                size="small"
+                                                color={specs.provider_status === 'UP' ? 'success' : specs.provider_status === 'DOWN' ? 'error' : 'warning'}
+                                                sx={{ fontSize: '0.7rem', height: 22, mt: 0.5 }}
+                                            />
+                                        </Box>
+                                    )}
+                                    {specs.observed_uptime != null && (
+                                        <DetailField label="Uptime" value={`${Math.floor(Number(specs.observed_uptime) / 86400)}d ${Math.floor((Number(specs.observed_uptime) % 86400) / 3600)}h`} />
                                     )}
                                     {specs.serial_number && (
                                         <DetailField label="Observed Serial" value={specs.serial_number} mono />
+                                    )}
+                                    {specs.mac_address && (
+                                        <DetailField label="MAC Address" value={specs.mac_address} mono />
+                                    )}
+                                    {specs.last_observed_at && (
+                                        <DetailField label="Last Observed" value={new Date(specs.last_observed_at).toLocaleString()} />
                                     )}
                                     {specs.last_synced && (
                                         <DetailField label="Last Synced" value={new Date(specs.last_synced).toLocaleString()} />
