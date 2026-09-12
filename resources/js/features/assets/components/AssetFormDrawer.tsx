@@ -2,69 +2,399 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Box, Button, Drawer, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import {
+    Box,
+    Button,
+    Drawer,
+    Divider,
+    MenuItem,
+    Stack,
+    TextField,
+    Typography,
+} from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createAsset, getAsset, updateAsset } from '../api/assets';
 import { sitesApi, Site } from '@/api/sites';
 import { AsyncSitePicker } from '@/components/infrastructure/AsyncSitePicker';
+import { OrgCascadePicker, OrgSelection } from '@/components/infrastructure/OrgCascadePicker';
 import { normalizeApiError } from '@/api/errors';
 import { infrastructureKeys } from '@/api/queryKeys';
+import { useAuthStore } from '@/stores/authStore';
 import toast from 'react-hot-toast';
 
-const schema = z.object({
-    site_id: z.number({ required_error: 'A site is required.' }), asset_tag: z.string().min(1, 'Asset tag is required.').max(255),
-    category: z.enum(['POWER', 'NETWORK', 'INFRASTRUCTURE', 'OTHER']), type: z.string().min(1, 'Type is required.').max(100),
-    quantity: z.number().int().min(1), status: z.enum(['OPERATIONAL', 'SPARE', 'MAINTENANCE', 'FAULTY', 'RETIRED', 'MISSING', 'DISPOSED']),
-    serial_number: z.string().max(255).optional(), manufacturer: z.string().max(255).optional(), model: z.string().max(255).optional(), unit: z.string().max(20).optional(),
-});
-type AssetForm = z.infer<typeof schema>;
-interface Props { open: boolean; onClose: () => void; assetId: number | null; siteId?: number | null; }
+const CATEGORIES = ['POWER', 'NETWORK', 'INFRASTRUCTURE', 'OTHER'] as const;
+const STATUSES = ['OPERATIONAL', 'SPARE', 'MAINTENANCE', 'FAULTY', 'RETIRED', 'MISSING', 'DISPOSED'] as const;
+const CONDITIONS = ['EXCELLENT', 'GOOD', 'FAIR', 'POOR', 'CRITICAL'] as const;
 
-const defaults = (siteId?: number | null): AssetForm => ({ site_id: siteId ?? 0, asset_tag: '', category: 'POWER', type: '', quantity: 1, status: 'OPERATIONAL', unit: 'pcs' });
+const schema = z.object({
+    site_id: z.number().min(1, 'A site is required.'),
+    asset_tag: z.string().max(255).optional().or(z.literal('')),
+    category: z.enum(CATEGORIES),
+    type: z.string().min(1, 'Type is required.').max(100),
+    serial_number: z.string().max(255).optional().or(z.literal('')),
+    manufacturer: z.string().max(255).optional().or(z.literal('')),
+    model: z.string().max(255).optional().or(z.literal('')),
+    quantity: z.coerce.number().int().min(1, 'Must be at least 1.'),
+    unit: z.string().max(20).optional().or(z.literal('')),
+    status: z.enum(STATUSES),
+    condition: z.enum(CONDITIONS).optional().or(z.literal('')),
+    purchase_date: z.string().optional().or(z.literal('')),
+    installation_date: z.string().optional().or(z.literal('')),
+    warranty_expiry: z.string().optional().or(z.literal('')),
+    description: z.string().max(2000).optional().or(z.literal('')),
+    notes: z.string().max(2000).optional().or(z.literal('')),
+});
+
+type AssetForm = z.infer<typeof schema>;
+
+interface Props {
+    open: boolean;
+    onClose: () => void;
+    assetId: number | null;
+    siteId?: number | null;
+}
+
+const defaults = (siteId?: number | null): AssetForm => ({
+    site_id: siteId ?? 0,
+    asset_tag: '',
+    category: 'POWER',
+    type: '',
+    serial_number: '',
+    manufacturer: '',
+    model: '',
+    quantity: 1,
+    unit: 'pcs',
+    status: 'OPERATIONAL',
+    condition: '',
+    purchase_date: '',
+    installation_date: '',
+    warranty_expiry: '',
+    description: '',
+    notes: '',
+});
+
+const defaultOrg = (user: { company_id?: number | null } | null): OrgSelection => ({
+    company_id: user?.company_id ?? undefined,
+});
+
+const SectionTitle = ({ children }: { children: React.ReactNode }) => (
+    <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+        {children}
+    </Typography>
+);
 
 const AssetFormDrawer = ({ open, onClose, assetId, siteId }: Props) => {
     const queryClient = useQueryClient();
-    const { data: asset } = useQuery({ queryKey: infrastructureKeys.asset(assetId ?? 0), queryFn: () => getAsset(assetId!), enabled: open && Boolean(assetId) });
-    const { control, register, handleSubmit, reset, setError, formState: { errors } } = useForm<AssetForm>({ resolver: zodResolver(schema), defaultValues: defaults(siteId) });
+    const user = useAuthStore((s) => s.user);
+    const isSuperAdmin = useAuthStore((s) => s.isSuperAdmin());
+
+    const { data: asset } = useQuery({
+        queryKey: infrastructureKeys.asset(assetId ?? 0),
+        queryFn: () => getAsset(assetId!),
+        enabled: open && Boolean(assetId),
+    });
+
+    const {
+        control,
+        register,
+        handleSubmit,
+        reset,
+        setError,
+        formState: { errors },
+    } = useForm<AssetForm>({
+        resolver: zodResolver(schema),
+        defaultValues: defaults(siteId),
+    });
+
     const [selectedSite, setSelectedSite] = useState<Site | null>(null);
+    const [orgSelection, setOrgSelection] = useState<OrgSelection>(() => defaultOrg(user));
+
+    const isCreate = !assetId;
 
     useEffect(() => {
         if (asset) {
-            reset({ site_id: asset.site_id, asset_tag: asset.asset_tag, category: asset.category as AssetForm['category'], type: asset.type, quantity: asset.quantity, status: asset.status as AssetForm['status'], serial_number: asset.serial_number ?? undefined, manufacturer: asset.manufacturer ?? undefined, model: asset.model ?? undefined, unit: asset.unit ?? undefined });
-            setSelectedSite(asset.site as Site ?? null);
+            reset({
+                site_id: asset.site_id,
+                asset_tag: asset.asset_tag,
+                category: asset.category as AssetForm['category'],
+                type: asset.type,
+                serial_number: asset.serial_number ?? '',
+                manufacturer: asset.manufacturer ?? '',
+                model: asset.model ?? '',
+                quantity: asset.quantity,
+                unit: asset.unit ?? '',
+                status: asset.status as AssetForm['status'],
+                condition: (asset.condition as AssetForm['condition']) ?? '',
+                purchase_date: asset.purchase_date ?? '',
+                installation_date: asset.installation_date ?? '',
+                warranty_expiry: asset.warranty_expiry ?? '',
+                description: asset.description ?? '',
+                notes: asset.notes ?? '',
+            });
+            setSelectedSite((asset.site as Site) ?? null);
+            setOrgSelection({
+                company_id: asset.site?.company_id ?? asset.site?.company?.id,
+                region_id: asset.site?.region_id ?? asset.site?.region?.id,
+                branch_id: asset.site?.branch_id ?? asset.site?.branch?.id,
+            });
         } else if (open) {
             reset(defaults(siteId));
             setSelectedSite(null);
-            if (siteId) sitesApi.get(siteId).then(setSelectedSite).catch(() => undefined);
+            setOrgSelection(defaultOrg(user));
+            if (siteId) {
+                sitesApi.get(siteId).then((site) => {
+                    setSelectedSite(site);
+                    setOrgSelection({
+                        company_id: site.company_id,
+                        region_id: site.region_id,
+                        branch_id: site.branch_id,
+                    });
+                }).catch(() => undefined);
+            }
         }
-    }, [asset, open, reset, siteId]);
+    }, [asset, open, reset, siteId, user]);
 
     const mutation = useMutation({
-        mutationFn: (data: AssetForm) => assetId ? updateAsset(assetId, data) : createAsset(data),
+        mutationFn: (data: AssetForm) => {
+            const payload = { ...data };
+            if (!payload.asset_tag) delete payload.asset_tag;
+            return assetId ? updateAsset(assetId, payload) : createAsset(payload);
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: infrastructureKeys.assets() });
             queryClient.invalidateQueries({ queryKey: infrastructureKeys.assetDashboard() });
             queryClient.invalidateQueries({ queryKey: ['infrastructure', 'site-assets'] });
-            toast.success(assetId ? 'Asset updated.' : 'Asset created.'); onClose();
+            toast.success(assetId ? 'Asset updated.' : 'Asset created.');
+            onClose();
         },
         onError: (error) => {
             const normalized = normalizeApiError(error);
-            Object.entries(normalized.fieldErrors).forEach(([field, message]) => setError(field as keyof AssetForm, { message }));
-            if (!Object.keys(normalized.fieldErrors).length) toast.error(normalized.message);
+            Object.entries(normalized.fieldErrors).forEach(([field, message]) =>
+                setError(field as keyof AssetForm, { message }),
+            );
+            if (!Object.keys(normalized.fieldErrors).length) {
+                toast.error(normalized.message);
+            }
         },
     });
-    const input = (name: keyof AssetForm, label: string, type?: string) => <TextField fullWidth label={label} type={type} {...register(name, type === 'number' ? { setValueAs: (value) => Number(value) } : undefined)} error={Boolean(errors[name])} helperText={errors[name]?.message} />;
 
-    return <Drawer anchor="right" open={open} onClose={onClose}><Box component="form" onSubmit={handleSubmit((data) => mutation.mutate(data))} sx={{ width: { xs: '100vw', sm: 550 }, p: 3 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>{assetId ? 'Edit Asset' : 'Add Asset'}</Typography><Stack spacing={2}>
-            <AsyncSitePicker control={control} selectedSite={selectedSite} onSelected={setSelectedSite} disabled={Boolean(siteId && !assetId)} error={errors.site_id?.message} />
-            {input('asset_tag', 'Asset Tag *')}
-            <TextField select label="Category *" defaultValue="POWER" {...register('category')} error={Boolean(errors.category)} helperText={errors.category?.message}>{['POWER', 'NETWORK', 'INFRASTRUCTURE', 'OTHER'].map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}</TextField>
-            {input('type', 'Type *')}{input('serial_number', 'Serial Number')}{input('manufacturer', 'Manufacturer')}{input('model', 'Model')}{input('quantity', 'Quantity *', 'number')}{input('unit', 'Unit')}
-            <TextField select label="Status *" defaultValue="OPERATIONAL" {...register('status')} error={Boolean(errors.status)} helperText={errors.status?.message}>{['OPERATIONAL', 'SPARE', 'MAINTENANCE', 'FAULTY', 'RETIRED', 'MISSING', 'DISPOSED'].map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}</TextField>
-            <Stack direction="row" spacing={2}><Button fullWidth onClick={onClose}>Cancel</Button><Button fullWidth type="submit" variant="contained" disabled={mutation.isPending}>{mutation.isPending ? 'Saving...' : 'Save'}</Button></Stack>
-        </Stack>
-    </Box></Drawer>;
+    const scopedCompanyId = isSuperAdmin ? undefined : user?.company_id;
+    const orgDisabled = Boolean(siteId && !assetId);
+
+    const input = (name: keyof AssetForm, label: string, opts?: { type?: string; multiline?: boolean; rows?: number; min?: string }) => (
+        <TextField
+            fullWidth
+            size="small"
+            label={label}
+            type={opts?.type}
+            multiline={opts?.multiline}
+            rows={opts?.rows}
+            InputLabelProps={opts?.type === 'date' ? { shrink: true } : undefined}
+            inputProps={opts?.min ? { min: opts.min } : undefined}
+            {...register(name)}
+            error={Boolean(errors[name])}
+            helperText={errors[name]?.message}
+        />
+    );
+
+    return (
+        <Drawer
+            anchor="right"
+            open={open}
+            onClose={onClose}
+            PaperProps={{ sx: { width: { xs: '100%', sm: 720 }, maxWidth: '100vw' } }}
+        >
+            <Box
+                component="form"
+                onSubmit={handleSubmit((data) => mutation.mutate(data))}
+                sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}
+            >
+                <Box sx={{ p: 3, pb: 2, flexShrink: 0 }}>
+                    <Typography variant="h6">
+                        {assetId ? `Edit Asset ${asset?.asset_tag ?? ''}` : 'Add Asset'}
+                    </Typography>
+                </Box>
+
+                <Divider />
+
+                <Box sx={{ flex: 1, overflow: 'auto', p: 3, pt: 2 }}>
+                    <Stack spacing={3}>
+                        {/* Organization */}
+                        <Stack spacing={1.5}>
+                            <SectionTitle>Organization</SectionTitle>
+                            <OrgCascadePicker
+                                value={orgSelection}
+                                onChange={setOrgSelection}
+                                disabled={orgDisabled}
+                                companyLocked={!isSuperAdmin && Boolean(scopedCompanyId)}
+                                companyLockedLabel={user?.company?.name}
+                                showCompanyPicker={isSuperAdmin}
+                            />
+                            <AsyncSitePicker
+                                control={control}
+                                selectedSite={selectedSite}
+                                onSelected={setSelectedSite}
+                                companyId={orgSelection.company_id}
+                                regionId={orgSelection.region_id}
+                                branchId={orgSelection.branch_id}
+                                disabled={orgDisabled}
+                                error={errors.site_id?.message}
+                            />
+                        </Stack>
+
+                        <Divider />
+
+                        {/* Asset Code */}
+                        <Stack spacing={1}>
+                            <SectionTitle>Asset Code</SectionTitle>
+                            {isCreate ? (
+                                <Box sx={{ p: 1.5, border: '1px dashed', borderColor: 'divider', borderRadius: 1, bgcolor: 'action.hover' }}>
+                                    <Typography variant="body2" fontWeight="medium" sx={{ fontFamily: 'monospace', mb: 0.5 }}>AST-000123</Typography>
+                                    <Typography variant="caption" color="text.secondary">generated automatically after save</Typography>
+                                </Box>
+                            ) : (
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    label="Asset Code"
+                                    value={asset?.asset_tag ?? ''}
+                                    InputProps={{ readOnly: true }}
+                                    helperText="System generated \u2022 immutable"
+                                    FormHelperTextProps={{ sx: { color: 'text.secondary' } }}
+                                />
+                            )}
+                        </Stack>
+
+                        <Divider />
+
+                        {/* Identity */}
+                        <Stack spacing={1.5}>
+                            <SectionTitle>Identity</SectionTitle>
+                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    size="small"
+                                    label="Category *"
+                                    defaultValue="POWER"
+                                    {...register('category')}
+                                    error={Boolean(errors.category)}
+                                    helperText={errors.category?.message}
+                                >
+                                    {CATEGORIES.map((v) => (
+                                        <MenuItem key={v} value={v}>{v}</MenuItem>
+                                    ))}
+                                </TextField>
+                                {input('type', 'Type *')}
+                            </Stack>
+                        </Stack>
+
+                        <Divider />
+
+                        {/* Hardware */}
+                        <Stack spacing={1.5}>
+                            <SectionTitle>Hardware</SectionTitle>
+                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                                {input('manufacturer', 'Manufacturer')}
+                                {input('model', 'Model')}
+                            </Stack>
+                            {input('serial_number', 'Serial Number')}
+                        </Stack>
+
+                        <Divider />
+
+                        {/* Quantity */}
+                        <Stack spacing={1.5}>
+                            <SectionTitle>Quantity</SectionTitle>
+                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                                {input('quantity', 'Quantity *', { type: 'number' })}
+                                {input('unit', 'Unit')}
+                            </Stack>
+                        </Stack>
+
+                        <Divider />
+
+                        {/* Status */}
+                        <Stack spacing={1.5}>
+                            <SectionTitle>Status</SectionTitle>
+                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    size="small"
+                                    label="Status *"
+                                    defaultValue="OPERATIONAL"
+                                    {...register('status')}
+                                    error={Boolean(errors.status)}
+                                    helperText={errors.status?.message}
+                                >
+                                    {STATUSES.map((v) => (
+                                        <MenuItem key={v} value={v}>{v}</MenuItem>
+                                    ))}
+                                </TextField>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    size="small"
+                                    label="Condition"
+                                    defaultValue=""
+                                    {...register('condition')}
+                                    error={Boolean(errors.condition)}
+                                    helperText={errors.condition?.message}
+                                >
+                                    <MenuItem value="">Not set</MenuItem>
+                                    {CONDITIONS.map((v) => (
+                                        <MenuItem key={v} value={v}>{v}</MenuItem>
+                                    ))}
+                                </TextField>
+                            </Stack>
+                        </Stack>
+
+                        <Divider />
+
+                        {/* Lifecycle / Warranty */}
+                        <Stack spacing={1.5}>
+                            <SectionTitle>Lifecycle / Warranty</SectionTitle>
+                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                                {input('purchase_date', 'Purchase Date', { type: 'date' })}
+                                {input('installation_date', 'Installation Date', { type: 'date' })}
+                            </Stack>
+                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                                {input('warranty_expiry', 'Warranty Expiry', { type: 'date' })}
+                                <Box sx={{ flex: 1 }} />
+                            </Stack>
+                        </Stack>
+
+                        <Divider />
+
+                        {/* Description / Notes */}
+                        <Stack spacing={1.5}>
+                            <SectionTitle>Description / Notes</SectionTitle>
+                            {input('description', 'Description', { multiline: true, rows: 3 })}
+                            {input('notes', 'Notes', { multiline: true, rows: 3 })}
+                        </Stack>
+                    </Stack>
+                </Box>
+
+                {/* Persistent Bottom Actions */}
+                <Divider />
+                <Box sx={{ p: 2, flexShrink: 0, bgcolor: 'background.paper' }}>
+                    <Stack direction="row" spacing={1.5} justifyContent="flex-end">
+                        <Button onClick={onClose} disabled={mutation.isPending}>
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            variant="contained"
+                            disabled={mutation.isPending}
+                        >
+                            {mutation.isPending ? 'Saving...' : 'Save'}
+                        </Button>
+                    </Stack>
+                </Box>
+            </Box>
+        </Drawer>
+    );
 };
 
 export default AssetFormDrawer;

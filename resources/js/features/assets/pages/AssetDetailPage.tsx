@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Box, Typography, Card, CardContent, Grid, Chip, Stack,
     Tabs, Tab, CircularProgress, Button, IconButton,
-    Tooltip, Alert, Link,
+    Tooltip, Alert,
 } from '@mui/material';
 import { ArrowBack, Edit, Delete, SwapHoriz, Warning, DeleteForever } from '@mui/icons-material';
 import { getAsset, deleteAsset } from '../api/assets';
@@ -15,6 +15,13 @@ import { AssetLifecycleTimeline } from '../components/AssetLifecycleTimeline';
 import { AssetTransferDialog } from '../components/AssetTransferDialog';
 import { AssetStatusChangeDialog } from '../components/AssetStatusChangeDialog';
 import { PhotoGallery } from '@/features/shared/components/PhotoGallery';
+import { AssetInterfacesTab } from '../components/assetTabs/AssetInterfacesTab';
+import { AssetIpAddressesTab } from '../components/assetTabs/AssetIpAddressesTab';
+import { AssetFimTab } from '../components/assetTabs/AssetFimTab';
+import { AssetPonTab } from '../components/assetTabs/AssetPonTab';
+import { AssetVlanTab } from '../components/assetTabs/AssetVlanTab';
+import { AssetRoutingTab } from '../components/assetTabs/AssetRoutingTab';
+import { AssetAuditTab } from '../components/assetTabs/AssetAuditTab';
 import AssetFormDrawer from '../components/AssetFormDrawer';
 import toast from 'react-hot-toast';
 import { infrastructureKeys } from '@/api/queryKeys';
@@ -58,7 +65,7 @@ const DetailField: React.FC<{ label: string; value?: React.ReactNode; mono?: boo
     <Box>
         <Typography variant="caption" color="text.secondary">{label}</Typography>
         <Typography variant="body2" sx={mono ? { fontFamily: 'monospace', fontSize: '0.85rem' } : undefined}>
-            {value || '—'}
+            {value || '\u2014'}
         </Typography>
     </Box>
 );
@@ -110,9 +117,14 @@ const AssetDetailPage: React.FC = () => {
 
     const asset = data as any;
     const assetId = parseInt(id!);
+    const portsCount = asset.network_ports?.length ?? 0;
+    const interfacesCount = asset.interfaces?.length ?? 0;
     const canTransfer = asset.status !== 'DISPOSED';
     const canRetire = asset.status !== 'RETIRED' && asset.status !== 'DISPOSED';
     const canDispose = asset.status === 'RETIRED';
+
+    const hasFim = asset.passive_optical_ports?.length > 0 || asset.splitter_profile;
+    const hasPon = asset.pon_memberships?.length > 0;
 
     return (
         <Box sx={{ p: 3, maxWidth: 1400, mx: 'auto' }}>
@@ -171,6 +183,7 @@ const AssetDetailPage: React.FC = () => {
                     <Chip label={asset.condition} size="small" color={CONDITION_COLORS[asset.condition] || 'default'} variant="outlined" />
                 )}
                 <Chip label={`${asset.quantity} ${asset.unit || 'pcs'}`} size="small" variant="outlined" />
+                <Chip label={`${portsCount} Ports`} size="small" variant="outlined" />
                 <AuthorityBadge authoritative />
             </Stack>
 
@@ -200,12 +213,16 @@ const AssetDetailPage: React.FC = () => {
                                 <Box>
                                     <Typography variant="caption" color="text.secondary">Site</Typography>
                                     {asset.site ? (
-                                        <Link component={RouterLink} to={`/network/sites/${asset.site.id}`} underline="hover" display="block">
+                                        <Box
+                                            component="span"
+                                            onClick={() => navigate(`/network/sites/${asset.site.id}`)}
+                                            sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+                                        >
                                             <Typography variant="body2" fontWeight="medium">{asset.site.site_code}</Typography>
                                             <Typography variant="caption" color="text.secondary">{asset.site.name}</Typography>
-                                        </Link>
+                                        </Box>
                                     ) : (
-                                        <Typography variant="body2">—</Typography>
+                                        <Typography variant="body2">{'\u2014'}</Typography>
                                     )}
                                 </Box>
                                 <DetailField label="Company" value={asset.site?.company?.name} />
@@ -262,6 +279,13 @@ const AssetDetailPage: React.FC = () => {
                                 <Tab label="Lifecycle History" />
                                 <Tab label="Photos" />
                                 {asset.category === 'NETWORK' && <Tab label="Network Ports" />}
+                                {interfacesCount > 0 && <Tab label="Interfaces" />}
+                                {interfacesCount > 0 && <Tab label="IP Addresses" />}
+                                {hasFim && <Tab label="FIM" />}
+                                {hasPon && <Tab label="PON" />}
+                                <Tab label="VLAN" />
+                                {asset.routing_instances?.length > 0 && <Tab label="Routing" />}
+                                <Tab label="Audit" />
                             </Tabs>
                         </Box>
                         <TabPanel value={tabValue} index={0}>
@@ -284,7 +308,42 @@ const AssetDetailPage: React.FC = () => {
                                 />
                             </Can>
                         </TabPanel>
-                        {asset.category === 'NETWORK' && <TabPanel value={tabValue} index={2}><NetworkPortPreview assetId={assetId} /></TabPanel>}
+                        {asset.category === 'NETWORK' && (
+                            <TabPanel value={tabValue} index={2}>
+                                <NetworkPortPreview assetId={assetId} />
+                            </TabPanel>
+                        )}
+                        {interfacesCount > 0 && (
+                            <TabPanel value={tabValue} index={asset.category === 'NETWORK' ? 3 : 2}>
+                                <AssetInterfacesTab interfaces={asset.interfaces ?? []} />
+                            </TabPanel>
+                        )}
+                        {interfacesCount > 0 && (
+                            <TabPanel value={tabValue} index={asset.category === 'NETWORK' ? 4 : 3}>
+                                <AssetIpAddressesTab addresses={asset.ip_addresses ?? []} />
+                            </TabPanel>
+                        )}
+                        {hasFim && (
+                            <TabPanel value={tabValue} index={asset.category === 'NETWORK' ? 5 : 4}>
+                                <AssetFimTab passivePorts={asset.passive_optical_ports ?? []} splitter={asset.splitter_profile ?? null} />
+                            </TabPanel>
+                        )}
+                        {hasPon && (
+                            <TabPanel value={tabValue} index={asset.category === 'NETWORK' ? 6 : 5}>
+                                <AssetPonTab memberships={asset.pon_memberships ?? []} />
+                            </TabPanel>
+                        )}
+                        <TabPanel value={tabValue} index={asset.category === 'NETWORK' ? (hasFim ? 7 : (hasPon ? 6 : 5)) : (hasFim ? 5 : (hasPon ? 4 : 3))}>
+                            <AssetVlanTab assetId={assetId} />
+                        </TabPanel>
+                        {asset.routing_instances?.length > 0 && (
+                            <TabPanel value={tabValue} index={asset.category === 'NETWORK' ? 8 : 6}>
+                                <AssetRoutingTab instances={asset.routing_instances ?? []} />
+                            </TabPanel>
+                        )}
+                        <TabPanel value={tabValue} index={tabValue}>
+                            <AssetAuditTab assetId={assetId} />
+                        </TabPanel>
                     </Card>
                 </Grid>
             </Grid>

@@ -11,12 +11,15 @@ const toOption = (site: Site): SiteOption => ({
     site,
 });
 
-export const AsyncSitePicker = <T extends FieldValues>({ control, error, disabled, selectedSite, onSelected }: {
+export const AsyncSitePicker = <T extends FieldValues>({ control, error, disabled, selectedSite, onSelected, companyId, regionId, branchId }: {
     control: Control<T>;
     error?: string;
     disabled?: boolean;
     selectedSite?: Site | null;
     onSelected?: (site: Site | null) => void;
+    companyId?: number;
+    regionId?: number;
+    branchId?: number;
 }) => (
     <Controller
         name={'site_id' as Path<T>}
@@ -30,7 +33,13 @@ export const AsyncSitePicker = <T extends FieldValues>({ control, error, disable
                     onSelected?.(option?.site ?? null);
                 }}
                 loadOptions={async (search) => {
-                    const result = await sitesApi.list({ search: search || undefined, per_page: 50 });
+                    const result = await sitesApi.list({
+                        search: search || undefined,
+                        per_page: 50,
+                        company_id: companyId || undefined,
+                        region_id: regionId || undefined,
+                        branch_id: branchId || undefined,
+                    });
                     return result.data.map(toOption);
                 }}
                 getOptionLabel={(option) => option.label}

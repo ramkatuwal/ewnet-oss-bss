@@ -1,5 +1,7 @@
-import type { Asset, PaginatedResponse } from '@/types';
+import type { Asset, AssetInterface, AssetOperational, AssetVlanMembership, IpAddress, NetworkPort, PaginatedResponse, PonMembership } from '@/types';
 import { apiClient } from '@/api/client';
+
+export type { NetworkPort };
 
 export interface AssetListParams {
     page?: number;
@@ -9,6 +11,11 @@ export interface AssetListParams {
     category?: string;
     type?: string;
     site_id?: number;
+    company_id?: number;
+    region_id?: number;
+    branch_id?: number;
+    manufacturer?: string;
+    condition?: string;
     sort_by?: string;
     sort_dir?: 'asc' | 'desc';
 }
@@ -17,13 +24,13 @@ export const getAssets = (params?: AssetListParams) =>
     apiClient.get<PaginatedResponse<Asset>>('/api/v1/assets', { params }).then(res => res.data);
 
 export const getAsset = (id: number) =>
-    apiClient.get<{ data: Asset }>(`/api/v1/assets/${id}`).then(res => res.data.data);
+    apiClient.get<{ data: AssetOperational }>(`/api/v1/assets/${id}`).then(res => res.data.data);
 
 export const createAsset = (data: Partial<Asset>) =>
-    apiClient.post<{ data: Asset }>('/api/v1/assets', data).then(res => res.data.data);
+    apiClient.post<{ data: AssetOperational }>('/api/v1/assets', data).then(res => res.data.data);
 
 export const updateAsset = (id: number, data: Partial<Asset>) =>
-    apiClient.put<{ data: Asset }>(`/api/v1/assets/${id}`, data).then(res => res.data.data);
+    apiClient.put<{ data: AssetOperational }>(`/api/v1/assets/${id}`, data).then(res => res.data.data);
 
 export const deleteAsset = (id: number) =>
     apiClient.delete(`/api/v1/assets/${id}`);
@@ -106,14 +113,18 @@ export const uploadAssetPhoto = (assetId: number, data: FormData) =>
 export const deleteAssetPhoto = (assetId: number, photoId: number) =>
     apiClient.delete(`/api/v1/assets/${assetId}/photos/${photoId}`).then(res => res.data);
 
-export interface NetworkPort {
-    id: number;
-    asset_id: number;
-    port_key: string;
-    name: string | null;
-    connector_type: string | null;
-    technology: string | null;
-}
-
 export const getNetworkPorts = (assetId: number, params?: { page?: number; per_page?: number }) =>
     apiClient.get<PaginatedResponse<NetworkPort>>(`/api/v1/assets/${assetId}/network-ports`, { params }).then((res) => res.data);
+
+// Observed/authoritative operational sub-resources (read-only detail views)
+export const getAssetInterfaces = (assetId: number, params?: { page?: number; per_page?: number }) =>
+    apiClient.get<PaginatedResponse<AssetInterface>>(`/api/v1/assets/${assetId}/interfaces`, { params }).then((res) => res.data);
+
+export const getAssetIpAddresses = (assetId: number, params?: { page?: number; per_page?: number }) =>
+    apiClient.get<PaginatedResponse<IpAddress>>(`/api/v1/assets/${assetId}/ip-addresses`, { params }).then((res) => res.data);
+
+export const getAssetPonMemberships = (assetId: number, params?: { page?: number; per_page?: number }) =>
+    apiClient.get<PaginatedResponse<PonMembership>>(`/api/v1/assets/${assetId}/pon-memberships`, { params }).then((res) => res.data);
+
+export const getAssetVlanMemberships = (assetId: number, params?: { page?: number; per_page?: number }) =>
+    apiClient.get<PaginatedResponse<AssetVlanMembership>>(`/api/v1/assets/${assetId}/vlan-memberships`, { params }).then((res) => res.data);

@@ -27,9 +27,19 @@ declare(strict_types=1);
  */
 
 $configCache = __DIR__.'/../bootstrap/cache/config.php';
+$routeCache = __DIR__.'/../bootstrap/cache/routes-v7.php';
 
 if (is_file($configCache)) {
     @unlink($configCache);
+}
+
+// A stale route cache freezes the route table at deploy time. If PHPUnit were
+// to load it, newly added routes (and endpoint changes) would silently not
+// exist and requests would fall through to the SPA catch-all, producing 200s
+// instead of the expected JSON/4xx responses. Unlink it so tests always boot
+// from the live route file.
+if (is_file($routeCache)) {
+    @unlink($routeCache);
 }
 
 $testEnv = [

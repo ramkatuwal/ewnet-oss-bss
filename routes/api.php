@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AssetController;
 use App\Http\Controllers\Api\V1\AssetLifecycleController;
+use App\Http\Controllers\Api\V1\AssetOperationalController;
 use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BranchController;
@@ -166,6 +167,11 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::delete('/network-port-fiber-attachments/{attachment}', [NetworkPortFiberTerminationAttachmentController::class, 'destroy']);
     Route::get('/assets/{asset}/network-ports', [NetworkPortController::class, 'index']);
     Route::post('/assets/{asset}/network-ports', [NetworkPortController::class, 'store']);
+    // Read-only asset operational sub-views (UI-006)
+    Route::get('/assets/{asset}/interfaces', [AssetOperationalController::class, 'interfaces']);
+    Route::get('/assets/{asset}/ip-addresses', [AssetOperationalController::class, 'ipAddresses']);
+    Route::get('/assets/{asset}/pon-memberships', [AssetOperationalController::class, 'ponMemberships']);
+    Route::get('/assets/{asset}/vlan-memberships', [AssetOperationalController::class, 'vlanMemberships']);
     Route::get('/fim/network-ports/{networkPort}', [NetworkPortController::class, 'show']);
     Route::patch('/fim/network-ports/{networkPort}', [NetworkPortController::class, 'update']);
     Route::delete('/fim/network-ports/{networkPort}', [NetworkPortController::class, 'destroy']);

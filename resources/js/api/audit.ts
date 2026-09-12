@@ -36,6 +36,7 @@ export interface AuditLogFilters {
     result?: string;
     actor_id?: number;
     target_type?: string;
+    target_id?: number;
     date_from?: string;
     date_to?: string;
 }

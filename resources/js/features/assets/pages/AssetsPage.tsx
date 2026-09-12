@@ -16,6 +16,10 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { SearchFilterBar } from '@/components/forms/SearchFilterBar';
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog';
 import { Can } from '@/components/auth/Can';
+import { companiesApi } from '@/api/companies';
+import { regionsApi } from '@/api/regions';
+import { branchesApi } from '@/api/branches';
+import { useAuthStore } from '@/stores/authStore';
 import AssetFormDrawer from '../components/AssetFormDrawer';
 import {
     getAssets, getAssetDashboard, deleteAsset, exportAssets, importAssets,
@@ -26,6 +30,8 @@ import { infrastructureKeys } from '@/api/queryKeys';
 import { PageErrorState } from '@/components/feedback/PageStates';
 
 const COLUMN_VISIBILITY_KEY = 'assets-table-column-visibility';
+
+const CONDITIONS = ['EXCELLENT', 'GOOD', 'FAIR', 'POOR', 'CRITICAL'];
 
 const DEFAULT_COLUMN_VISIBILITY: Record<string, boolean> = {
     asset_tag: true,
@@ -67,6 +73,11 @@ const AssetsPage: React.FC = () => {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
+    const [companyFilter, setCompanyFilter] = useState('');
+    const [regionFilter, setRegionFilter] = useState('');
+    const [branchFilter, setBranchFilter] = useState('');
+    const [manufacturerFilter, setManufacturerFilter] = useState('');
+    const [conditionFilter, setConditionFilter] = useState('');
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(25);
     const [sortModel, setSortModel] = useState<GridSortModel>([{ field: 'created_at', sort: 'desc' }]);
@@ -103,7 +114,32 @@ const AssetsPage: React.FC = () => {
     // Reset page when filters change
     useEffect(() => {
         setPage(0);
-    }, [search, statusFilter, categoryFilter]);
+    }, [search, statusFilter, categoryFilter, companyFilter, regionFilter, branchFilter, manufacturerFilter, conditionFilter]);
+
+    // Current user org binding: non-super-admin users are locked to their own company
+    const user = useAuthStore((s) => s.user);
+    const isSuperAdmin = useAuthStore((s) => s.isSuperAdmin());
+    const currentCompanyId = user?.company_id ?? undefined;
+    const lockedCompanyFilter = !isSuperAdmin && Boolean(currentCompanyId);
+    const effectiveCompanyFilter = lockedCompanyFilter ? currentCompanyId : (companyFilter ? Number(companyFilter) : undefined);
+
+    const { data: companiesData, isLoading: companiesLoading } = useQuery({
+        queryKey: ['organization', 'companies', 'options'],
+        queryFn: () => companiesApi.getAll({ per_page: 100 }),
+        enabled: !lockedCompanyFilter,
+    });
+
+    const { data: regionsData, isLoading: regionsLoading } = useQuery({
+        queryKey: ['organization', 'regions', 'options', effectiveCompanyFilter ?? 0],
+        queryFn: () => regionsApi.getAll({ company_id: effectiveCompanyFilter, per_page: 500 }),
+        enabled: Boolean(effectiveCompanyFilter),
+    });
+
+    const { data: branchesData, isLoading: branchesLoading } = useQuery({
+        queryKey: ['organization', 'branches', 'options', regionFilter ? Number(regionFilter) : 0],
+        queryFn: () => branchesApi.getAll({ region_id: Number(regionFilter), per_page: 500 }),
+        enabled: Boolean(regionFilter),
+    });
 
     // Queries
     const { data: dashboard, isLoading: isDashboardLoading } = useQuery<AssetDashboardData>({
@@ -117,9 +153,14 @@ const AssetsPage: React.FC = () => {
         search: search || undefined,
         status: statusFilter || undefined,
         category: categoryFilter || undefined,
+        company_id: effectiveCompanyFilter,
+        region_id: regionFilter ? Number(regionFilter) : undefined,
+        branch_id: branchFilter ? Number(branchFilter) : undefined,
+        manufacturer: manufacturerFilter || undefined,
+        condition: conditionFilter || undefined,
         sort_by: sortModel[0]?.field || 'created_at',
         sort_dir: sortModel[0]?.sort || 'desc',
-    }), [page, pageSize, search, statusFilter, categoryFilter, sortModel]);
+    }), [page, pageSize, search, statusFilter, categoryFilter, effectiveCompanyFilter, regionFilter, branchFilter, manufacturerFilter, conditionFilter, sortModel]);
 
     const { data, isLoading, error } = useQuery({
         queryKey: infrastructureKeys.assets({ ...queryParams }),
@@ -169,6 +210,11 @@ const AssetsPage: React.FC = () => {
         setSearch('');
         setStatusFilter('');
         setCategoryFilter('');
+        setCompanyFilter('');
+        setRegionFilter('');
+        setBranchFilter('');
+        setManufacturerFilter('');
+        setConditionFilter('');
         setPage(0);
     };
 
@@ -473,6 +519,58 @@ const AssetsPage: React.FC = () => {
                         <MenuItem key={c} value={c}>{c}</MenuItem>
                     ))}
                 </TextField>
+                {!lockedCompanyFilter && (
+                    <TextField
+                        select label="Company" size="small" sx={{ minWidth: 130, mr: 1 }}
+                        value={companyFilter}
+                        onChange={(e) => { setCompanyFilter(e.target.value); setRegionFilter(''); setBranchFilter(''); }}
+                        disabled={companiesLoading}
+                    >
+                        <MenuItem value="">All Companies</MenuItem>
+                        {(companiesData?.data ?? []).map(c => (
+                            <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+                        ))}
+                    </TextField>
+                )}
+                <TextField
+                    select label="Region" size="small" sx={{ minWidth: 120, mr: 1 }}
+                    value={regionFilter}
+                    onChange={(e) => { setRegionFilter(e.target.value); setBranchFilter(''); }}
+                    disabled={!effectiveCompanyFilter || regionsLoading}
+                >
+                    <MenuItem value="">All Regions</MenuItem>
+                    {(regionsData?.data ?? []).map(r => (
+                        <MenuItem key={r.id} value={r.id}>{r.name}</MenuItem>
+                    ))}
+                </TextField>
+                <TextField
+                    select label="Branch" size="small" sx={{ minWidth: 120, mr: 1 }}
+                    value={branchFilter}
+                    onChange={(e) => setBranchFilter(e.target.value)}
+                    disabled={!regionFilter || branchesLoading}
+                >
+                    <MenuItem value="">All Branches</MenuItem>
+                    {(branchesData?.data ?? []).map(b => (
+                        <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
+                    ))}
+                </TextField>
+                <TextField
+                    size="small"
+                    label="Manufacturer"
+                    sx={{ minWidth: 120, mr: 1 }}
+                    value={manufacturerFilter}
+                    onChange={(e) => setManufacturerFilter(e.target.value)}
+                />
+                <TextField
+                    select label="Condition" size="small" sx={{ minWidth: 120, mr: 1 }}
+                    value={conditionFilter}
+                    onChange={(e) => setConditionFilter(e.target.value)}
+                >
+                    <MenuItem value="">All Conditions</MenuItem>
+                    {CONDITIONS.map(c => (
+                        <MenuItem key={c} value={c}>{c}</MenuItem>
+                    ))}
+                </TextField>
                 <Button variant="outlined" size="small" onClick={handleReset}>Reset</Button>
             </SearchFilterBar>
 
@@ -513,11 +611,11 @@ const AssetsPage: React.FC = () => {
             {!isLoading && rows.length === 0 && (
                 <Box sx={{ textAlign: 'center', py: 6 }}>
                     <Typography variant="body1" color="text.secondary">
-                        {search || statusFilter || categoryFilter
+                        {search || statusFilter || categoryFilter || companyFilter || regionFilter || branchFilter || manufacturerFilter || conditionFilter
                             ? 'No assets match your search or filters.'
                             : 'No assets have been registered yet.'}
                     </Typography>
-                    {(search || statusFilter || categoryFilter) && (
+                    {(search || statusFilter || categoryFilter || companyFilter || regionFilter || branchFilter || manufacturerFilter || conditionFilter) && (
                         <Button onClick={handleReset} sx={{ mt: 1 }}>Clear Filters</Button>
                     )}
                 </Box>

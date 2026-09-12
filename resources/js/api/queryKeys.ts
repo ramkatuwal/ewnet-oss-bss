@@ -7,6 +7,10 @@ export const infrastructureKeys = {
     asset: (id: number | string) => ['infrastructure', 'asset', id] as const,
     assetDashboard: () => ['infrastructure', 'assets', 'dashboard'] as const,
     networkPorts: (assetId: number) => ['infrastructure', 'asset', assetId, 'network-ports'] as const,
+    assetInterfaces: (assetId: number) => ['infrastructure', 'asset', assetId, 'interfaces'] as const,
+    assetIpAddresses: (assetId: number) => ['infrastructure', 'asset', assetId, 'ip-addresses'] as const,
+    assetPonMemberships: (assetId: number) => ['infrastructure', 'asset', assetId, 'pon-memberships'] as const,
+    assetVlanMemberships: (assetId: number) => ['infrastructure', 'asset', assetId, 'vlan-memberships'] as const,
 };
 
 export const networkKeys = {

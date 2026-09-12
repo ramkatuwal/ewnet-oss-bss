@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 
 class Asset extends Model
 {
@@ -106,6 +107,19 @@ class Asset extends Model
         return $this->belongsTo(Company::class);
     }
 
+    /**
+     * Generate the next transactional asset tag from the PostgreSQL sequence.
+     *
+     * The tag is immutable once an asset is created, so it never re-encodes the
+     * org hierarchy (sites can be transferred without rewriting history).
+     */
+    public static function generateTag(): string
+    {
+        $seq = DB::selectOne('SELECT nextval(\'asset_tag_seq\') AS seq');
+
+        return 'AST-'.str_pad((string) ($seq->seq ?? 0), 6, '0', STR_PAD_LEFT);
+    }
+
     public function site(): BelongsTo
     {
         return $this->belongsTo(Site::class);
@@ -187,6 +201,14 @@ class Asset extends Model
             'id',                // Local key on assets
             'id'                 // Local key on asset_interfaces
         );
+    }
+
+    /**
+     * PON memberships where this asset is the ONU.
+     */
+    public function ponMemberships(): HasMany
+    {
+        return $this->hasMany(PonMembership::class, 'onu_asset_id');
     }
 
     public function getPrimaryIpAttribute(): ?string

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\ImportAssetsRequest;
 use App\Http\Requests\Api\V1\StoreAssetRequest;
 use App\Http\Requests\Api\V1\UpdateAssetRequest;
+use App\Http\Resources\V1\AssetOperationalResource;
 use App\Http\Resources\V1\AssetResource;
 use App\Jobs\ProcessAssetImport;
 use App\Models\Asset;
@@ -58,6 +59,34 @@ class AssetController extends Controller
             $query->where('site_id', $request->input('site_id'));
         }
 
+        // Organization hierarchy filters (derived via Site), all within the
+        // user's management scope already applied above.
+        if ($request->filled('company_id')) {
+            $query->whereHas('site.company', function ($q) use ($request) {
+                $q->where('id', $request->input('company_id'));
+            });
+        }
+
+        if ($request->filled('region_id')) {
+            $query->whereHas('site.region', function ($q) use ($request) {
+                $q->where('id', $request->input('region_id'));
+            });
+        }
+
+        if ($request->filled('branch_id')) {
+            $query->whereHas('site.branch', function ($q) use ($request) {
+                $q->where('id', $request->input('branch_id'));
+            });
+        }
+
+        if ($request->filled('manufacturer')) {
+            $query->where('manufacturer', $request->input('manufacturer'));
+        }
+
+        if ($request->filled('condition')) {
+            $query->where('condition', $request->input('condition'));
+        }
+
         // Server-side sorting with whitelist
         $allowedSorts = ['asset_tag', 'type', 'category', 'status', 'manufacturer', 'model', 'serial_number', 'quantity', 'created_at', 'updated_at'];
         $sortBy = $request->input('sort_by', 'created_at');
@@ -86,11 +115,14 @@ class AssetController extends Controller
         $this->authorize('create', Asset::class);
 
         $site = Site::findOrFail($request->validated('site_id'));
-        $asset = Asset::create($request->validated() + [
-            'company_id' => $site->company_id,
-            'created_by' => $request->user()->id,
-            'updated_by' => $request->user()->id,
-        ]);
+
+        $data = $request->validated();
+        $data['company_id'] = $site->company_id;
+        $data['asset_tag'] = Asset::generateTag();
+        $data['created_by'] = $request->user()->id;
+        $data['updated_by'] = $request->user()->id;
+
+        $asset = Asset::create($data);
 
         AuditService::log('asset.created', 'success', $asset, $request->validated());
 
@@ -101,7 +133,20 @@ class AssetController extends Controller
     {
         $this->authorize('view', $asset);
 
-        return new AssetResource($asset->load(['site.company', 'site.region', 'site.branch', 'ipAddresses', 'interfaces']));
+        $asset->load([
+            'site.company', 'site.region', 'site.branch',
+            'interfaces',
+            'ipAddresses',
+            'networkPorts.ponDomain.memberships.onuAsset',
+            'networkPorts.switchingConfiguration.memberships.vlan',
+            'routingInstances.routingL3Interfaces.addresses',
+            'routingInstances.staticRoutes',
+            'passiveOpticalPorts',
+            'splitterProfile.branches',
+            'ponMemberships.ponDomain.oltPort',
+        ]);
+
+        return new AssetOperationalResource($asset);
     }
 
     public function update(UpdateAssetRequest $request, Asset $asset)

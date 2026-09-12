@@ -18,7 +18,6 @@ class StoreAssetRequest extends FormRequest
     {
         return [
             'site_id' => ['required', 'exists:sites,id'],
-            'asset_tag' => ['required', 'string', 'max:255', 'unique:assets,asset_tag'],
             'serial_number' => ['nullable', 'string', 'max:255', 'unique:assets,serial_number'],
             'category' => ['required', Rule::in(Asset::CATEGORIES)],
             'type' => ['required', 'string', 'max:100'],
