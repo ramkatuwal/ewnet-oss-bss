@@ -19,6 +19,7 @@ class UpdateAssetRequest extends FormRequest
 
         return [
             'site_id' => ['sometimes', 'exists:sites,id'],
+            'device_name' => ['nullable', 'string', 'max:255'],
             'asset_tag' => ['sometimes', 'string', 'max:255', Rule::unique('assets', 'asset_tag')->ignore($asset->id)],
             'serial_number' => ['nullable', 'string', 'max:255', Rule::unique('assets', 'serial_number')->ignore($asset->id)],
             'category' => ['sometimes', Rule::in(Asset::CATEGORIES)],

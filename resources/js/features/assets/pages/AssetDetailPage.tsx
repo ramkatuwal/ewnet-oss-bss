@@ -126,14 +126,17 @@ const AssetDetailPage: React.FC = () => {
     const hasFim = asset.passive_optical_ports?.length > 0 || asset.splitter_profile;
     const hasPon = asset.pon_memberships?.length > 0;
 
+    const specs = asset.specifications || {};
+    const isImported = specs.source === 'librenms' || specs.source === 'uisp';
+
     return (
         <Box sx={{ p: 3, maxWidth: 1400, mx: 'auto' }}>
             <PageHeader
-                title={`${asset.asset_tag}`}
+                title={asset.device_name || asset.asset_tag}
                 breadcrumbs={[
                     { label: 'Network', path: '/network' },
                     { label: 'Assets', path: '/network/assets' },
-                    { label: asset.asset_tag },
+                    { label: asset.device_name || asset.asset_tag },
                 ]}
                 actions={
                     <Stack direction="row" spacing={1}>
@@ -176,6 +179,7 @@ const AssetDetailPage: React.FC = () => {
 
             {/* Status Bar */}
             <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 3 }}>
+                <Chip label={asset.asset_tag} size="small" variant="outlined" sx={{ fontFamily: 'monospace' }} />
                 <Chip label={asset.category} size="small" variant="outlined" />
                 <Chip label={asset.type} size="small" variant="outlined" />
                 <Chip label={asset.status} size="small" color={STATUS_COLORS[asset.status] || 'default'} />
@@ -183,32 +187,35 @@ const AssetDetailPage: React.FC = () => {
                     <Chip label={asset.condition} size="small" color={CONDITION_COLORS[asset.condition] || 'default'} variant="outlined" />
                 )}
                 <Chip label={`${asset.quantity} ${asset.unit || 'pcs'}`} size="small" variant="outlined" />
-                <Chip label={`${portsCount} Ports`} size="small" variant="outlined" />
+                {portsCount > 0 && <Chip label={`${portsCount} Ports`} size="small" variant="outlined" />}
+                {isImported && (
+                    <Chip label={`Imported from ${specs.source}`} size="small" color="info" variant="outlined" />
+                )}
                 <AuthorityBadge authoritative />
             </Stack>
 
             <Grid container spacing={3} sx={{ mb: 3 }}>
-                {/* Left Column: Overview + Organization */}
+                {/* Left Column */}
                 <Grid item xs={12} md={4}>
+                    {/* Identity */}
                     <Card sx={{ mb: 2 }}>
                         <CardContent>
-                            <Typography variant="subtitle2" gutterBottom>Overview</Typography>
+                            <Typography variant="subtitle2" gutterBottom>Identity</Typography>
                             <Stack spacing={1.5}>
-                                <DetailField label="Asset Tag" value={asset.asset_tag} mono />
+                                <DetailField label="Asset Code" value={asset.asset_tag} mono />
+                                <DetailField label="Device Name" value={asset.device_name} />
                                 <DetailField label="Serial Number" value={asset.serial_number} mono />
-                                <DetailField label="Manufacturer" value={asset.manufacturer} />
-                                <DetailField label="Model" value={asset.model} />
                                 <DetailField label="Category" value={asset.category} />
                                 <DetailField label="Type" value={asset.type} />
-                                <DetailField label="Condition" value={asset.condition} />
                                 <DetailField label="Quantity" value={`${asset.quantity} ${asset.unit || 'pcs'}`} />
                             </Stack>
                         </CardContent>
                     </Card>
 
-                    <Card>
+                    {/* Placement */}
+                    <Card sx={{ mb: 2 }}>
                         <CardContent>
-                            <Typography variant="subtitle2" gutterBottom>Organization</Typography>
+                            <Typography variant="subtitle2" gutterBottom>Placement</Typography>
                             <Stack spacing={1.5}>
                                 <Box>
                                     <Typography variant="caption" color="text.secondary">Site</Typography>
@@ -231,8 +238,54 @@ const AssetDetailPage: React.FC = () => {
                             </Stack>
                         </CardContent>
                     </Card>
-                    {(asset.ip_address || asset.mac_address) && (
-                        <Card sx={{ mt: 2 }}>
+
+                    {/* Authoritative Hardware */}
+                    <Card sx={{ mb: 2 }}>
+                        <CardContent>
+                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                                <Typography variant="subtitle2">Hardware</Typography>
+                                <AuthorityBadge authoritative />
+                            </Stack>
+                            <Stack spacing={1.5}>
+                                <DetailField label="Manufacturer" value={asset.manufacturer} />
+                                <DetailField label="Model" value={asset.model} />
+                                <DetailField label="Condition" value={asset.condition} />
+                            </Stack>
+                        </CardContent>
+                    </Card>
+
+                    {/* Observed Device / LibreNMS */}
+                    {isImported && (
+                        <Card sx={{ mb: 2 }}>
+                            <CardContent>
+                                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                                    <Typography variant="subtitle2">Observed Device</Typography>
+                                    <AuthorityBadge authoritative={false} />
+                                </Stack>
+                                <Stack spacing={1.5}>
+                                    {specs.external_id && (
+                                        <DetailField label="Provider Device ID" value={specs.external_id} mono />
+                                    )}
+                                    {asset.ip_address && (
+                                        <DetailField label="Management IP" value={asset.ip_address} mono />
+                                    )}
+                                    {asset.mac_address && (
+                                        <DetailField label="MAC Address" value={asset.mac_address} mono />
+                                    )}
+                                    {specs.serial_number && (
+                                        <DetailField label="Observed Serial" value={specs.serial_number} mono />
+                                    )}
+                                    {specs.last_synced && (
+                                        <DetailField label="Last Synced" value={new Date(specs.last_synced).toLocaleString()} />
+                                    )}
+                                </Stack>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* Network Observations (non-imported assets with IP/MAC) */}
+                    {!isImported && (asset.ip_address || asset.mac_address) && (
+                        <Card sx={{ mb: 2 }}>
                             <CardContent>
                                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
                                     <Typography variant="subtitle2">Network Observations</Typography>
@@ -245,8 +298,9 @@ const AssetDetailPage: React.FC = () => {
                     )}
                 </Grid>
 
-                {/* Right Column: Dates + Description + Tabs */}
+                {/* Right Column */}
                 <Grid item xs={12} md={8}>
+                    {/* Lifecycle & Warranty */}
                     <Card sx={{ mb: 2 }}>
                         <CardContent>
                             <Typography variant="subtitle2" gutterBottom>Lifecycle & Warranty</Typography>

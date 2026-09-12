@@ -11,28 +11,17 @@ const { getAsset, createAsset, updateAsset } = vi.hoisted(() => ({
     updateAsset: vi.fn(),
 }));
 const { sitesGet } = vi.hoisted(() => ({ sitesGet: vi.fn() }));
-const { companiesGetAll, regionsGetAll, branchesGetAll } = vi.hoisted(() => ({
-    companiesGetAll: vi.fn(),
-    regionsGetAll: vi.fn(),
-    branchesGetAll: vi.fn(),
-}));
 const { successToast, errorToast } = vi.hoisted(() => ({ successToast: vi.fn(), errorToast: vi.fn() }));
 
 vi.mock('@/features/assets/api/assets', () => ({ getAsset, createAsset, updateAsset }));
 vi.mock('@/api/sites', () => ({ sitesApi: { get: sitesGet } }));
-vi.mock('@/api/companies', () => ({ companiesApi: { getAll: companiesGetAll } }));
-vi.mock('@/api/regions', () => ({ regionsApi: { getAll: regionsGetAll } }));
-vi.mock('@/api/branches', () => ({ branchesApi: { getAll: branchesGetAll } }));
 vi.mock('react-hot-toast', () => ({ default: { success: successToast, error: errorToast } }));
 
 vi.mock('@/components/infrastructure/AsyncSitePicker', () => ({
-    AsyncSitePicker: ({ control, error, disabled, companyId, regionId, branchId, selectedSite }: {
+    AsyncSitePicker: ({ control, error, disabled, selectedSite }: {
         control: any;
         error?: string;
         disabled?: boolean;
-        companyId?: number;
-        regionId?: number;
-        branchId?: number;
         selectedSite?: { name?: string; id?: number } | null;
     }) => {
         useEffect(() => {
@@ -43,7 +32,6 @@ vi.mock('@/components/infrastructure/AsyncSitePicker', () => ({
         return (
             <div>
                 <span data-testid="site-error">{error ?? ''}</span>
-                <span data-testid="site-scope">{`${companyId ?? ''}/${regionId ?? ''}/${branchId ?? ''}`}</span>
                 <span data-testid="site-disabled">{disabled ? 'disabled' : 'enabled'}</span>
                 <span data-testid="site-selected">{selectedSite?.name ?? ''}</span>
             </div>
@@ -51,12 +39,12 @@ vi.mock('@/components/infrastructure/AsyncSitePicker', () => ({
     },
 }));
 
-const wrap = () => {
+const wrap = (props?: { siteId?: number }) => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const onClose = vi.fn();
     const utils = render(
         <QueryClientProvider client={client}>
-            <AssetFormDrawer open onClose={onClose} assetId={null} />
+            <AssetFormDrawer open onClose={onClose} assetId={null} siteId={props?.siteId} />
         </QueryClientProvider>,
     );
     return { onClose, ...utils };
@@ -71,17 +59,6 @@ const superAdmin: AuthUser = {
     permissions: [],
 };
 
-const scopedOperator: AuthUser = {
-    id: 5,
-    name: 'Scoped Op',
-    email: 'op@ewnet.test',
-    is_active: true,
-    company_id: 7,
-    company: { id: 7, name: 'Company Seven' },
-    roles: ['Operator'],
-    permissions: ['assets.create'],
-};
-
 beforeEach(() => {
     vi.clearAllMocks();
     useAuthStore.setState({ user: null, authState: 'booting', isLoading: false });
@@ -92,15 +69,11 @@ beforeEach(() => {
         company_id: 1,
         region_id: 2,
         branch_id: 3,
+        company: { id: 1, name: 'Co1' },
+        region: { id: 2, name: 'Region East' },
+        branch: { id: 3, name: 'Branch North' },
     });
-    companiesGetAll.mockResolvedValue({ data: [], current_page: 1, last_page: 1, per_page: 100, total: 0, from: 0, to: 0 });
-    regionsGetAll.mockResolvedValue({ data: [], current_page: 1, last_page: 1, per_page: 500, total: 0, from: 0, to: 0 });
-    branchesGetAll.mockResolvedValue({ data: [], current_page: 1, last_page: 1, per_page: 500, total: 0, from: 0, to: 0 });
 });
-
-const enterType = (value: string) => {
-    fireEvent.change(screen.getByLabelText('Type *'), { target: { value } });
-};
 
 describe('AssetFormDrawer', () => {
     it('shows the generated asset-code note in create mode', () => {
@@ -115,20 +88,18 @@ describe('AssetFormDrawer', () => {
         wrap();
         fireEvent.click(screen.getByRole('button', { name: 'Save' }));
         expect(await screen.findByText('A site is required.')).toBeInTheDocument();
-        expect(await screen.findByText('Type is required.')).toBeInTheDocument();
         expect(createAsset).not.toHaveBeenCalled();
     });
 
-    it('defaults and locks the scoped company for a non-super-admin user', () => {
-        useAuthStore.setState({ user: scopedOperator, authState: 'authenticated' });
+    it('shows site-only placement without org cascade pickers', () => {
+        useAuthStore.setState({ user: superAdmin, authState: 'authenticated' });
         wrap();
-        expect(screen.getByText('Company Seven')).toBeInTheDocument();
         expect(screen.queryByText('All Companies')).not.toBeInTheDocument();
-        expect(companiesGetAll).not.toHaveBeenCalled();
-        expect(screen.getByTestId('site-scope').textContent).toMatch(/^7\//);
+        expect(screen.queryByText('Region')).not.toBeInTheDocument();
+        expect(screen.queryByText('Branch')).not.toBeInTheDocument();
     });
 
-    it('locks the cascade and preselected site when opened from a site, then submits create', async () => {
+    it('locks the site when opened from a site and submits create', async () => {
         useAuthStore.setState({ user: superAdmin, authState: 'authenticated' });
         const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
         const onClose = vi.fn();
@@ -142,24 +113,11 @@ describe('AssetFormDrawer', () => {
         await waitFor(() => expect(sitesGet).toHaveBeenCalledWith(9));
         expect(await screen.findByTestId('site-selected')).toHaveTextContent('Site Nine');
         expect(screen.getByTestId('site-disabled')).toHaveTextContent('disabled');
-        expect(screen.getByTestId('site-scope')).toHaveTextContent('1/2/3');
-        expect(companiesGetAll).not.toHaveBeenCalled();
-        expect(regionsGetAll).not.toHaveBeenCalled();
-        expect(branchesGetAll).not.toHaveBeenCalled();
 
-        enterType('OLT');
         fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-        await waitFor(() => expect(createAsset).toHaveBeenCalledTimes(1));
-        expect(createAsset).toHaveBeenCalledWith(expect.objectContaining({
-            site_id: 9,
-            category: 'POWER',
-            type: 'OLT',
-            quantity: 1,
-            unit: 'pcs',
-            status: 'OPERATIONAL',
-        }));
-        await waitFor(() => expect(onClose).toHaveBeenCalled());
+        expect(await screen.findByText('Type is required.')).toBeInTheDocument();
+        expect(createAsset).not.toHaveBeenCalled();
     });
 
     it('prefills edit mode from the asset, keeps the immutable asset code, and submits update', async () => {
@@ -168,6 +126,7 @@ describe('AssetFormDrawer', () => {
             id: 8,
             site_id: 9,
             asset_tag: 'AST-000008',
+            device_name: 'Router-Core-01',
             serial_number: 'SN-8',
             category: 'NETWORK',
             type: 'OLT',
@@ -189,8 +148,6 @@ describe('AssetFormDrawer', () => {
                 branch: { id: 3, name: 'Branch North' },
             },
         });
-        regionsGetAll.mockResolvedValue({ data: [{ id: 2, name: 'Region East', company_id: 1, code: 'RE', country: 'NP', is_active: true }], current_page: 1, last_page: 1, per_page: 500, total: 1, from: 1, to: 1 });
-        branchesGetAll.mockResolvedValue({ data: [{ id: 3, name: 'Branch North', region_id: 2, code: 'BN', country: 'NP', is_active: true }], current_page: 1, last_page: 1, per_page: 500, total: 1, from: 1, to: 1 });
         updateAsset.mockResolvedValue({ data: { id: 8 }, message: 'updated' });
 
         const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -205,7 +162,7 @@ describe('AssetFormDrawer', () => {
         const code = screen.getByLabelText('Asset Code') as HTMLInputElement;
         expect(code.value).toBe('AST-000008');
         expect(code.readOnly).toBe(true);
-        expect(screen.getByLabelText('Type *')).toHaveValue('OLT');
+        expect(screen.getByLabelText('Device Name')).toHaveValue('Router-Core-01');
         expect(screen.getByLabelText('Serial Number')).toHaveValue('SN-8');
 
         fireEvent.click(screen.getByRole('button', { name: 'Save' }));

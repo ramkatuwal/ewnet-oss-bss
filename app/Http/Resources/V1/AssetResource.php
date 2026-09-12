@@ -14,6 +14,7 @@ class AssetResource extends JsonResource
             'site_id' => $this->site_id,
             'company_id' => $this->company_id,
             'asset_tag' => $this->asset_tag,
+            'device_name' => $this->device_name,
             'serial_number' => $this->serial_number,
             'category' => $this->category,
             'type' => $this->type,

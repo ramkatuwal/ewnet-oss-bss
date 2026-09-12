@@ -64,38 +64,28 @@ export const SiteAssetsTab: React.FC<SiteAssetsTabProps> = ({ siteId }) => {
 
     const columns: GridColDef[] = [
         { field: 'asset_tag', headerName: 'Asset Tag', flex: 1 },
-        { field: 'type', headerName: 'Type', flex: 1 },
-        { field: 'manufacturer', headerName: 'Manufacturer', flex: 0.8 },
-        { field: 'model', headerName: 'Model', flex: 0.8 },
+        {
+            field: 'device_name',
+            headerName: 'Device Name',
+            flex: 1,
+            renderCell: (params: GridRenderCellParams) => (
+                <Typography variant="body2" noWrap>{params.value || '\u2014'}</Typography>
+            ),
+        },
+        { field: 'type', headerName: 'Type', flex: 0.7 },
+        { field: 'manufacturer', headerName: 'Vendor', flex: 0.7 },
+        { field: 'model', headerName: 'Model', flex: 0.7 },
         {
             field: 'ip_address',
-            headerName: 'IP Address',
-            flex: 1,
+            headerName: 'Management IP',
+            flex: 0.8,
             renderCell: (params: GridRenderCellParams) => (
-                <Typography
-                    variant="body2"
-                    sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
-                >
-                    {params.row.category === 'NETWORK' && params.value ? params.value : '—'}
+                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                    {params.row.category === 'NETWORK' && params.value ? params.value : '\u2014'}
                 </Typography>
-            )
+            ),
         },
-        {
-            field: 'mac_address',
-            headerName: 'MAC / Identifier',
-            flex: 1,
-            renderCell: (params: GridRenderCellParams) => (
-                <Typography
-                    variant="body2"
-                    sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
-                >
-                    {params.row.category === 'NETWORK' && params.value ? params.value : '—'}
-                </Typography>
-            )
-        },
-        { field: 'serial_number', headerName: 'Serial', flex: 0.8 },
-        { field: 'quantity', headerName: 'Qty', width: 60 },
-        { field: 'unit', headerName: 'Unit', width: 60 },
+        { field: 'serial_number', headerName: 'Serial', flex: 0.7 },
         {
             field: 'status',
             headerName: 'Status',
@@ -106,7 +96,12 @@ export const SiteAssetsTab: React.FC<SiteAssetsTabProps> = ({ siteId }) => {
                     size="small"
                     color={params.value === 'OPERATIONAL' ? 'success' : 'default'}
                 />
-            )
+            ),
+        },
+        {
+            field: 'condition',
+            headerName: 'Condition',
+            width: 100,
         },
         {
             field: 'actions',
@@ -132,7 +127,7 @@ export const SiteAssetsTab: React.FC<SiteAssetsTabProps> = ({ siteId }) => {
                         </Tooltip>
                     </Can>
                 </Box>
-            )
+            ),
         },
     ];
 

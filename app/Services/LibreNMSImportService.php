@@ -212,7 +212,7 @@ class LibreNMSImportService
                             'site_id' => $siteMapping['site_id'],
                             'company_id' => Site::find($siteMapping['site_id'])?->company_id,
                             'asset_tag' => $assetTag,
-                            'description' => $displayName,
+                            'device_name' => $displayName,
                             'manufacturer' => $fullDevice['os'] ?? null,
                             'model' => $fullDevice['hardware'] ?? null,
                             'category' => 'NETWORK',
@@ -221,6 +221,7 @@ class LibreNMSImportService
                             'condition' => 'GOOD',
                             'quantity' => 1,
                             'unit' => 'pcs',
+                            'serial_number' => $fullDevice['serial'] ?? null,
                             'specifications' => [
                                 'source' => 'librenms',
                                 'external_id' => $deviceId,

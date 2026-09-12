@@ -19,6 +19,7 @@ class Asset extends Model
         'site_id',
         'company_id',
         'asset_tag',
+        'device_name',
         'serial_number',
         'category',
         'type',

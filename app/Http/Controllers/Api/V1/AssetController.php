@@ -32,6 +32,7 @@ class AssetController extends Controller
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
                 $q->where('asset_tag', 'ilike', "%{$search}%")
+                    ->orWhere('device_name', 'ilike', "%{$search}%")
                     ->orWhere('serial_number', 'ilike', "%{$search}%")
                     ->orWhere('manufacturer', 'ilike', "%{$search}%")
                     ->orWhere('model', 'ilike', "%{$search}%")
@@ -88,7 +89,7 @@ class AssetController extends Controller
         }
 
         // Server-side sorting with whitelist
-        $allowedSorts = ['asset_tag', 'type', 'category', 'status', 'manufacturer', 'model', 'serial_number', 'quantity', 'created_at', 'updated_at'];
+        $allowedSorts = ['asset_tag', 'device_name', 'type', 'category', 'status', 'manufacturer', 'model', 'serial_number', 'quantity', 'created_at', 'updated_at'];
         $sortBy = $request->input('sort_by', 'created_at');
         $sortDir = $request->input('sort_dir', 'desc');
         if (in_array($sortBy, $allowedSorts)) {

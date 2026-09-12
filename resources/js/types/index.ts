@@ -154,6 +154,7 @@ export interface Asset {
     id: number;
     site_id: number;
     asset_tag: string;
+    device_name: string | null;
     serial_number: string | null;
     category: string;
     type: string;

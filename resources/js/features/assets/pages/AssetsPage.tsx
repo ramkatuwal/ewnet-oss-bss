@@ -35,6 +35,7 @@ const CONDITIONS = ['EXCELLENT', 'GOOD', 'FAIR', 'POOR', 'CRITICAL'];
 
 const DEFAULT_COLUMN_VISIBILITY: Record<string, boolean> = {
     asset_tag: true,
+    device_name: true,
     type: true,
     status: true,
     site: true,
@@ -222,20 +223,28 @@ const AssetsPage: React.FC = () => {
         {
             field: 'asset_tag',
             headerName: 'Asset',
-            flex: 1.2,
+            flex: 1,
+            minWidth: 130,
+            renderCell: (params: GridRenderCellParams) => (
+                <Typography variant="body2" fontWeight="bold">{params.row.asset_tag}</Typography>
+            ),
+        },
+        {
+            field: 'device_name',
+            headerName: 'Device Name',
+            flex: 1,
             minWidth: 140,
             renderCell: (params: GridRenderCellParams) => (
-                <Box>
-                    <Typography variant="body2" fontWeight="bold">{params.row.asset_tag}</Typography>
-                    <Typography variant="caption" color="text.secondary">{params.row.category}</Typography>
-                </Box>
+                <Typography variant="body2" noWrap title={params.value || undefined}>
+                    {params.value || '\u2014'}
+                </Typography>
             ),
         },
         {
             field: 'type',
             headerName: 'Type',
-            flex: 0.8,
-            minWidth: 100,
+            flex: 0.7,
+            minWidth: 90,
         },
         {
             field: 'status',

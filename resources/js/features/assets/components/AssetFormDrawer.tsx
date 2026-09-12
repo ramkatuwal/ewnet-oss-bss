@@ -16,18 +16,25 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createAsset, getAsset, updateAsset } from '../api/assets';
 import { sitesApi, Site } from '@/api/sites';
 import { AsyncSitePicker } from '@/components/infrastructure/AsyncSitePicker';
-import { OrgCascadePicker, OrgSelection } from '@/components/infrastructure/OrgCascadePicker';
 import { normalizeApiError } from '@/api/errors';
 import { infrastructureKeys } from '@/api/queryKeys';
-import { useAuthStore } from '@/stores/authStore';
 import toast from 'react-hot-toast';
 
 const CATEGORIES = ['POWER', 'NETWORK', 'INFRASTRUCTURE', 'OTHER'] as const;
 const STATUSES = ['OPERATIONAL', 'SPARE', 'MAINTENANCE', 'FAULTY', 'RETIRED', 'MISSING', 'DISPOSED'] as const;
 const CONDITIONS = ['EXCELLENT', 'GOOD', 'FAIR', 'POOR', 'CRITICAL'] as const;
+const ASSET_TYPES = [
+    'OLT', 'ONU', 'SWITCH', 'ROUTER', 'AP', 'CONTROLLER',
+    'CABINET', 'CLOSURE', 'FAT', 'FDT', 'FDH', 'ODF', 'PATCH_PANEL', 'SPLITTER',
+    'BATTERY', 'UPS', 'SOLAR_PANEL', 'INVERTER',
+    'RACK', 'PDU', 'AC',
+    'OTHER',
+] as const;
+const UNITS = ['pcs', 'm', 'km', 'pair', 'set', 'roll', 'box', 'unit'] as const;
 
 const schema = z.object({
     site_id: z.number().min(1, 'A site is required.'),
+    device_name: z.string().max(255).optional().or(z.literal('')),
     asset_tag: z.string().max(255).optional().or(z.literal('')),
     category: z.enum(CATEGORIES),
     type: z.string().min(1, 'Type is required.').max(100),
@@ -56,6 +63,7 @@ interface Props {
 
 const defaults = (siteId?: number | null): AssetForm => ({
     site_id: siteId ?? 0,
+    device_name: '',
     asset_tag: '',
     category: 'POWER',
     type: '',
@@ -73,20 +81,25 @@ const defaults = (siteId?: number | null): AssetForm => ({
     notes: '',
 });
 
-const defaultOrg = (user: { company_id?: number | null } | null): OrgSelection => ({
-    company_id: user?.company_id ?? undefined,
-});
-
 const SectionTitle = ({ children }: { children: React.ReactNode }) => (
     <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
         {children}
     </Typography>
 );
 
+const OrgInfo = ({ site }: { site: Site }) => {
+    const parts = [site.company?.name, site.region?.name, site.branch?.name].filter(Boolean);
+    if (parts.length === 0) return null;
+    return (
+        <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1, bgcolor: 'action.hover' }}>
+            <Typography variant="caption" color="text.secondary">Organization (from Site)</Typography>
+            <Typography variant="body2">{parts.join(' \u2022 ')}</Typography>
+        </Box>
+    );
+};
+
 const AssetFormDrawer = ({ open, onClose, assetId, siteId }: Props) => {
     const queryClient = useQueryClient();
-    const user = useAuthStore((s) => s.user);
-    const isSuperAdmin = useAuthStore((s) => s.isSuperAdmin());
 
     const { data: asset } = useQuery({
         queryKey: infrastructureKeys.asset(assetId ?? 0),
@@ -107,14 +120,14 @@ const AssetFormDrawer = ({ open, onClose, assetId, siteId }: Props) => {
     });
 
     const [selectedSite, setSelectedSite] = useState<Site | null>(null);
-    const [orgSelection, setOrgSelection] = useState<OrgSelection>(() => defaultOrg(user));
-
     const isCreate = !assetId;
+    const siteDisabled = Boolean(siteId && !assetId);
 
     useEffect(() => {
         if (asset) {
             reset({
                 site_id: asset.site_id,
+                device_name: asset.device_name ?? '',
                 asset_tag: asset.asset_tag,
                 category: asset.category as AssetForm['category'],
                 type: asset.type,
@@ -132,32 +145,22 @@ const AssetFormDrawer = ({ open, onClose, assetId, siteId }: Props) => {
                 notes: asset.notes ?? '',
             });
             setSelectedSite((asset.site as Site) ?? null);
-            setOrgSelection({
-                company_id: asset.site?.company_id ?? asset.site?.company?.id,
-                region_id: asset.site?.region_id ?? asset.site?.region?.id,
-                branch_id: asset.site?.branch_id ?? asset.site?.branch?.id,
-            });
         } else if (open) {
             reset(defaults(siteId));
             setSelectedSite(null);
-            setOrgSelection(defaultOrg(user));
             if (siteId) {
                 sitesApi.get(siteId).then((site) => {
                     setSelectedSite(site);
-                    setOrgSelection({
-                        company_id: site.company_id,
-                        region_id: site.region_id,
-                        branch_id: site.branch_id,
-                    });
                 }).catch(() => undefined);
             }
         }
-    }, [asset, open, reset, siteId, user]);
+    }, [asset, open, reset, siteId]);
 
     const mutation = useMutation({
         mutationFn: (data: AssetForm) => {
             const payload = { ...data };
             if (!payload.asset_tag) delete payload.asset_tag;
+            if (!payload.device_name) delete payload.device_name;
             return assetId ? updateAsset(assetId, payload) : createAsset(payload);
         },
         onSuccess: () => {
@@ -177,9 +180,6 @@ const AssetFormDrawer = ({ open, onClose, assetId, siteId }: Props) => {
             }
         },
     });
-
-    const scopedCompanyId = isSuperAdmin ? undefined : user?.company_id;
-    const orgDisabled = Boolean(siteId && !assetId);
 
     const input = (name: keyof AssetForm, label: string, opts?: { type?: string; multiline?: boolean; rows?: number; min?: string }) => (
         <TextField
@@ -219,34 +219,24 @@ const AssetFormDrawer = ({ open, onClose, assetId, siteId }: Props) => {
 
                 <Box sx={{ flex: 1, overflow: 'auto', p: 3, pt: 2 }}>
                     <Stack spacing={3}>
-                        {/* Organization */}
+                        {/* Organization — Site Only */}
                         <Stack spacing={1.5}>
-                            <SectionTitle>Organization</SectionTitle>
-                            <OrgCascadePicker
-                                value={orgSelection}
-                                onChange={setOrgSelection}
-                                disabled={orgDisabled}
-                                companyLocked={!isSuperAdmin && Boolean(scopedCompanyId)}
-                                companyLockedLabel={user?.company?.name}
-                                showCompanyPicker={isSuperAdmin}
-                            />
+                            <SectionTitle>Placement</SectionTitle>
                             <AsyncSitePicker
                                 control={control}
                                 selectedSite={selectedSite}
                                 onSelected={setSelectedSite}
-                                companyId={orgSelection.company_id}
-                                regionId={orgSelection.region_id}
-                                branchId={orgSelection.branch_id}
-                                disabled={orgDisabled}
+                                disabled={siteDisabled}
                                 error={errors.site_id?.message}
                             />
+                            {selectedSite && <OrgInfo site={selectedSite} />}
                         </Stack>
 
                         <Divider />
 
-                        {/* Asset Code */}
-                        <Stack spacing={1}>
-                            <SectionTitle>Asset Code</SectionTitle>
+                        {/* Asset Code + Device Name */}
+                        <Stack spacing={1.5}>
+                            <SectionTitle>Identity</SectionTitle>
                             {isCreate ? (
                                 <Box sx={{ p: 1.5, border: '1px dashed', borderColor: 'divider', borderRadius: 1, bgcolor: 'action.hover' }}>
                                     <Typography variant="body2" fontWeight="medium" sx={{ fontFamily: 'monospace', mb: 0.5 }}>AST-000123</Typography>
@@ -263,13 +253,14 @@ const AssetFormDrawer = ({ open, onClose, assetId, siteId }: Props) => {
                                     FormHelperTextProps={{ sx: { color: 'text.secondary' } }}
                                 />
                             )}
+                            {input('device_name', 'Device Name')}
                         </Stack>
 
                         <Divider />
 
-                        {/* Identity */}
+                        {/* Category + Type */}
                         <Stack spacing={1.5}>
-                            <SectionTitle>Identity</SectionTitle>
+                            <SectionTitle>Classification</SectionTitle>
                             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
                                 <TextField
                                     select
@@ -285,7 +276,21 @@ const AssetFormDrawer = ({ open, onClose, assetId, siteId }: Props) => {
                                         <MenuItem key={v} value={v}>{v}</MenuItem>
                                     ))}
                                 </TextField>
-                                {input('type', 'Type *')}
+                                <TextField
+                                    select
+                                    fullWidth
+                                    size="small"
+                                    label="Type *"
+                                    defaultValue=""
+                                    {...register('type')}
+                                    error={Boolean(errors.type)}
+                                    helperText={errors.type?.message}
+                                >
+                                    <MenuItem value="" disabled>Select type</MenuItem>
+                                    {ASSET_TYPES.map((v) => (
+                                        <MenuItem key={v} value={v}>{v}</MenuItem>
+                                    ))}
+                                </TextField>
                             </Stack>
                         </Stack>
 
@@ -308,7 +313,20 @@ const AssetFormDrawer = ({ open, onClose, assetId, siteId }: Props) => {
                             <SectionTitle>Quantity</SectionTitle>
                             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
                                 {input('quantity', 'Quantity *', { type: 'number' })}
-                                {input('unit', 'Unit')}
+                                <TextField
+                                    select
+                                    fullWidth
+                                    size="small"
+                                    label="Unit"
+                                    defaultValue="pcs"
+                                    {...register('unit')}
+                                    error={Boolean(errors.unit)}
+                                    helperText={errors.unit?.message}
+                                >
+                                    {UNITS.map((v) => (
+                                        <MenuItem key={v} value={v}>{v}</MenuItem>
+                                    ))}
+                                </TextField>
                             </Stack>
                         </Stack>
 

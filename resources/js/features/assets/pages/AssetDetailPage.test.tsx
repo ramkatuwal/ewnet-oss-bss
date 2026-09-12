@@ -21,6 +21,7 @@ vi.mock('@/features/assets/components/AssetLifecycleTimeline', () => ({ AssetLif
 vi.mock('@/features/assets/components/AssetTransferDialog', () => ({ AssetTransferDialog: () => null }));
 vi.mock('@/features/assets/components/AssetStatusChangeDialog', () => ({ AssetStatusChangeDialog: () => null }));
 vi.mock('@/features/assets/components/AssetFormDrawer', () => ({ default: () => null }));
+vi.mock('@/features/assets/components/NetworkPortPreview', () => ({ NetworkPortPreview: () => null }));
 vi.mock('@/features/assets/components/assetTabs/AssetNetworkPortsTab', () => ({ AssetNetworkPortsTab: () => null }));
 vi.mock('@/features/assets/components/assetTabs/AssetInterfacesTab', () => ({ AssetInterfacesTab: () => null }));
 vi.mock('@/features/assets/components/assetTabs/AssetIpAddressesTab', () => ({ AssetIpAddressesTab: () => null }));
@@ -105,7 +106,7 @@ beforeEach(() => {
 describe('AssetDetailPage permission-aware actions', () => {
     it('shows Transfer, Retire, Dispose, Edit, and Delete for a super admin', async () => {
         renderPage(superAdmin);
-        expect(await screen.findAllByText('AST-000008')).toHaveLength(2);
+        expect(await screen.findAllByText('AST-000008')).toHaveLength(3);
         const actions = within(screen.getByTestId('header-actions'));
         expect(actions.getByRole('button', { name: 'Transfer' })).toBeEnabled();
         expect(actions.getByRole('button', { name: 'Retire' })).toBeEnabled();
@@ -116,7 +117,7 @@ describe('AssetDetailPage permission-aware actions', () => {
 
     it('hides all asset mutations for a viewer with only assets.view', async () => {
         renderPage(viewer);
-        expect(await screen.findAllByText('AST-000008')).toHaveLength(2);
+        expect(await screen.findAllByText('AST-000008')).toHaveLength(3);
         const actions = within(screen.getByTestId('header-actions'));
         expect(actions.queryByRole('button', { name: 'Transfer' })).not.toBeInTheDocument();
         expect(actions.queryByRole('button', { name: 'Retire' })).not.toBeInTheDocument();
@@ -127,11 +128,10 @@ describe('AssetDetailPage permission-aware actions', () => {
 
     it('renders the authoritative asset header with status and type context', async () => {
         renderPage(viewer);
-        expect(await screen.findAllByText('AST-000008')).toHaveLength(2);
+        expect(await screen.findAllByText('AST-000008')).toHaveLength(3);
         expect(screen.getByText('OPERATIONAL')).toBeInTheDocument();
         expect(screen.getAllByText('NETWORK').length).toBeGreaterThanOrEqual(1);
-        expect(screen.getByText('Authoritative')).toBeInTheDocument();
-        expect(screen.getByText('0 Ports')).toBeInTheDocument();
+        expect(screen.getAllByText('Authoritative').length).toBeGreaterThanOrEqual(1);
         expect(screen.getByText('Site Nine')).toBeInTheDocument();
     });
 });
