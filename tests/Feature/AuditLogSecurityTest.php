@@ -188,4 +188,30 @@ class AuditLogSecurityTest extends TestCase
 
         $this->assertCount(1, $response->json('data'));
     }
+
+    public function test_audit_logs_can_be_filtered_by_target_id(): void
+    {
+        AuditLog::create([
+            'actor_type' => User::class,
+            'actor_id' => $this->superAdmin->id,
+            'action' => 'asset.created',
+            'result' => 'success',
+            'target_type' => 'App\\Models\\Asset',
+            'target_id' => 42,
+        ]);
+        AuditLog::create([
+            'actor_type' => User::class,
+            'actor_id' => $this->superAdmin->id,
+            'action' => 'asset.created',
+            'result' => 'success',
+            'target_type' => 'App\\Models\\Asset',
+            'target_id' => 43,
+        ]);
+
+        $this->actingAs($this->superAdmin)
+            ->getJson('/api/v1/security/audit-logs?target_type=App%5CModels%5CAsset&target_id=42&per_page=100')
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.target.id', 42);
+    }
 }
