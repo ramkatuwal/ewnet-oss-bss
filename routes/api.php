@@ -172,6 +172,11 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::get('/assets/{asset}/ip-addresses', [AssetOperationalController::class, 'ipAddresses']);
     Route::get('/assets/{asset}/pon-memberships', [AssetOperationalController::class, 'ponMemberships']);
     Route::get('/assets/{asset}/vlan-memberships', [AssetOperationalController::class, 'vlanMemberships']);
+    Route::get('/assets/{asset}/observed-vlans', [AssetOperationalController::class, 'observedVlans']);
+    Route::put('/assets/{asset}/interfaces/{assetInterface}/reconcile', [AssetOperationalController::class, 'reconcileInterface']);
+    Route::delete('/assets/{asset}/interfaces/{assetInterface}/reconcile', [AssetOperationalController::class, 'unreconcileInterface']);
+    Route::put('/assets/{asset}/observed-vlans/{observedVlan}/reconcile', [AssetOperationalController::class, 'reconcileVlan']);
+    Route::delete('/assets/{asset}/observed-vlans/{observedVlan}/reconcile', [AssetOperationalController::class, 'unreconcileVlan']);
     Route::get('/fim/network-ports/{networkPort}', [NetworkPortController::class, 'show']);
     Route::patch('/fim/network-ports/{networkPort}', [NetworkPortController::class, 'update']);
     Route::delete('/fim/network-ports/{networkPort}', [NetworkPortController::class, 'destroy']);
@@ -315,6 +320,7 @@ Route::middleware('auth:sanctum')->prefix('v1/integrations')->group(function () 
     Route::post('/{integration}/health-check', [IntegrationController::class, 'healthCheck']);
     Route::post('/{integration}/sync', [IntegrationController::class, 'sync']);
     Route::get('/{integration}/syncs', [IntegrationController::class, 'syncs']);
+    Route::post('/{integration}/observation-sync', [IntegrationController::class, 'observationSync']);
 
     // Credentials (nested under integration)
     Route::get('/{integration}/credentials', [IntegrationCredentialController::class, 'index']);
