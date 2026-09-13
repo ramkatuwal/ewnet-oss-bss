@@ -155,6 +155,7 @@ export interface Asset {
     site_id: number;
     asset_tag: string;
     device_name: string | null;
+    management_ip: string | null;
     serial_number: string | null;
     category: string;
     type: string;
@@ -189,6 +190,11 @@ export interface Asset {
         branch?: { id: number; name: string };
     };
     provider_observations?: {
+        observed_display?: string | null;
+        observed_sys_name?: string | null;
+        provider_type?: string | null;
+        integration_id?: number | null;
+        last_poll?: string | null;
         provider: string;
         external_id: string | null;
         provider_status: string | null;
@@ -213,7 +219,9 @@ export interface IpAddress {
     prefix_length: number;
     is_primary: boolean;
     is_management: boolean;
+    observation_status?: 'observed' | 'stale' | string | null;
     provider: string | null;
+    integration_id?: number | null;
     external_type: string | null;
     external_id: string | null;
     first_seen_at: string | null;
@@ -234,15 +242,38 @@ export interface AssetInterface {
     speed: number | null;
     status: string | null;
     is_management: boolean;
+    observation_status?: 'observed' | 'stale' | string | null;
     provider: string | null;
     external_type: string | null;
     external_id: string | null;
     metadata: Record<string, unknown> | null;
+    reconciled_network_port_id?: number | null;
+    reconciled_port?: NetworkPort | null;
     first_seen_at: string | null;
     last_seen_at: string | null;
     created_at?: string;
     updated_at?: string;
     ip_addresses?: IpAddress[];
+}
+
+export interface ObservedVlan {
+    id: number;
+    asset_id: number;
+    asset_interface_id: number | null;
+    vid: number;
+    name: string | null;
+    vlan_type: string | null;
+    provider: string | null;
+    external_type: string | null;
+    external_id: string | null;
+    observation_status: 'observed' | 'stale' | string;
+    metadata: Record<string, unknown> | null;
+    reconciled_vlan_id: number | null;
+    first_seen_at: string | null;
+    last_seen_at: string | null;
+    created_at?: string;
+    updated_at?: string;
+    reconciled_vlan?: Vlan | null;
 }
 
 export interface Vlan {
@@ -409,4 +440,5 @@ export interface AssetOperational extends Asset {
     passive_optical_ports?: PassiveOpticalPort[];
     splitter_profile?: SplitterProfile | null;
     pon_memberships?: PonMembership[];
+    observed_vlans?: ObservedVlan[];
 }

@@ -25,6 +25,16 @@ class AssetPolicy
         return $this->hasPermissionAndInScope($user, 'assets.view', $site);
     }
 
+    public function reconcileObservations(User $user, Asset $asset): bool
+    {
+        $site = $asset->site()->first();
+        if (! $site) {
+            return false;
+        }
+
+        return $this->hasPermissionAndInScope($user, 'assets.observations.sync', $site);
+    }
+
     public function create(User $user): bool
     {
         return $user->hasPermissionTo('assets.create');

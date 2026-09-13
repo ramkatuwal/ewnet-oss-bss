@@ -21,6 +21,8 @@ use App\Services\Integrations\Uisp\UispImportService;
 use App\Services\LibreNMSImportService;
 use App\Services\LibreNMSSiteService;
 use App\Services\ManagementScopeService;
+use App\Services\Observations\ObservationSyncManager;
+use App\Services\Observations\ObservationSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -223,6 +225,21 @@ class IntegrationController extends Controller
         return IntegrationSyncResource::collection($syncs);
     }
 
+    public function observationSync(Request $request, Integration $integration)
+    {
+        $this->authorize('observationSync', $integration);
+
+        $category = $request->input('category', 'all');
+
+        if (! in_array($category, ObservationSyncService::CATEGORIES, true)) {
+            return response()->json(['error' => 'Invalid observation sync category'], 422);
+        }
+
+        $sync = ObservationSyncManager::start($integration, $category, auth()->id());
+
+        return new IntegrationSyncResource($sync);
+    }
+
     public function stats(Request $request, Integration $integration)
     {
         $this->authorize('view', $integration);
@@ -347,7 +364,11 @@ class IntegrationController extends Controller
 
         $validated = $request->validate([
             'sites' => 'array',
-            'devices' => 'array',
+            'devices' => $integration->provider === 'librenms' ? 'array|max:1000' : 'array',
+            ...($integration->provider === 'librenms' ? [
+                'devices.*' => 'array',
+                'devices.*.external_id' => 'required|string|max:255',
+            ] : []),
         ]);
 
         $sites = $validated['sites'] ?? [];

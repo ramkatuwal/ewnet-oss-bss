@@ -45,6 +45,11 @@ class IntegrationPolicy
         return $this->hasPermissionAndInScope($user, 'integrations.sync', $integration);
     }
 
+    public function observationSync(User $user, Integration $integration): bool
+    {
+        return $this->hasPermissionAndInScope($user, 'assets.observations.sync', $integration);
+    }
+
     public function manageCredentials(User $user, Integration $integration): bool
     {
         return $this->hasPermissionAndInScope($user, 'integrations.credentials.manage', $integration);

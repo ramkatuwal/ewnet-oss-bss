@@ -1,4 +1,4 @@
-import type { Asset, AssetInterface, AssetOperational, AssetVlanMembership, IpAddress, NetworkPort, PaginatedResponse, PonMembership } from '@/types';
+import type { Asset, AssetInterface, AssetOperational, AssetVlanMembership, IpAddress, NetworkPort, ObservedVlan, PaginatedResponse, PonMembership } from '@/types';
 import { apiClient } from '@/api/client';
 
 export type { NetworkPort };
@@ -128,3 +128,18 @@ export const getAssetPonMemberships = (assetId: number, params?: { page?: number
 
 export const getAssetVlanMemberships = (assetId: number, params?: { page?: number; per_page?: number }) =>
     apiClient.get<PaginatedResponse<AssetVlanMembership>>(`/api/v1/assets/${assetId}/vlan-memberships`, { params }).then((res) => res.data);
+
+export const getAssetObservedVlans = (assetId: number, params?: { page?: number; per_page?: number }) =>
+    apiClient.get<PaginatedResponse<ObservedVlan>>(`/api/v1/assets/${assetId}/observed-vlans`, { params }).then((res) => res.data);
+
+export const reconcileAssetInterface = (assetId: number, interfaceId: number, networkPortId: number) =>
+    apiClient.put(`/api/v1/assets/${assetId}/interfaces/${interfaceId}/reconcile`, { network_port_id: networkPortId }).then((res) => res.data);
+
+export const unreconcileAssetInterface = (assetId: number, interfaceId: number) =>
+    apiClient.delete(`/api/v1/assets/${assetId}/interfaces/${interfaceId}/reconcile`).then((res) => res.data);
+
+export const reconcileObservedVlan = (assetId: number, observedVlanId: number, vlanId: number) =>
+    apiClient.put(`/api/v1/assets/${assetId}/observed-vlans/${observedVlanId}/reconcile`, { vlan_id: vlanId }).then((res) => res.data);
+
+export const unreconcileObservedVlan = (assetId: number, observedVlanId: number) =>
+    apiClient.delete(`/api/v1/assets/${assetId}/observed-vlans/${observedVlanId}/reconcile`).then((res) => res.data);

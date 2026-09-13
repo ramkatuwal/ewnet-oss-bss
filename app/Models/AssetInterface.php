@@ -19,11 +19,14 @@ class AssetInterface extends Model
         'status',
         'is_management',
         'provider',
+        'integration_id',
         'external_type',
         'external_id',
         'metadata',
         'first_seen_at',
         'last_seen_at',
+        'observation_status',
+        'reconciled_network_port_id',
     ];
 
     protected $casts = [
@@ -32,7 +35,11 @@ class AssetInterface extends Model
         'first_seen_at' => 'datetime',
         'last_seen_at' => 'datetime',
         'speed' => 'integer',
+        'reconciled_network_port_id' => 'integer',
+        'integration_id' => 'integer',
     ];
+
+    public const OBSERVATION_STATUSES = ['observed', 'stale'];
 
     public function asset(): BelongsTo
     {
@@ -42,6 +49,11 @@ class AssetInterface extends Model
     public function ipAddresses(): HasMany
     {
         return $this->hasMany(IpAddress::class);
+    }
+
+    public function reconciledNetworkPort(): BelongsTo
+    {
+        return $this->belongsTo(NetworkPort::class, 'reconciled_network_port_id');
     }
 
     public function managementIp(): ?IpAddress

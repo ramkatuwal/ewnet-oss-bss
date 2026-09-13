@@ -137,6 +137,7 @@ class AssetController extends Controller
         $asset->load([
             'site.company', 'site.region', 'site.branch',
             'interfaces',
+            'observedVlans.reconciledVlan',
             'ipAddresses',
             'networkPorts.ponDomain.memberships.onuAsset',
             'networkPorts.switchingConfiguration.memberships.vlan',

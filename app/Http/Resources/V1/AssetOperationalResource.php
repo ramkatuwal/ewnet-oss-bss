@@ -19,6 +19,7 @@ class AssetOperationalResource extends JsonResource
 
         return $base + [
             'interfaces' => AssetInterfaceResource::collection($this->whenLoaded('interfaces')),
+            'observed_vlans' => ObservedVlanResource::collection($this->whenLoaded('observedVlans')),
             'ip_addresses' => IpAddressResource::collection($this->whenLoaded('ipAddresses')),
             'network_ports' => NetworkPortResource::collection($this->whenLoaded('networkPorts')),
             'routing_instances' => RoutingInstanceResource::collection($this->whenLoaded('routingInstances')),

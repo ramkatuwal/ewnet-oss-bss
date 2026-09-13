@@ -16,6 +16,7 @@ import { AssetTransferDialog } from '../components/AssetTransferDialog';
 import { AssetStatusChangeDialog } from '../components/AssetStatusChangeDialog';
 import { PhotoGallery } from '@/features/shared/components/PhotoGallery';
 import { AssetInterfacesTab } from '../components/assetTabs/AssetInterfacesTab';
+import { AssetObservedVlansTab } from '../components/assetTabs/AssetObservedVlansTab';
 import { AssetIpAddressesTab } from '../components/assetTabs/AssetIpAddressesTab';
 import { AssetFimTab } from '../components/assetTabs/AssetFimTab';
 import { AssetPonTab } from '../components/assetTabs/AssetPonTab';
@@ -125,6 +126,16 @@ const AssetDetailPage: React.FC = () => {
 
     const hasFim = asset.passive_optical_ports?.length > 0 || asset.splitter_profile;
     const hasPon = asset.pon_memberships?.length > 0;
+    const hasObservedVlans = asset.category === 'NETWORK';
+    let nextTabIndex = 2 + (asset.category === 'NETWORK' ? 1 : 0);
+    const interfacesTabIndex = interfacesCount > 0 ? nextTabIndex++ : null;
+    const observedVlansTabIndex = hasObservedVlans ? nextTabIndex++ : null;
+    const ipAddressesTabIndex = interfacesCount > 0 ? nextTabIndex++ : null;
+    const fimTabIndex = hasFim ? nextTabIndex++ : null;
+    const ponTabIndex = hasPon ? nextTabIndex++ : null;
+    const vlanTabIndex = nextTabIndex++;
+    const routingTabIndex = asset.routing_instances?.length > 0 ? nextTabIndex++ : null;
+    const auditTabIndex = nextTabIndex;
 
     const observations = asset.provider_observations;
     const isImported = Boolean(observations);
@@ -351,6 +362,7 @@ const AssetDetailPage: React.FC = () => {
                                 <Tab label="Photos" />
                                 {asset.category === 'NETWORK' && <Tab label="Network Ports" />}
                                 {interfacesCount > 0 && <Tab label="Interfaces" />}
+                                {hasObservedVlans && <Tab label="Observed VLANs" />}
                                 {interfacesCount > 0 && <Tab label="IP Addresses" />}
                                 {hasFim && <Tab label="FIM" />}
                                 {hasPon && <Tab label="PON" />}
@@ -385,34 +397,39 @@ const AssetDetailPage: React.FC = () => {
                             </TabPanel>
                         )}
                         {interfacesCount > 0 && (
-                            <TabPanel value={tabValue} index={asset.category === 'NETWORK' ? 3 : 2}>
-                                <AssetInterfacesTab interfaces={asset.interfaces ?? []} />
+                            <TabPanel value={tabValue} index={interfacesTabIndex ?? -1}>
+                                <AssetInterfacesTab assetId={assetId} />
+                            </TabPanel>
+                        )}
+                        {hasObservedVlans && (
+                            <TabPanel value={tabValue} index={observedVlansTabIndex ?? -1}>
+                                <AssetObservedVlansTab assetId={assetId} />
                             </TabPanel>
                         )}
                         {interfacesCount > 0 && (
-                            <TabPanel value={tabValue} index={asset.category === 'NETWORK' ? 4 : 3}>
+                            <TabPanel value={tabValue} index={ipAddressesTabIndex ?? -1}>
                                 <AssetIpAddressesTab addresses={asset.ip_addresses ?? []} />
                             </TabPanel>
                         )}
                         {hasFim && (
-                            <TabPanel value={tabValue} index={asset.category === 'NETWORK' ? 5 : 4}>
+                            <TabPanel value={tabValue} index={fimTabIndex ?? -1}>
                                 <AssetFimTab passivePorts={asset.passive_optical_ports ?? []} splitter={asset.splitter_profile ?? null} />
                             </TabPanel>
                         )}
                         {hasPon && (
-                            <TabPanel value={tabValue} index={asset.category === 'NETWORK' ? 6 : 5}>
+                            <TabPanel value={tabValue} index={ponTabIndex ?? -1}>
                                 <AssetPonTab memberships={asset.pon_memberships ?? []} />
                             </TabPanel>
                         )}
-                        <TabPanel value={tabValue} index={asset.category === 'NETWORK' ? (hasFim ? 7 : (hasPon ? 6 : 5)) : (hasFim ? 5 : (hasPon ? 4 : 3))}>
+                        <TabPanel value={tabValue} index={vlanTabIndex}>
                             <AssetVlanTab assetId={assetId} />
                         </TabPanel>
                         {asset.routing_instances?.length > 0 && (
-                            <TabPanel value={tabValue} index={asset.category === 'NETWORK' ? 8 : 6}>
+                            <TabPanel value={tabValue} index={routingTabIndex ?? -1}>
                                 <AssetRoutingTab instances={asset.routing_instances ?? []} />
                             </TabPanel>
                         )}
-                        <TabPanel value={tabValue} index={tabValue}>
+                        <TabPanel value={tabValue} index={auditTabIndex}>
                             <AssetAuditTab assetId={assetId} />
                         </TabPanel>
                     </Card>
