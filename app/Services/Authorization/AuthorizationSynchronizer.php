@@ -20,10 +20,11 @@ class AuthorizationSynchronizer
         $roleGrants = [];
 
         foreach (PermissionCatalog::managedRoles() as $roleName => $mode) {
+            $required = $mode === 'all' ? $canonical : $mode;
             $role = Role::query()->where('name', $roleName)->where('guard_name', 'web')->first();
             $roleGrants[$roleName] = [
                 'exists' => $role !== null,
-                'missing' => $role === null ? $canonical : array_values(array_diff($canonical, $role->permissions()->pluck('name')->all())),
+                'missing' => $role === null ? $required : array_values(array_diff($required, $role->permissions()->pluck('name')->all())),
             ];
         }
 
