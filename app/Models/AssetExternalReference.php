@@ -13,14 +13,21 @@ class AssetExternalReference extends Model
         'external_type',
         'external_id',
         'metadata',
+        'integration_id',
     ];
 
     protected $casts = [
         'metadata' => 'array',
+        'integration_id' => 'integer',
     ];
 
     public function asset(): BelongsTo
     {
         return $this->belongsTo(Asset::class);
+    }
+
+    public function integration(): BelongsTo
+    {
+        return $this->belongsTo(Integration::class, 'integration_id');
     }
 }

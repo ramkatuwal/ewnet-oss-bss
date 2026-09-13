@@ -7,7 +7,7 @@ import {
 } from '@mui/material';
 import {
     DataGrid, GridColDef, GridRenderCellParams, GridRowParams,
-    GridToolbarColumnsButton, gridClasses, GridSortModel,
+    GridToolbarColumnsButton, GridSortModel,
 } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -28,6 +28,7 @@ import {
 import toast from 'react-hot-toast';
 import { infrastructureKeys } from '@/api/queryKeys';
 import { PageErrorState } from '@/components/feedback/PageStates';
+import { assetModelSettingsApi } from '@/features/settings/api/assetModelSettings';
 
 const COLUMN_VISIBILITY_KEY = 'assets-table-column-visibility';
 
@@ -36,6 +37,7 @@ const CONDITIONS = ['EXCELLENT', 'GOOD', 'FAIR', 'POOR', 'CRITICAL'];
 const DEFAULT_COLUMN_VISIBILITY: Record<string, boolean> = {
     asset_tag: true,
     device_name: true,
+    management_ip: true,
     type: true,
     status: true,
     observed_status: false,
@@ -43,7 +45,7 @@ const DEFAULT_COLUMN_VISIBILITY: Record<string, boolean> = {
     manufacturer: true,
     model: true,
     ip_address: false,
-    mac_address: false,
+    mac_address: true,
     serial_number: true,
     condition: false,
     quantity: true,
@@ -93,7 +95,7 @@ const AssetsPage: React.FC = () => {
     const [columnVisibilityModel, setColumnVisibilityModel] = useState(() => {
         try {
             const saved = localStorage.getItem(COLUMN_VISIBILITY_KEY);
-            return saved ? JSON.parse(saved) : DEFAULT_COLUMN_VISIBILITY;
+            return saved ? { ...DEFAULT_COLUMN_VISIBILITY, ...JSON.parse(saved) } : DEFAULT_COLUMN_VISIBILITY;
         } catch {
             return DEFAULT_COLUMN_VISIBILITY;
         }
@@ -108,7 +110,7 @@ const AssetsPage: React.FC = () => {
     // other views (plain text column), just not overridden here.
     const effectiveColumnVisibility = useMemo(() => {
         if (categoryFilter === 'NETWORK') {
-            return { ...columnVisibilityModel, ip_address: true, mac_address: true, observed_status: true };
+            return { ...columnVisibilityModel, mac_address: true, observed_status: true };
         }
         return columnVisibilityModel;
     }, [categoryFilter, columnVisibilityModel]);
@@ -144,6 +146,11 @@ const AssetsPage: React.FC = () => {
     });
 
     // Queries
+    const { data: categories = [] } = useQuery({
+        queryKey: ['settings', 'asset-categories'],
+        queryFn: () => assetModelSettingsApi.getCategories().then(r => r.data.data),
+    });
+
     const { data: dashboard, isLoading: isDashboardLoading } = useQuery<AssetDashboardData>({
         queryKey: infrastructureKeys.assetDashboard(),
         queryFn: getAssetDashboard,
@@ -164,7 +171,7 @@ const AssetsPage: React.FC = () => {
         sort_dir: sortModel[0]?.sort || 'desc',
     }), [page, pageSize, search, statusFilter, categoryFilter, effectiveCompanyFilter, regionFilter, branchFilter, manufacturerFilter, conditionFilter, sortModel]);
 
-    const { data, isLoading, error } = useQuery({
+    const { data, isLoading, error, refetch } = useQuery({
         queryKey: infrastructureKeys.assets({ ...queryParams }),
         queryFn: () => getAssets(queryParams),
     });
@@ -201,8 +208,8 @@ const AssetsPage: React.FC = () => {
             toast.success('Import queued successfully');
             setImportOpen(false);
             setImportFile(null);
-            queryClient.invalidateQueries({ queryKey: ['assets'] });
-            queryClient.invalidateQueries({ queryKey: ['asset-dashboard'] });
+            queryClient.invalidateQueries({ queryKey: ['infrastructure', 'assets'] });
+            queryClient.invalidateQueries({ queryKey: ['infrastructure', 'site-assets'] });
         } catch {
             toast.error('Import failed');
         }
@@ -223,7 +230,7 @@ const AssetsPage: React.FC = () => {
     const columns: GridColDef[] = useMemo(() => [
         {
             field: 'asset_tag',
-            headerName: 'Asset',
+            headerName: 'Asset Code',
             flex: 1,
             minWidth: 130,
             renderCell: (params: GridRenderCellParams) => (
@@ -242,6 +249,17 @@ const AssetsPage: React.FC = () => {
             ),
         },
         {
+            field: 'management_ip',
+            headerName: 'Management IP',
+            flex: 0.8,
+            minWidth: 120,
+            renderCell: (params: GridRenderCellParams) => (
+                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }} noWrap>
+                    {params.value || '\u2014'}
+                </Typography>
+            ),
+        },
+        {
             field: 'type',
             headerName: 'Type',
             flex: 0.7,
@@ -249,7 +267,7 @@ const AssetsPage: React.FC = () => {
         },
         {
             field: 'status',
-            headerName: 'Status',
+            headerName: 'Asset Status',
             flex: 0.7,
             minWidth: 110,
             renderCell: (params: GridRenderCellParams) => (
@@ -299,8 +317,7 @@ const AssetsPage: React.FC = () => {
                         onClick={(e) => { e.stopPropagation(); navigate(`/network/sites/${site.id}`); }}
                         sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
                     >
-                        <Typography variant="body2" fontWeight="medium">{site.site_code}</Typography>
-                        <Typography variant="caption" color="text.secondary">{site.name}</Typography>
+                        <Typography variant="body2" fontWeight="medium">{site.name}</Typography>
                     </Box>
                 );
             },
@@ -318,34 +335,14 @@ const AssetsPage: React.FC = () => {
             minWidth: 100,
         },
         {
-            field: 'ip_address',
-            headerName: 'IP Address',
-            flex: 0.9,
-            minWidth: 130,
-            sortable: false,
-            renderCell: (params: GridRenderCellParams) => (
-                <Typography
-                    variant="body2"
-                    title={params.row.category === 'NETWORK' ? (params.value || undefined) : undefined}
-                    sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
-                >
-                    {params.row.category === 'NETWORK' && params.value ? params.value : '—'}
-                </Typography>
-            ),
-        },
-        {
             field: 'mac_address',
             headerName: 'MAC / Identifier',
-            flex: 0.9,
             minWidth: 150,
+            flex: 0.9,
             sortable: false,
             renderCell: (params: GridRenderCellParams) => (
-                <Typography
-                    variant="body2"
-                    title={params.row.category === 'NETWORK' ? (params.value || undefined) : undefined}
-                    sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
-                >
-                    {params.row.category === 'NETWORK' && params.value ? params.value : '—'}
+                <Typography variant="body2" noWrap sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                    {params.value || '\u2014'}
                 </Typography>
             ),
         },
@@ -473,11 +470,11 @@ const AssetsPage: React.FC = () => {
     ], [navigate]);
 
     if (error) {
-        return <PageErrorState message="Unable to load assets." onRetry={() => window.location.reload()} />;
+        return <PageErrorState message="Unable to load assets." onRetry={() => void refetch()} />;
     }
 
     const rows = data?.data || [];
-    const totalRows = (data as any)?.meta?.total ?? 0;
+    const totalRows = data?.total ?? 0;
 
     return (
         <Box sx={{ p: 3, maxWidth: 1600, mx: 'auto' }}>
@@ -548,8 +545,8 @@ const AssetsPage: React.FC = () => {
                     onChange={(e) => setCategoryFilter(e.target.value)}
                 >
                     <MenuItem value="">All Categories</MenuItem>
-                    {['POWER', 'NETWORK', 'INFRASTRUCTURE', 'OTHER'].map(c => (
-                        <MenuItem key={c} value={c}>{c}</MenuItem>
+                    {categories.map(c => (
+                        <MenuItem key={c.id} value={c.code}>{c.name}{c.is_active ? '' : ' (inactive)'}</MenuItem>
                     ))}
                 </TextField>
                 {!lockedCompanyFilter && (
@@ -610,6 +607,7 @@ const AssetsPage: React.FC = () => {
             {/* DataGrid */}
             <Box sx={{ height: 650, width: '100%', bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider', mt: 2 }}>
                 <DataGrid
+                    density="compact"
                     rows={rows}
                     columns={columns}
                     loading={isLoading}
@@ -635,7 +633,6 @@ const AssetsPage: React.FC = () => {
                     sx={{
                         '& .MuiDataGrid-row:hover': { backgroundColor: 'action.hover', cursor: 'pointer' },
                         '& .MuiDataGrid-cell': { py: 0.75 },
-                        [`& .${gridClasses.cell}`]: { outline: 'none !important' },
                     }}
                 />
             </Box>

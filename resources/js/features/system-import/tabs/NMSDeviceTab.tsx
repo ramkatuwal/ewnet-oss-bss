@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Box, Button, CircularProgress } from '@mui/material';
+import { Alert, Box, Button, CircularProgress } from '@mui/material';
 import toast from 'react-hot-toast';
 
 // Shared components
@@ -47,7 +47,7 @@ const NMSDeviceTab: React.FC = () => {
     return p ? { id: p.id, name: p.name, provider: p.provider, status: 'connected', enabled: true } : null;
   }, [selectedIntegration, providers]);
 
-  const { data: previewData, isLoading: isPreviewing, refetch: runPreview } = useQuery({
+  const { data: previewData, isLoading: isPreviewing, isError, refetch: runPreview } = useQuery({
     queryKey: ['nms-device-preview', selectedIntegration],
     queryFn: async () => {
       if (!selectedIntegration) throw new Error('No integration selected');
@@ -62,7 +62,7 @@ const NMSDeviceTab: React.FC = () => {
     mutationFn: async (items: any[]) => {
       if (!selectedIntegration) throw new Error('No integration selected');
       const response = await integrationImportApi.execute(selectedIntegration, {
-        devices: items.map(i => i.record),
+        devices: items.map(i => ({ external_id: String(i.record.external_id) })),
       });
       return response.data;
     },
@@ -71,6 +71,10 @@ const NMSDeviceTab: React.FC = () => {
       setShowResultDialog(true);
       queryClient.invalidateQueries({ queryKey: ['nms-device-preview'] });
       queryClient.invalidateQueries({ queryKey: ['import-history'] });
+      queryClient.invalidateQueries({ queryKey: ['infrastructure', 'assets'] });
+      queryClient.invalidateQueries({ queryKey: ['infrastructure', 'asset'] });
+      queryClient.invalidateQueries({ queryKey: ['infrastructure', 'site-assets'] });
+      setSelectedItems(new Set());
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error || 'NMS Import failed');
@@ -81,21 +85,18 @@ const NMSDeviceTab: React.FC = () => {
     if (!previewData) return [];
     return (previewData.analysis || []).map((item: any) => ({
       record: {
-        id: item.external_id,
+        id: String(item.external_id),
         name: item.name,
         external_id: item.external_id,
         hostname: item.hostname,
         ip: item.ip,
-        vendor: item.vendor,
+        os: item.os,
         model: item.model,
+        status: item.status,
+        type: item.type,
         site_name: item.site_name,
         action: item.action,
-        // Pass location/serial/mac fields for site mapping in execute()
-        location: item.location,
-        lat: item.lat,
-        lng: item.lng,
         serial: item.serial,
-        mac: item.mac,
       },
       analysis: { 
         decision: item.action === 'create' ? 'CREATE' : item.action === 'update' ? 'UPDATE' : 'REVIEW', 
@@ -106,11 +107,13 @@ const NMSDeviceTab: React.FC = () => {
   }, [previewData]);
 
   const columns: Column[] = [
-    { id: 'name', label: 'SysName', sortable: true },
-    { id: 'hostname', label: 'Hostname', sortable: true },
-    { id: 'ip', label: 'IP Address', sortable: true },
-    { id: 'vendor', label: 'OS/Vendor', sortable: true },
-    { id: 'model', label: 'Hardware', sortable: true },
+    { id: 'name', label: 'Display Name', sortable: true },
+    { id: 'ip', label: 'Management IP', sortable: true },
+    { id: 'os', label: 'OS/Platform', sortable: true },
+    { id: 'model', label: 'Hardware / Model', sortable: true },
+    { id: 'serial', label: 'Serial', sortable: true },
+    { id: 'status', label: 'Provider Status', sortable: true },
+    { id: 'type', label: 'Provider Type', sortable: true },
     { id: 'site_name', label: 'Mapped Site', sortable: true },
   ];
 
@@ -121,7 +124,11 @@ const NMSDeviceTab: React.FC = () => {
         source="librenms"
         integration={integrationForCard}
         integrations={nmsProviders.map((p: ImportProvider) => ({ id: p.id, name: p.name, provider: p.provider, status: 'connected', enabled: true }))}
-        onIntegrationSelect={setSelectedIntegration}
+        onIntegrationSelect={(integrationId) => {
+          setSelectedIntegration(integrationId);
+          setSelectedItems(new Set());
+          setShowConfirmDialog(false);
+        }}
         onRefresh={() => runPreview()}
         isLoading={isPreviewing}
         connectionStatus={selectedIntegration ? 'connected' : 'disconnected'}
@@ -130,6 +137,7 @@ const NMSDeviceTab: React.FC = () => {
       />
 
       <Box sx={{ mt: 3 }}>
+        {isError && <Alert severity="error">Unable to load device preview. Refresh to retry.</Alert>}
         <ImportDataTable
           columns={columns}
           rows={devices.map((d: any) => d.record)}
@@ -142,7 +150,7 @@ const NMSDeviceTab: React.FC = () => {
       </Box>
 
       <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
-        <Button variant="contained" onClick={() => setShowConfirmDialog(true)} disabled={selectedItems.size === 0 || importMutation.isPending}>
+        <Button variant="contained" onClick={() => setShowConfirmDialog(true)} disabled={isError || isPreviewing || selectedItems.size === 0 || importMutation.isPending}>
           {importMutation.isPending ? <CircularProgress size={24} /> : `Import Selected (${selectedItems.size})`}
         </Button>
         <Button variant="outlined" onClick={() => setShowHistory(!showHistory)}>

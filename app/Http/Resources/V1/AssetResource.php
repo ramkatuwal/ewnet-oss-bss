@@ -15,6 +15,7 @@ class AssetResource extends JsonResource
             'company_id' => $this->company_id,
             'asset_tag' => $this->asset_tag,
             'device_name' => $this->device_name,
+            'management_ip' => $this->management_ip,
             'serial_number' => $this->serial_number,
             'category' => $this->category,
             'type' => $this->type,
@@ -58,6 +59,10 @@ class AssetResource extends JsonResource
         return [
             'provider' => $source,
             'external_id' => $specs['external_id'] ?? null,
+            'integration_id' => $specs['integration_id'] ?? null,
+            'observed_display' => $specs['observed_display'] ?? null,
+            'observed_sys_name' => $specs['observed_sys_name'] ?? null,
+            'provider_type' => $specs['provider_type'] ?? null,
             'provider_status' => $specs['provider_status'] ?? null,
             'observed_hostname' => $specs['observed_hostname'] ?? null,
             'observed_os' => $specs['observed_os'] ?? null,
@@ -69,6 +74,7 @@ class AssetResource extends JsonResource
             'mac_address' => $specs['mac_address'] ?? null,
             'last_observed_at' => $specs['last_observed_at'] ?? null,
             'last_synced' => $specs['last_synced'] ?? null,
+            'last_poll' => $specs['last_poll'] ?? null,
         ];
     }
 }
