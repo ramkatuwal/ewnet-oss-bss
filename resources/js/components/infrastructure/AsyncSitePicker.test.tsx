@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { render, waitFor } from '@testing-library/react';
 import { useForm } from 'react-hook-form';
 
-const { list } = vi.hoisted(() => ({ list: vi.fn() }));
+const { list, loadedOptions } = vi.hoisted(() => ({ list: vi.fn(), loadedOptions: vi.fn() }));
 vi.mock('@/api/sites', () => ({ sitesApi: { list } }));
 
 vi.mock('@/components/forms/SearchableSelect', () => ({
@@ -15,7 +15,7 @@ vi.mock('@/components/forms/SearchableSelect', () => ({
         helperText?: string;
     }) => {
         useEffect(() => {
-            loadOptions?.('');
+            loadOptions?.('S-9').then(loadedOptions);
             // stub: exercise the component's loadOptions once
         // eslint-disable-next-line react-hooks/exhaustive-deps
         }, []);
@@ -73,12 +73,15 @@ describe('AsyncSitePicker', () => {
 
         await waitFor(() => expect(list).toHaveBeenCalledTimes(1));
         expect(list).toHaveBeenCalledWith({
-            search: undefined,
+            search: 'S-9',
             per_page: 50,
             company_id: 1,
             region_id: 2,
             branch_id: 3,
         });
+        await waitFor(() => expect(loadedOptions).toHaveBeenCalledWith([
+            expect.objectContaining({ label: 'Site Nine', value: 9 }),
+        ]));
     });
 
     it('passes the required error from the form to the select helper', () => {

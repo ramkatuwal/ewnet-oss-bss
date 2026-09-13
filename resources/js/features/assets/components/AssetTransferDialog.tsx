@@ -52,7 +52,7 @@ export const AssetTransferDialog: React.FC<AssetTransferDialogProps> = ({
             .filter((s) => s.id !== currentSiteId)
             .map((s) => ({
                 value: s.id,
-                label: `${s.site_code} — ${s.name}`,
+                label: s.name,
                 secondary: s.address || undefined,
                 siteCode: s.site_code,
             }));
@@ -63,8 +63,9 @@ export const AssetTransferDialog: React.FC<AssetTransferDialogProps> = ({
             transferAsset(assetId, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['asset-lifecycle', assetId] });
-            queryClient.invalidateQueries({ queryKey: ['assets'] });
-            queryClient.invalidateQueries({ queryKey: ['site-assets'] });
+            queryClient.invalidateQueries({ queryKey: ['infrastructure', 'asset'] });
+            queryClient.invalidateQueries({ queryKey: ['infrastructure', 'assets'] });
+            queryClient.invalidateQueries({ queryKey: ['infrastructure', 'site-assets'] });
             toast.success('Asset transferred successfully');
             onSuccess();
             onClose();

@@ -6,7 +6,7 @@ type SiteOption = SearchableSelectOption<number> & { site: Site };
 
 const toOption = (site: Site): SiteOption => ({
     value: site.id,
-    label: `${site.site_code} - ${site.name}`,
+    label: site.name,
     secondary: [site.company?.name, site.region?.name, site.branch?.name].filter(Boolean).join(' / '),
     site,
 });
