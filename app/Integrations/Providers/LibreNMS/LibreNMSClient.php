@@ -139,17 +139,55 @@ class LibreNMSClient
      * Get ports for a specific device with full column data.
      * Returns ['ports' => array, 'status' => int].
      * status=404 means device has no port data (stale/unpolled).
+     *
+     * @param  array<int, string>  $columns
      */
-    public function getDevicePorts(string $deviceIdOrHostname): array
+    public function getDevicePorts(string $deviceIdOrHostname, array $columns = [
+        'port_id', 'device_id', 'ifIndex', 'ifName', 'ifDescr', 'ifAlias', 'ifType', 'ifSpeed', 'ifAdminStatus', 'ifOperStatus',
+    ]): array
     {
-        $columns = 'port_id,device_id,ifIndex,ifName,ifDescr,ifAlias,ifType,ifSpeed,ifAdminStatus,ifOperStatus';
-        $result = $this->get("devices/{$deviceIdOrHostname}/ports", ['columns' => $columns]);
+        $query = $columns === [] ? [] : ['columns' => implode(',', $columns)];
+        $result = $this->get("devices/{$deviceIdOrHostname}/ports", $query);
 
         if ($result['status'] === 404) {
             return ['ports' => [], 'status' => 404];
         }
 
         return ['ports' => $result['data']['ports'] ?? [], 'status' => 200];
+    }
+
+    /**
+     * VLANs LibreNMS has polled for a device. Some instances expose no VLAN
+     * polling; in that case the list is empty and per-port `ifVlan` access
+     * observations remain the primary VLAN source.
+     *
+     * @return array{vlans: array<int, array<string, mixed>>, status: int}
+     */
+    public function getDeviceVlans(string $deviceIdOrHostname): array
+    {
+        $result = $this->get("devices/{$deviceIdOrHostname}/vlans");
+
+        if ($result['status'] === 404) {
+            return ['vlans' => [], 'status' => 404];
+        }
+
+        return ['vlans' => $result['data']['vlans'] ?? [], 'status' => 200];
+    }
+
+    /**
+     * IP addresses LibreNMS observed on a specific port.
+     *
+     * @return array{addresses: array<int, array<string, mixed>>, status: int}
+     */
+    public function getPortIpAddresses(int $portId): array
+    {
+        $result = $this->get("ports/{$portId}/ip");
+
+        if ($result['status'] === 404) {
+            return ['addresses' => [], 'status' => 404];
+        }
+
+        return ['addresses' => $result['data']['addresses'] ?? [], 'status' => 200];
     }
 
     public function listAlerts(array $filters = []): array

@@ -20,6 +20,7 @@ class Asset extends Model
         'company_id',
         'asset_tag',
         'device_name',
+        'management_ip',
         'serial_number',
         'category',
         'type',
@@ -202,6 +203,11 @@ class Asset extends Model
             'id',                // Local key on assets
             'id'                 // Local key on asset_interfaces
         );
+    }
+
+    public function observedVlans(): HasMany
+    {
+        return $this->hasMany(ObservedVlan::class);
     }
 
     /**

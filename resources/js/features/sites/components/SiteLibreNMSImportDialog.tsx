@@ -1,12 +1,9 @@
-import React, { useState } from 'react';
-import {
-    Dialog, DialogTitle, DialogContent, DialogActions,
-    Button, Stack, Typography, Box, Chip, Table, TableBody,
-    TableCell, TableContainer, TableHead, TableRow, Paper,
-    CircularProgress, Alert, Checkbox, FormControlLabel
-} from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { useEffect, useState } from 'react';
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/api/client';
+import { normalizeApiError } from '@/api/errors';
+import ImportDataTable, { Column } from '@/components/import/ImportDataTable';
 import toast from 'react-hot-toast';
 
 interface SiteLibreNMSImportDialogProps {
@@ -19,211 +16,118 @@ interface SiteLibreNMSImportDialogProps {
 }
 
 interface DeviceItem {
-    device_id: string;
-    hostname: string;
-    status: string;
-    site_mapped: boolean;
-    site_id?: number;
-    site_message: string;
-    action: string;
-    device_data: any;
+    external_id: string;
+    name: string | null;
+    ip: string | null;
+    os: string | null;
+    model: string | null;
+    serial: string | null;
+    status: 'UP' | 'DOWN' | 'UNKNOWN';
+    type: string | null;
+    site_id: number | null;
+    site_name: string | null;
+    action: 'create' | 'update' | 'skip_unmapped';
 }
 
-export const SiteLibreNMSImportDialog: React.FC<SiteLibreNMSImportDialogProps> = ({
-    open,
-    onClose,
-    siteId,
-    siteName,
-    integrationId,
-    onSuccess,
-}) => {
-    const [selectedDevices, setSelectedDevices] = useState<Set<string>>(new Set());
-    const [isImporting, setIsImporting] = useState(false);
-    const [confirmOpen, setConfirmOpen] = useState(false);
+interface ImportResult {
+    created: number;
+    updated: number;
+    skipped: number;
+    failed: number;
+}
 
-    const { data: preview, isLoading } = useQuery({
+const columns: Column[] = [
+    { id: 'name', label: 'Display Name', sortable: true },
+    { id: 'ip', label: 'Management IP', sortable: true },
+    { id: 'os', label: 'OS/Platform', sortable: true },
+    { id: 'model', label: 'Hardware / Model', sortable: true },
+    { id: 'serial', label: 'Serial', sortable: true },
+    { id: 'status', label: 'Provider Status', sortable: true },
+    { id: 'type', label: 'Provider Type', sortable: true },
+    { id: 'site_name', label: 'Mapped Site', sortable: true },
+];
+
+export const SiteLibreNMSImportDialog = ({ open, onClose, siteId, siteName, integrationId, onSuccess }: SiteLibreNMSImportDialogProps) => {
+    const queryClient = useQueryClient();
+    const [selectedDevices, setSelectedDevices] = useState<Set<string>>(new Set());
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [result, setResult] = useState<ImportResult | null>(null);
+
+    useEffect(() => {
+        setSelectedDevices(new Set());
+        setConfirmOpen(false);
+        setResult(null);
+    }, [open, integrationId, siteId]);
+
+    const { data: preview, isLoading, isError, refetch } = useQuery({
         queryKey: ['librenms-preview', integrationId, siteId],
-        queryFn: () => {
-            return axios.get(`/api/v1/integrations/librenms/${integrationId}/preview`)
-                .then(res => res.data);
-        },
+        queryFn: () => apiClient.get<{ analysis: DeviceItem[] }>(`/api/v1/integrations/librenms/${integrationId}/preview`).then(res => res.data),
         enabled: open && !!integrationId,
     });
 
-    const importableDevices = preview?.preview?.filter(
-        (item: DeviceItem) => item.site_mapped || item.site_message === 'No matching site'
-    ) || [];
+    // Site placement is resolved again by the backend, never supplied by this dialog.
+    const importableDevices = (preview?.analysis ?? []).filter(item =>
+        item.site_id === siteId && (item.action === 'create' || item.action === 'update'));
+    const selected = importableDevices.filter(item => selectedDevices.has(item.external_id));
 
-    const handleToggleSelect = (deviceId: string) => {
-        const newSet = new Set(selectedDevices);
-        if (newSet.has(deviceId)) {
-            newSet.delete(deviceId);
-        } else {
-            newSet.add(deviceId);
-        }
-        setSelectedDevices(newSet);
-    };
-
-    const handleSelectAll = () => {
-        if (selectedDevices.size === importableDevices.length) {
+    const mutation = useMutation({
+        mutationFn: () => apiClient.post<{ data: ImportResult }>(`/api/v1/integrations/librenms/${integrationId}/import`, {
+            devices: selected.map(item => ({ external_id: item.external_id })),
+        }).then(res => res.data.data),
+        onSuccess: (data) => {
+            setResult(data);
             setSelectedDevices(new Set());
-        } else {
-            setSelectedDevices(new Set(importableDevices.map((d: DeviceItem) => d.device_id)));
-        }
-    };
-
-    const handleImport = () => {
-        setIsImporting(true);
-        const promises = Array.from(selectedDevices).map(deviceId => {
-            return axios.post(`/api/v1/integrations/librenms/${integrationId}/import`, {
-                device_ids: [deviceId],
-                target_site_id: siteId,
-            });
-        });
-
-        Promise.all(promises)
-            .then(() => {
-                toast.success(`Imported ${selectedDevices.size} devices successfully`);
-                setIsImporting(false);
-                setSelectedDevices(new Set());
-                onSuccess();
+            setConfirmOpen(false);
+            queryClient.invalidateQueries({ queryKey: ['librenms-preview'] });
+            queryClient.invalidateQueries({ queryKey: ['nms-device-preview'] });
+            queryClient.invalidateQueries({ queryKey: ['import-history'] });
+            queryClient.invalidateQueries({ queryKey: ['infrastructure', 'asset'] });
+            onSuccess();
+            if (data.failed === 0 && data.skipped === 0) {
+                toast.success(`Imported ${data.created + data.updated} devices successfully`);
                 onClose();
-            })
-            .catch((err) => {
-                toast.error(err.response?.data?.message || 'Import failed');
-                setIsImporting(false);
-            });
-    };
+            }
+        },
+        onError: error => toast.error(normalizeApiError(error).message),
+    });
 
-    const getStatusChip = (status: string) => {
-        const statusMap: Record<string, { label: string; color: any }> = {
-            '1': { label: 'Up', color: 'success' },
-            '0': { label: 'Down', color: 'error' },
-            '2': { label: 'Warning', color: 'warning' },
-        };
-        const s = statusMap[status] || { label: status, color: 'default' };
-        return <Chip label={s.label} size="small" color={s.color} />;
-    };
+    const cannotImport = isLoading || isError || mutation.isPending || selected.length === 0 || selected.length > 1000;
 
-    const getSiteStatus = (item: DeviceItem) => {
-        if (item.site_mapped && item.site_id === siteId) {
-            return <Chip label="Matches Site" size="small" color="success" />;
-        } else if (item.site_mapped && item.site_id !== siteId) {
-            return <Chip label={`Mapped to Site ${item.site_id}`} size="small" color="warning" />;
-        } else {
-            return <Chip label="Unmapped" size="small" color="info" />;
-        }
-    };
-
-    const selectedCount = selectedDevices.size;
-
-    return (
-        <>
-            <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
-                <DialogTitle>
-                    Import from LibreNMS - {siteName}
-                </DialogTitle>
-                <DialogContent>
-                    <Box sx={{ mt: 1 }}>
-                        {isLoading ? (
-                            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                                <CircularProgress />
-                            </Box>
-                        ) : !preview?.preview ? (
-                            <Alert severity="info">
-                                No devices found or unable to connect to LibreNMS.
-                            </Alert>
-                        ) : (
-                            <>
-                                <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Typography variant="body2">
-                                        {importableDevices.length} devices available for import.
-                                        {selectedCount > 0 && ` ${selectedCount} selected.`}
-                                    </Typography>
-                                    <Stack direction="row" spacing={1}>
-                                        <FormControlLabel
-                                            control={
-                                                <Checkbox
-                                                    checked={selectedCount === importableDevices.length && importableDevices.length > 0}
-                                                    indeterminate={selectedCount > 0 && selectedCount < importableDevices.length}
-                                                    onChange={handleSelectAll}
-                                                />
-                                            }
-                                            label="Select All"
-                                        />
-                                        <Button
-                                            variant="contained"
-                                            color="primary"
-                                            onClick={() => setConfirmOpen(true)}
-                                            disabled={selectedCount === 0 || isImporting}
-                                        >
-                                            Import Selected
-                                        </Button>
-                                    </Stack>
-                                </Box>
-
-                                <TableContainer component={Paper} variant="outlined">
-                                    <Table size="small">
-                                        <TableHead>
-                                            <TableRow>
-                                                <TableCell padding="checkbox">
-                                                    <Checkbox />
-                                                </TableCell>
-                                                <TableCell>Device ID</TableCell>
-                                                <TableCell>Hostname</TableCell>
-                                                <TableCell>Status</TableCell>
-                                                <TableCell>Site Status</TableCell>
-                                            </TableRow>
-                                        </TableHead>
-                                        <TableBody>
-                                            {importableDevices.map((item: DeviceItem) => (
-                                                <TableRow key={item.device_id}>
-                                                    <TableCell padding="checkbox">
-                                                        <Checkbox
-                                                            checked={selectedDevices.has(item.device_id)}
-                                                            onChange={() => handleToggleSelect(item.device_id)}
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell>{item.device_id}</TableCell>
-                                                    <TableCell>{item.hostname}</TableCell>
-                                                    <TableCell>{getStatusChip(item.status)}</TableCell>
-                                                    <TableCell>{getSiteStatus(item)}</TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </TableContainer>
-                            </>
-                        )}
+    return <>
+        <Dialog open={open} onClose={mutation.isPending ? undefined : onClose} maxWidth="lg" fullWidth>
+            <DialogTitle>Import from LibreNMS - {siteName}</DialogTitle>
+            <DialogContent>
+                {result && <Alert severity={result.failed > 0 || result.skipped > 0 ? 'warning' : 'success'} sx={{ mb: 1 }}>
+                    Created: {result.created}; Updated: {result.updated}; Skipped: {result.skipped}; Failed: {result.failed}.
+                </Alert>}
+                {isError ? <Alert severity="error" action={<Button onClick={() => void refetch()}>Retry</Button>}>
+                    Unable to load LibreNMS device preview.
+                </Alert> : <>
+                    <Typography variant="body2" sx={{ mb: 1 }}>Only devices mapped to {siteName} are available here.</Typography>
+                    {!isLoading && importableDevices.length === 0 && <Alert severity="info">No devices mapped to this site are available for import.</Alert>}
+                    <Box sx={{ pointerEvents: mutation.isPending ? 'none' : undefined }}>
+                        <ImportDataTable columns={columns} rows={importableDevices} loading={isLoading}
+                            getRowId={(item: DeviceItem) => item.external_id} selectedIds={selectedDevices} onRowSelect={setSelectedDevices}
+                            searchFields={['name', 'ip', 'serial']} />
                     </Box>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={onClose}>Cancel</Button>
-                </DialogActions>
-            </Dialog>
-
-            <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
-                <DialogTitle>Confirm Import</DialogTitle>
-                <DialogContent>
-                    <Typography>
-                        This will import {selectedCount} device(s) as Assets into <strong>{siteName}</strong>.
-                    </Typography>
-                    <Alert severity="warning" sx={{ mt: 2 }}>
-                        This action cannot be undone. Devices already imported will be updated.
-                    </Alert>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={handleImport}
-                        disabled={isImporting}
-                    >
-                        {isImporting ? 'Importing...' : 'Confirm Import'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
-        </>
-    );
+                </>}
+                {selected.length > 1000 && <Alert severity="warning">Select at most 1000 devices per import.</Alert>}
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={onClose} disabled={mutation.isPending}>Cancel</Button>
+                <Button variant="contained" disabled={cannotImport} onClick={() => setConfirmOpen(true)}>Import Selected ({selected.length})</Button>
+            </DialogActions>
+        </Dialog>
+        <Dialog open={confirmOpen} onClose={mutation.isPending ? undefined : () => setConfirmOpen(false)}>
+            <DialogTitle>Confirm Import</DialogTitle>
+            <DialogContent>
+                <Typography>Import {selected.length} device(s) currently mapped to {siteName}? Existing assets will be synchronized.</Typography>
+                <Alert severity="info" sx={{ mt: 1 }}>The server rechecks provider data and permitted site mappings before import.</Alert>
+            </DialogContent>
+            <DialogActions>
+                <Button disabled={mutation.isPending} onClick={() => setConfirmOpen(false)}>Cancel</Button>
+                <Button variant="contained" disabled={cannotImport} onClick={() => mutation.mutate()}>{mutation.isPending ? 'Importing...' : 'Confirm Import'}</Button>
+            </DialogActions>
+        </Dialog>
+    </>;
 };

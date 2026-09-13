@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\ImportLibreNMSDevicesRequest;
 use App\Models\ImportHistory;
 use App\Models\Integration;
 use App\Services\LibreNMSImportService;
@@ -46,13 +47,12 @@ class LibreNMSImportController extends Controller
         return response()->json($result);
     }
 
-    public function import(Request $request, Integration $integration)
+    public function import(ImportLibreNMSDevicesRequest $request, Integration $integration)
     {
         $this->authorize('import', $integration);
+        abort_unless($integration->provider === 'librenms', 422, 'A LibreNMS integration is required.');
 
-        $validated = $request->validate([
-            'devices' => 'required|array',
-        ]);
+        $validated = $request->validated();
 
         $history = ImportHistory::create([
             'source' => ImportHistory::SOURCE_LIBRENMS,

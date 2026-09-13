@@ -6,6 +6,7 @@ use App\Contracts\ImportSourceInterface;
 use App\Dto\Imports\NormalizedRecord;
 use App\Integrations\Providers\LibreNMS\LibreNMSClient;
 use App\Models\Integration;
+use App\Services\LibreNMSImportService;
 use Illuminate\Support\Facades\Log;
 
 class LibreNmsSourceAdapter implements ImportSourceInterface
@@ -76,14 +77,18 @@ class LibreNmsSourceAdapter implements ImportSourceInterface
         $record->sourceType = 'device';
         $record->provider = 'librenms';
         $record->externalId = (string) $id;
-        $record->name = $raw['display'] ?? $raw['sysName'] ?? $raw['hostname'] ?? 'Unknown Device';
+        $record->name = LibreNMSImportService::deviceName($raw);
         $record->description = $raw['sysDescr'] ?? null;
         $record->serialNumber = $raw['serial'] ?? null;
         $record->macAddress = null; // Not directly available in device endpoint
-        $record->ipAddress = $raw['ip'] ?? $raw['hostname'] ?? null;
+        $record->ipAddress = filter_var($raw['ip'] ?? $raw['hostname'] ?? '', FILTER_VALIDATE_IP) ?: null;
         $record->model = $raw['hardware'] ?? null;
-        $record->manufacturer = $raw['os'] ?? null;
-        $record->status = $raw['status'] ?? null;
+        $record->manufacturer = null;
+        $record->status = match ($raw['status'] ?? null) {
+            1, '1', 'UP' => 'UP',
+            0, '0', 'DOWN' => 'DOWN',
+            default => 'UNKNOWN',
+        };
         $record->metadata = $raw;
 
         // Extract interfaces if available

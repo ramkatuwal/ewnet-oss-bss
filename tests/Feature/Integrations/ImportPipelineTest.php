@@ -315,7 +315,11 @@ class ImportPipelineTest extends TestCase
 
     public function test_librenms_import_creates_assets_and_history(): void
     {
-        Http::fake();
+        Http::preventStrayRequests();
+        Http::fake(['*/api/v0/devices' => Http::response(['devices' => [[
+            'device_id' => '1001', 'hostname' => 'edge-rtr-01', 'sysName' => 'KR-EDGE-01',
+            'os' => 'ios', 'type' => 'router', 'hardware' => 'ASR9001',
+        ]]])]);
 
         $integration = $this->librenmsIntegration();
 
@@ -332,19 +336,14 @@ class ImportPipelineTest extends TestCase
             'provider' => 'librenms',
             'external_type' => 'device',
             'external_id' => '1001',
+            'metadata' => ['integration_id' => $integration->id],
         ]);
 
         $response = $this->actingAs($this->admin['librenms'])
             ->postJson("/api/v1/integrations/{$integration->id}/import", [
                 'devices' => [
                     [
-                        'device_id' => '1001',
                         'external_id' => '1001',
-                        'hostname' => 'edge-rtr-01',
-                        'sysName' => 'KR-EDGE-01',
-                        'os' => 'ios',
-                        'type' => 'router',
-                        'hardware' => 'ASR9001',
                     ],
                 ],
             ]);
