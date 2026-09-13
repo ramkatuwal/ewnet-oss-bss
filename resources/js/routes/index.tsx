@@ -13,6 +13,7 @@ const SystemConfigurationPage = lazy(() => import("@/features/system/pages/Syste
 const IntegrationsPage = lazy(() => import("@/features/integrations/pages/IntegrationsPage").then(m => ({ default: m.IntegrationsPage })));
 const IntegrationDetailPage = lazy(() => import("@/features/integrations/pages/IntegrationDetailPage").then(m => ({ default: m.IntegrationDetailPage })));
 const SystemImportPage = lazy(() => import('@/features/system-import/pages/SystemImportPage'));
+const ModelSettingsPage = lazy(() => import('@/features/settings/pages/ModelSettingsPage'));
 
 const CompaniesPage = lazy(() => import('@/features/companies/pages/CompaniesPage').then(m => ({ default: m.CompaniesPage })));
 const CompanyDetailPage = lazy(() => import('@/features/companies/pages/CompanyDetailPage').then(m => ({ default: m.CompanyDetailPage })));
@@ -74,6 +75,9 @@ export const AppRouter = () => (
                     
                     {/* Unified System Import Page */}
                     <Route path="system-import" element={<SystemImportPage />} />
+
+                    {/* Model Settings */}
+                    <Route path="system/model-settings" element={<ModelSettingsPage />} />
 
                     {/* Network Section */}
                     <Route path="network">

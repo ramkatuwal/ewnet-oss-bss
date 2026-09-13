@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
     Box,
+    Alert,
     Button,
     Drawer,
     Divider,
@@ -18,25 +19,18 @@ import { sitesApi, Site } from '@/api/sites';
 import { AsyncSitePicker } from '@/components/infrastructure/AsyncSitePicker';
 import { normalizeApiError } from '@/api/errors';
 import { infrastructureKeys } from '@/api/queryKeys';
+import { assetModelSettingsApi } from '@/features/settings/api/assetModelSettings';
 import toast from 'react-hot-toast';
 
-const CATEGORIES = ['POWER', 'NETWORK', 'INFRASTRUCTURE', 'OTHER'] as const;
 const STATUSES = ['OPERATIONAL', 'SPARE', 'MAINTENANCE', 'FAULTY', 'RETIRED', 'MISSING', 'DISPOSED'] as const;
 const CONDITIONS = ['EXCELLENT', 'GOOD', 'FAIR', 'POOR', 'CRITICAL'] as const;
-const ASSET_TYPES = [
-    'OLT', 'ONU', 'SWITCH', 'ROUTER', 'AP', 'CONTROLLER',
-    'CABINET', 'CLOSURE', 'FAT', 'FDT', 'FDH', 'ODF', 'PATCH_PANEL', 'SPLITTER',
-    'BATTERY', 'UPS', 'SOLAR_PANEL', 'INVERTER',
-    'RACK', 'PDU', 'AC',
-    'OTHER',
-] as const;
-const UNITS = ['pcs', 'm', 'km', 'pair', 'set', 'roll', 'box', 'unit'] as const;
 
 const schema = z.object({
     site_id: z.number().min(1, 'A site is required.'),
     device_name: z.string().max(255).optional().or(z.literal('')),
+    management_ip: z.string().optional().or(z.literal('')),
     asset_tag: z.string().max(255).optional().or(z.literal('')),
-    category: z.enum(CATEGORIES),
+    category: z.string().min(1, 'Category is required.'),
     type: z.string().min(1, 'Type is required.').max(100),
     serial_number: z.string().max(255).optional().or(z.literal('')),
     manufacturer: z.string().max(255).optional().or(z.literal('')),
@@ -64,14 +58,15 @@ interface Props {
 const defaults = (siteId?: number | null): AssetForm => ({
     site_id: siteId ?? 0,
     device_name: '',
+    management_ip: '',
     asset_tag: '',
-    category: 'POWER',
+    category: '',
     type: '',
     serial_number: '',
     manufacturer: '',
     model: '',
     quantity: 1,
-    unit: 'pcs',
+    unit: '',
     status: 'OPERATIONAL',
     condition: '',
     purchase_date: '',
@@ -107,29 +102,59 @@ const AssetFormDrawer = ({ open, onClose, assetId, siteId }: Props) => {
         enabled: open && Boolean(assetId),
     });
 
+    const { data: categories = [], isError: categoriesError, isPending: categoriesLoading } = useQuery({
+        queryKey: ['settings', 'asset-categories'],
+        queryFn: () => assetModelSettingsApi.getCategories().then((r) => r.data.data),
+        enabled: open,
+    });
+
+    const { data: allTypes = [], isError: typesError, isPending: typesLoading } = useQuery({
+        queryKey: ['settings', 'asset-device-types'],
+        queryFn: () => assetModelSettingsApi.getDeviceTypes().then((r) => r.data.data),
+        enabled: open,
+    });
+
+    const { data: units = [], isError: unitsError, isPending: unitsLoading } = useQuery({
+        queryKey: ['settings', 'asset-units'],
+        queryFn: () => assetModelSettingsApi.getUnits().then((r) => r.data.data),
+        enabled: open,
+    });
+
     const {
         control,
         register,
         handleSubmit,
         reset,
+        watch,
         setError,
+        setValue,
         formState: { errors },
     } = useForm<AssetForm>({
         resolver: zodResolver(schema),
         defaultValues: defaults(siteId),
     });
 
-    const [selectedSite, setSelectedSite] = useState<Site | null>(null);
+    const selectedCategory = watch('category');
+    const selectedType = watch('type');
+    const selectedUnit = watch('unit');
+    const settingsError = categoriesError || typesError || unitsError;
+    const [siteData, setSiteData] = useState<Site | null>(null);
     const isCreate = !assetId;
     const siteDisabled = Boolean(siteId && !assetId);
+
+    // Filter types by selected category
+    const filteredTypes = selectedCategory
+        ? allTypes.filter((t) => t.category_id === categories.find(c => c.code === selectedCategory)?.id && t.is_active)
+        : [];
 
     useEffect(() => {
         if (asset) {
             reset({
                 site_id: asset.site_id,
                 device_name: asset.device_name ?? '',
+                management_ip: asset.management_ip ?? '',
                 asset_tag: asset.asset_tag,
-                category: asset.category as AssetForm['category'],
+                category: asset.category,
                 type: asset.type,
                 serial_number: asset.serial_number ?? '',
                 manufacturer: asset.manufacturer ?? '',
@@ -144,13 +169,13 @@ const AssetFormDrawer = ({ open, onClose, assetId, siteId }: Props) => {
                 description: asset.description ?? '',
                 notes: asset.notes ?? '',
             });
-            setSelectedSite((asset.site as Site) ?? null);
+            if (asset.site) setSiteData(asset.site as Site);
         } else if (open) {
             reset(defaults(siteId));
-            setSelectedSite(null);
+            setSiteData(null);
             if (siteId) {
                 sitesApi.get(siteId).then((site) => {
-                    setSelectedSite(site);
+                    setSiteData(site);
                 }).catch(() => undefined);
             }
         }
@@ -161,10 +186,12 @@ const AssetFormDrawer = ({ open, onClose, assetId, siteId }: Props) => {
             const payload = { ...data };
             if (!payload.asset_tag) delete payload.asset_tag;
             if (!payload.device_name) delete payload.device_name;
+            if (!payload.management_ip) delete payload.management_ip;
             return assetId ? updateAsset(assetId, payload) : createAsset(payload);
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: infrastructureKeys.assets() });
+            queryClient.invalidateQueries({ queryKey: ['infrastructure', 'assets'] });
+            if (assetId) queryClient.invalidateQueries({ queryKey: infrastructureKeys.asset(assetId) });
             queryClient.invalidateQueries({ queryKey: infrastructureKeys.assetDashboard() });
             queryClient.invalidateQueries({ queryKey: ['infrastructure', 'site-assets'] });
             toast.success(assetId ? 'Asset updated.' : 'Asset created.');
@@ -181,7 +208,7 @@ const AssetFormDrawer = ({ open, onClose, assetId, siteId }: Props) => {
         },
     });
 
-    const input = (name: keyof AssetForm, label: string, opts?: { type?: string; multiline?: boolean; rows?: number; min?: string }) => (
+    const input = (name: keyof AssetForm, label: string, opts?: { type?: string; multiline?: boolean; rows?: number; min?: string; disabled?: boolean }) => (
         <TextField
             fullWidth
             size="small"
@@ -189,6 +216,7 @@ const AssetFormDrawer = ({ open, onClose, assetId, siteId }: Props) => {
             type={opts?.type}
             multiline={opts?.multiline}
             rows={opts?.rows}
+            disabled={opts?.disabled}
             InputLabelProps={opts?.type === 'date' ? { shrink: true } : undefined}
             inputProps={opts?.min ? { min: opts.min } : undefined}
             {...register(name)}
@@ -219,17 +247,18 @@ const AssetFormDrawer = ({ open, onClose, assetId, siteId }: Props) => {
 
                 <Box sx={{ flex: 1, overflow: 'auto', p: 3, pt: 2 }}>
                     <Stack spacing={3}>
+                        {settingsError && <Alert severity="error">Unable to load Model Settings. Close and reopen to retry.</Alert>}
                         {/* Organization — Site Only */}
                         <Stack spacing={1.5}>
                             <SectionTitle>Placement</SectionTitle>
                             <AsyncSitePicker
                                 control={control}
-                                selectedSite={selectedSite}
-                                onSelected={setSelectedSite}
+                                selectedSite={siteData}
+                                onSelected={setSiteData}
                                 disabled={siteDisabled}
                                 error={errors.site_id?.message}
                             />
-                            {selectedSite && <OrgInfo site={selectedSite} />}
+                            {siteData && <OrgInfo site={siteData} />}
                         </Stack>
 
                         <Divider />
@@ -258,6 +287,19 @@ const AssetFormDrawer = ({ open, onClose, assetId, siteId }: Props) => {
 
                         <Divider />
 
+                        {/* Management IP — NETWORK only */}
+                        <Stack spacing={1.5}>
+                            <SectionTitle>Network</SectionTitle>
+                            {input('management_ip', 'Management IP', { disabled: selectedCategory !== 'NETWORK' })}
+                            {selectedCategory !== 'NETWORK' && (
+                                <Typography variant="caption" color="text.secondary">
+                                    Management IP is only available for NETWORK category assets.
+                                </Typography>
+                            )}
+                        </Stack>
+
+                        <Divider />
+
                         {/* Category + Type */}
                         <Stack spacing={1.5}>
                             <SectionTitle>Classification</SectionTitle>
@@ -267,13 +309,21 @@ const AssetFormDrawer = ({ open, onClose, assetId, siteId }: Props) => {
                                     fullWidth
                                     size="small"
                                     label="Category *"
-                                    defaultValue="POWER"
                                     {...register('category')}
+                                    value={selectedCategory}
+                                    onChange={(event) => {
+                                        setValue('category', event.target.value, { shouldDirty: true });
+                                        setValue('type', '', { shouldDirty: true });
+                                    }}
                                     error={Boolean(errors.category)}
                                     helperText={errors.category?.message}
                                 >
-                                    {CATEGORIES.map((v) => (
-                                        <MenuItem key={v} value={v}>{v}</MenuItem>
+                                    <MenuItem value="" disabled>Select category</MenuItem>
+                                    {selectedCategory && !categories.some(c => c.code === selectedCategory && c.is_active) && (
+                                        <MenuItem value={selectedCategory} disabled>{categories.find(c => c.code === selectedCategory)?.name ?? selectedCategory} (historical)</MenuItem>
+                                    )}
+                                    {categories.filter(c => c.is_active).map((c) => (
+                                        <MenuItem key={c.id} value={c.code}>{c.name}</MenuItem>
                                     ))}
                                 </TextField>
                                 <TextField
@@ -281,14 +331,18 @@ const AssetFormDrawer = ({ open, onClose, assetId, siteId }: Props) => {
                                     fullWidth
                                     size="small"
                                     label="Type *"
-                                    defaultValue=""
                                     {...register('type')}
+                                    value={selectedType}
+                                    disabled={!selectedCategory || typesLoading}
                                     error={Boolean(errors.type)}
                                     helperText={errors.type?.message}
                                 >
                                     <MenuItem value="" disabled>Select type</MenuItem>
-                                    {ASSET_TYPES.map((v) => (
-                                        <MenuItem key={v} value={v}>{v}</MenuItem>
+                                    {selectedType && !filteredTypes.some(t => t.code === selectedType) && (
+                                        <MenuItem value={selectedType} disabled>{selectedType} (historical)</MenuItem>
+                                    )}
+                                    {filteredTypes.map((t) => (
+                                        <MenuItem key={t.id} value={t.code}>{t.name}</MenuItem>
                                     ))}
                                 </TextField>
                             </Stack>
@@ -318,13 +372,17 @@ const AssetFormDrawer = ({ open, onClose, assetId, siteId }: Props) => {
                                     fullWidth
                                     size="small"
                                     label="Unit"
-                                    defaultValue="pcs"
                                     {...register('unit')}
+                                    value={selectedUnit}
                                     error={Boolean(errors.unit)}
                                     helperText={errors.unit?.message}
                                 >
-                                    {UNITS.map((v) => (
-                                        <MenuItem key={v} value={v}>{v}</MenuItem>
+                                    <MenuItem value="" disabled>Select unit</MenuItem>
+                                    {selectedUnit && !units.some(u => u.code === selectedUnit && u.is_active) && (
+                                        <MenuItem value={selectedUnit} disabled>{units.find(u => u.code === selectedUnit)?.name ?? selectedUnit} (historical)</MenuItem>
+                                    )}
+                                    {units.filter(u => u.is_active).map((u) => (
+                                        <MenuItem key={u.id} value={u.code}>{u.name}</MenuItem>
                                     ))}
                                 </TextField>
                             </Stack>
@@ -341,7 +399,7 @@ const AssetFormDrawer = ({ open, onClose, assetId, siteId }: Props) => {
                                     fullWidth
                                     size="small"
                                     label="Status *"
-                                    defaultValue="OPERATIONAL"
+                                    value={watch('status')}
                                     {...register('status')}
                                     error={Boolean(errors.status)}
                                     helperText={errors.status?.message}
@@ -355,7 +413,7 @@ const AssetFormDrawer = ({ open, onClose, assetId, siteId }: Props) => {
                                     fullWidth
                                     size="small"
                                     label="Condition"
-                                    defaultValue=""
+                                    value={watch('condition')}
                                     {...register('condition')}
                                     error={Boolean(errors.condition)}
                                     helperText={errors.condition?.message}
@@ -404,7 +462,7 @@ const AssetFormDrawer = ({ open, onClose, assetId, siteId }: Props) => {
                         <Button
                             type="submit"
                             variant="contained"
-                            disabled={mutation.isPending}
+                            disabled={mutation.isPending || settingsError || categoriesLoading || typesLoading || unitsLoading}
                         >
                             {mutation.isPending ? 'Saving...' : 'Save'}
                         </Button>

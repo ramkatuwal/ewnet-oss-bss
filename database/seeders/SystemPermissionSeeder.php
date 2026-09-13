@@ -38,6 +38,7 @@ class SystemPermissionSeeder extends Seeder
             'assets.delete',
             'assets.import',
             'assets.export',
+            'assets.observations.sync',
             'assets.lifecycle.view',
             'assets.lifecycle.create',
             'assets.transfer',

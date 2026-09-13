@@ -80,6 +80,7 @@ export const navigationItems: NavItem[] = [
             { label: 'Configuration', path: '/system/configuration', icon: <SettingsIcon />, permission: 'system.config.manage' },
             { label: 'Integrations', path: '/system/integrations', icon: <SettingsIcon />, permission: 'integrations.view' },
             { label: 'System Import', path: '/system-import', icon: <SyncIcon />, permission: 'imports.view' },
+            { label: 'Model Settings', path: '/system/model-settings', icon: <SettingsIcon />, permission: 'system.config.manage' },
         ],
     },
 ];

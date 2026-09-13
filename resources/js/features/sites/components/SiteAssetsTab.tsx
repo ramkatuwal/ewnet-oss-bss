@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Box, Button, IconButton, Tooltip, Chip, Typography,
@@ -14,6 +14,8 @@ import { SiteLibreNMSImportDialog } from './SiteLibreNMSImportDialog';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/api/client';
 import { infrastructureKeys } from '@/api/queryKeys';
+import { PageErrorState } from '@/components/feedback/PageStates';
+import { assetModelSettingsApi } from '@/features/settings/api/assetModelSettings';
 
 interface SiteAssetsTabProps {
     siteId: number;
@@ -27,8 +29,13 @@ export const SiteAssetsTab: React.FC<SiteAssetsTabProps> = ({ siteId }) => {
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(10);
     const [searchValue, setSearchValue] = useState('');
-    const [filters, setFilters] = useState<any>({});
+    const [filters, setFilters] = useState<{ category?: string; status?: string }>({});
     const [importDialogOpen, setImportDialogOpen] = useState(false);
+    useEffect(() => { setPage(0); }, [siteId, searchValue, filters]);
+    const { data: categories = [] } = useQuery({
+        queryKey: ['settings', 'asset-categories'],
+        queryFn: () => assetModelSettingsApi.getCategories().then(r => r.data.data),
+    });
 
     // Fetch LibreNMS integrations
     const { data: integrations } = useQuery({
@@ -40,7 +47,7 @@ export const SiteAssetsTab: React.FC<SiteAssetsTabProps> = ({ siteId }) => {
         (i: any) => i.provider === 'librenms' && i.enabled
     );
 
-    const { data, isLoading } = useQuery({
+    const { data, isLoading, isError, refetch } = useQuery({
         queryKey: infrastructureKeys.siteAssets(siteId, { page, pageSize, searchValue, ...filters }),
         queryFn: () => getSiteAssets(siteId, {
             page: page + 1,
@@ -63,7 +70,7 @@ export const SiteAssetsTab: React.FC<SiteAssetsTabProps> = ({ siteId }) => {
     });
 
     const columns: GridColDef[] = [
-        { field: 'asset_tag', headerName: 'Asset Tag', flex: 1 },
+        { field: 'asset_tag', headerName: 'Asset Code', flex: 1, minWidth: 120 },
         {
             field: 'device_name',
             headerName: 'Device Name',
@@ -73,22 +80,23 @@ export const SiteAssetsTab: React.FC<SiteAssetsTabProps> = ({ siteId }) => {
             ),
         },
         { field: 'type', headerName: 'Type', flex: 0.7 },
-        { field: 'manufacturer', headerName: 'Vendor', flex: 0.7 },
+        { field: 'manufacturer', headerName: 'Manufacturer', flex: 0.7 },
         { field: 'model', headerName: 'Model', flex: 0.7 },
         {
-            field: 'ip_address',
+            field: 'management_ip',
             headerName: 'Management IP',
             flex: 0.8,
             renderCell: (params: GridRenderCellParams) => (
                 <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                    {params.row.category === 'NETWORK' && params.value ? params.value : '\u2014'}
+                    {params.value || '\u2014'}
                 </Typography>
             ),
         },
         { field: 'serial_number', headerName: 'Serial', flex: 0.7 },
+        { field: 'mac_address', headerName: 'MAC / Identifier', minWidth: 150, flex: 0.9, sortable: false },
         {
             field: 'status',
-            headerName: 'Status',
+            headerName: 'Asset Status',
             width: 110,
             renderCell: (params: GridRenderCellParams) => (
                 <Chip
@@ -132,10 +140,11 @@ export const SiteAssetsTab: React.FC<SiteAssetsTabProps> = ({ siteId }) => {
     ];
 
     const handleImportSuccess = () => {
-        queryClient.invalidateQueries({ queryKey: ['site-assets', siteId] });
-        queryClient.invalidateQueries({ queryKey: ['assets'] });
-        toast.success('Assets imported successfully');
+        queryClient.invalidateQueries({ queryKey: ['infrastructure', 'site-assets', siteId] });
+        queryClient.invalidateQueries({ queryKey: ['infrastructure', 'assets'] });
     };
+
+    if (isError) return <PageErrorState message="Unable to load site assets." onRetry={() => void refetch()} />;
 
     return (
         <Box>
@@ -155,7 +164,7 @@ export const SiteAssetsTab: React.FC<SiteAssetsTabProps> = ({ siteId }) => {
                             <Typography variant="h6">
                                 {data?.data?.reduce((sum: number, a: any) => sum + (a.quantity || 0), 0) || 0}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary">Total Units</Typography>
+                            <Typography variant="body2" color="text.secondary">Units on This Page</Typography>
                         </CardContent>
                     </Card>
                 </Grid>
@@ -172,22 +181,21 @@ export const SiteAssetsTab: React.FC<SiteAssetsTabProps> = ({ siteId }) => {
                         sx={{ width: 200 }}
                     />
                     <FormControl size="small" sx={{ minWidth: 120 }}>
-                        <InputLabel>Category</InputLabel>
+                        <InputLabel id={`site-assets-category-${siteId}`}>Category</InputLabel>
                         <Select
+                            labelId={`site-assets-category-${siteId}`}
                             value={filters.category || ''}
                             label="Category"
                             onChange={(e) => setFilters({ ...filters, category: e.target.value })}
                         >
                             <MenuItem value="">All</MenuItem>
-                            <MenuItem value="POWER">Power</MenuItem>
-                            <MenuItem value="NETWORK">Network</MenuItem>
-                            <MenuItem value="INFRASTRUCTURE">Infrastructure</MenuItem>
-                            <MenuItem value="OTHER">Other</MenuItem>
+                            {categories.map(c => <MenuItem key={c.id} value={c.code}>{c.name}{c.is_active ? '' : ' (inactive)'}</MenuItem>)}
                         </Select>
                     </FormControl>
                     <FormControl size="small" sx={{ minWidth: 120 }}>
-                        <InputLabel>Status</InputLabel>
+                        <InputLabel id={`site-assets-status-${siteId}`}>Status</InputLabel>
                         <Select
+                            labelId={`site-assets-status-${siteId}`}
                             value={filters.status || ''}
                             label="Status"
                             onChange={(e) => setFilters({ ...filters, status: e.target.value })}
@@ -228,11 +236,13 @@ export const SiteAssetsTab: React.FC<SiteAssetsTabProps> = ({ siteId }) => {
 
             {/* Data Grid */}
             <DataGrid
+                density="compact"
                 rows={data?.data || []}
-                columns={columns}
+                columns={columns.map(column => ({ ...column, sortable: false }))}
                 loading={isLoading}
                 paginationMode="server"
-                rowCount={(data as any)?.meta?.total ?? 0}
+                rowCount={data?.total ?? 0}
+                pageSizeOptions={[10, 25, 50, 100]}
                 paginationModel={{ page, pageSize }}
                 onPaginationModelChange={(model) => {
                     setPage(model.page);

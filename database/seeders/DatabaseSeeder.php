@@ -20,5 +20,8 @@ class DatabaseSeeder extends Seeder
 
         // 2. Create Default Super Admin and assign ALL existing permissions
         $this->call(DefaultSuperAdminSeeder::class);
+
+        // 3. Seed asset model settings (categories, device types, units)
+        $this->call(AssetModelSettingsSeeder::class);
     }
 }

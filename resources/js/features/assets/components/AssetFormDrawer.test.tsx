@@ -16,6 +16,24 @@ const { successToast, errorToast } = vi.hoisted(() => ({ successToast: vi.fn(), 
 vi.mock('@/features/assets/api/assets', () => ({ getAsset, createAsset, updateAsset }));
 vi.mock('@/api/sites', () => ({ sitesApi: { get: sitesGet } }));
 vi.mock('react-hot-toast', () => ({ default: { success: successToast, error: errorToast } }));
+vi.mock('@/features/settings/api/assetModelSettings', () => ({
+    assetModelSettingsApi: {
+        getCategories: vi.fn().mockResolvedValue({ data: { data: [
+            { id: 1, code: 'NETWORK', name: 'Network', is_active: true },
+            { id: 2, code: 'POWER', name: 'Power', is_active: true },
+            { id: 3, code: 'LEGACY', name: 'Legacy', is_active: false },
+        ] } }),
+        getDeviceTypes: vi.fn().mockResolvedValue({ data: { data: [
+            { id: 1, code: 'OLT', name: 'Optical Terminal', category_id: 1, is_active: true },
+            { id: 2, code: 'UPS', name: 'Power Backup', category_id: 2, is_active: true },
+            { id: 3, code: 'OLD', name: 'Old Router', category_id: 1, is_active: false },
+        ] } }),
+        getUnits: vi.fn().mockResolvedValue({ data: { data: [
+            { id: 1, code: 'pcs', name: 'Pieces', is_active: true },
+            { id: 2, code: 'old', name: 'Old Unit', is_active: false },
+        ] } }),
+    },
+}));
 
 vi.mock('@/components/infrastructure/AsyncSitePicker', () => ({
     AsyncSitePicker: ({ control, error, disabled, selectedSite }: {
@@ -76,6 +94,36 @@ beforeEach(() => {
 });
 
 describe('AssetFormDrawer', () => {
+    it('loads active settings, filters types and resets type on category change', async () => {
+        wrap();
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled());
+        fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Category *' }));
+        expect(screen.queryByRole('option', { name: 'Legacy' })).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('option', { name: 'Network' }));
+        fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Type *' }));
+        expect(screen.queryByRole('option', { name: 'Power Backup' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('option', { name: 'Old Router' })).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('option', { name: 'Optical Terminal' }));
+        fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Category *' }));
+        fireEvent.click(screen.getByRole('option', { name: 'Power' }));
+        expect(screen.getByRole('combobox', { name: 'Type *' })).not.toHaveTextContent('Optical Terminal');
+        fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Type *' }));
+        expect(screen.queryByRole('option', { name: 'Optical Terminal' })).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('option', { name: 'Power Backup' }));
+        fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Unit' }));
+        expect(screen.getByRole('option', { name: 'Pieces' })).toBeInTheDocument();
+        expect(screen.queryByRole('option', { name: 'Old Unit' })).not.toBeInTheDocument();
+    }, 15000);
+
+    it('renders inactive historical selections', async () => {
+        getAsset.mockResolvedValue({ site_id: 9, asset_tag: 'AST-OLD', category: 'LEGACY', type: 'OLD', unit: 'old', quantity: 1, status: 'RETIRED' });
+        const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+        render(<QueryClientProvider client={client}><AssetFormDrawer open onClose={vi.fn()} assetId={8} /></QueryClientProvider>);
+        expect(await screen.findByText('Edit Asset AST-OLD')).toBeInTheDocument();
+        expect(screen.getByRole('combobox', { name: 'Category *' })).toHaveTextContent('Legacy (historical)');
+        expect(screen.getByRole('combobox', { name: 'Type *' })).toHaveTextContent('OLD (historical)');
+        expect(screen.getByRole('combobox', { name: 'Unit' })).toHaveTextContent('Old Unit (historical)');
+    });
     it('shows the generated asset-code note in create mode', () => {
         useAuthStore.setState({ user: superAdmin, authState: 'authenticated' });
         wrap();
@@ -86,6 +134,7 @@ describe('AssetFormDrawer', () => {
     it('surfaces normalized field validation and does not submit an invalid form', async () => {
         useAuthStore.setState({ user: superAdmin, authState: 'authenticated' });
         wrap();
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled());
         fireEvent.click(screen.getByRole('button', { name: 'Save' }));
         expect(await screen.findByText('A site is required.')).toBeInTheDocument();
         expect(createAsset).not.toHaveBeenCalled();

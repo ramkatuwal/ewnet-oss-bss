@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AssetController;
 use App\Http\Controllers\Api\V1\AssetLifecycleController;
+use App\Http\Controllers\Api\V1\AssetModelSettingsController;
 use App\Http\Controllers\Api\V1\AssetOperationalController;
 use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\AuthController;
@@ -305,6 +306,27 @@ Route::middleware('auth:sanctum')->prefix('v1/system')->group(function () {
     Route::get('/configuration', [SystemConfigController::class, 'index']);
     Route::put('/configuration', [SystemConfigController::class, 'update']);
     Route::post('/branding', [SystemConfigController::class, 'uploadBranding']);
+});
+
+// Asset Model Settings (Categories, Device Types, Units)
+Route::middleware('auth:sanctum')->prefix('v1/settings/model-settings/asset')->group(function () {
+    Route::get('/categories', [AssetModelSettingsController::class, 'indexCategories']);
+    Route::post('/categories', [AssetModelSettingsController::class, 'storeCategory']);
+    Route::get('/categories/{category}', [AssetModelSettingsController::class, 'showCategory']);
+    Route::put('/categories/{category}', [AssetModelSettingsController::class, 'updateCategory']);
+    Route::delete('/categories/{category}', [AssetModelSettingsController::class, 'destroyCategory']);
+
+    Route::get('/device-types', [AssetModelSettingsController::class, 'indexDeviceTypes']);
+    Route::post('/device-types', [AssetModelSettingsController::class, 'storeDeviceType']);
+    Route::get('/device-types/{deviceType}', [AssetModelSettingsController::class, 'showDeviceType']);
+    Route::put('/device-types/{deviceType}', [AssetModelSettingsController::class, 'updateDeviceType']);
+    Route::delete('/device-types/{deviceType}', [AssetModelSettingsController::class, 'destroyDeviceType']);
+
+    Route::get('/units', [AssetModelSettingsController::class, 'indexUnits']);
+    Route::post('/units', [AssetModelSettingsController::class, 'storeUnit']);
+    Route::get('/units/{unit}', [AssetModelSettingsController::class, 'showUnit']);
+    Route::put('/units/{unit}', [AssetModelSettingsController::class, 'updateUnit']);
+    Route::delete('/units/{unit}', [AssetModelSettingsController::class, 'destroyUnit']);
 });
 
 // Integrations
