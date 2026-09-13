@@ -56,9 +56,10 @@ class AuthorizationSynchronizer
                     $role = Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);
                     $rolesCreated += (int) $role->wasRecentlyCreated;
 
-                    if ($mode === 'all') {
+                    $required = $mode === 'all' ? PermissionCatalog::all() : $mode;
+                    if ($required !== []) {
                         $existing = $role->permissions()->pluck('permissions.name')->all();
-                        $missing = array_values(array_diff(PermissionCatalog::all(), $existing));
+                        $missing = array_values(array_diff($required, $existing));
                         if ($missing !== []) {
                             $role->givePermissionTo($missing);
                             $grantsAdded += count($missing);

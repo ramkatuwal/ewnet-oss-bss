@@ -21,7 +21,7 @@ final class PermissionCatalog
         return array_values($permissions);
     }
 
-    /** @return array<string, string> */
+    /** @return array<string, string|list<string>> */
     public static function managedRoles(): array
     {
         return config('authorization.managed_roles', []);

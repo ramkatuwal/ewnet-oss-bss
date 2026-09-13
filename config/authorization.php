@@ -49,5 +49,6 @@ return [
 
     'managed_roles' => [
         'Super Admin' => 'all',
+        'Admin' => ['integration.uisp.import'],
     ],
 ];

@@ -31,6 +31,7 @@ class AuthorizationSyncTest extends TestCase
         $this->assertSame(170, $result['created']);
         $this->assertSame(170, Permission::where('guard_name', 'web')->count());
         $this->assertSame(170, Role::where('name', 'Super Admin')->firstOrFail()->permissions()->count());
+        $this->assertTrue(Role::where('name', 'Admin')->firstOrFail()->hasPermissionTo('integration.uisp.import'));
         $this->assertTrue($result['cache_reset']);
     }
 
