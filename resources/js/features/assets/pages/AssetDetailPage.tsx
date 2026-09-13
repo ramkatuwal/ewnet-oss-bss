@@ -126,8 +126,8 @@ const AssetDetailPage: React.FC = () => {
     const hasFim = asset.passive_optical_ports?.length > 0 || asset.splitter_profile;
     const hasPon = asset.pon_memberships?.length > 0;
 
-    const specs = asset.specifications || {};
-    const isImported = specs.source === 'librenms' || specs.source === 'uisp';
+    const observations = asset.provider_observations;
+    const isImported = Boolean(observations);
 
     return (
         <Box sx={{ p: 3, maxWidth: 1400, mx: 'auto' }}>
@@ -189,7 +189,7 @@ const AssetDetailPage: React.FC = () => {
                 <Chip label={`${asset.quantity} ${asset.unit || 'pcs'}`} size="small" variant="outlined" />
                 {portsCount > 0 && <Chip label={`${portsCount} Ports`} size="small" variant="outlined" />}
                 {isImported && (
-                    <Chip label={`Imported from ${specs.source}`} size="small" color="info" variant="outlined" />
+                    <Chip label={`Observed by ${observations.provider}`} size="small" color="info" variant="outlined" />
                 )}
                 <AuthorityBadge authoritative />
             </Stack>
@@ -204,6 +204,7 @@ const AssetDetailPage: React.FC = () => {
                             <Stack spacing={1.5}>
                                 <DetailField label="Asset Code" value={asset.asset_tag} mono />
                                 <DetailField label="Device Name" value={asset.device_name} />
+                                <DetailField label="Management IP" value={asset.management_ip} mono />
                                 <DetailField label="Serial Number" value={asset.serial_number} mono />
                                 <DetailField label="Category" value={asset.category} />
                                 <DetailField label="Type" value={asset.type} />
@@ -225,8 +226,7 @@ const AssetDetailPage: React.FC = () => {
                                             onClick={() => navigate(`/network/sites/${asset.site.id}`)}
                                             sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
                                         >
-                                            <Typography variant="body2" fontWeight="medium">{asset.site.site_code}</Typography>
-                                            <Typography variant="caption" color="text.secondary">{asset.site.name}</Typography>
+                                            <Typography variant="body2" fontWeight="medium">{asset.site.name}</Typography>
                                         </Box>
                                     ) : (
                                         <Typography variant="body2">{'\u2014'}</Typography>
@@ -255,7 +255,7 @@ const AssetDetailPage: React.FC = () => {
                     </Card>
 
                     {/* Observed Device / LibreNMS */}
-                    {isImported && (
+                    {observations && (
                         <Card sx={{ mb: 2 }}>
                             <CardContent>
                                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
@@ -264,51 +264,37 @@ const AssetDetailPage: React.FC = () => {
                                     <Chip label="OBSERVED" size="small" color="info" variant="outlined" sx={{ fontSize: '0.65rem', height: 20 }} />
                                 </Stack>
                                 <Stack spacing={1.5}>
-                                    <DetailField label="Provider" value={specs.source ? String(specs.source).toUpperCase() : undefined} />
-                                    {specs.external_id && (
-                                        <DetailField label="Provider Device ID" value={specs.external_id} mono />
-                                    )}
-                                    {specs.observed_hostname && (
-                                        <DetailField label="Observed Hostname" value={specs.observed_hostname} mono />
-                                    )}
-                                    {specs.ip_address && (
-                                        <DetailField label="Management IP" value={specs.ip_address} mono />
-                                    )}
-                                    {specs.observed_os && (
-                                        <DetailField label="OS / Platform" value={specs.observed_os} />
-                                    )}
-                                    {specs.observed_hardware && (
-                                        <DetailField label="Hardware" value={specs.observed_hardware} />
-                                    )}
-                                    {specs.observed_version && (
-                                        <DetailField label="Version" value={specs.observed_version} />
-                                    )}
-                                    {specs.provider_status && (
+                                    <DetailField label="Provider" value={observations.provider} />
+                                    <DetailField label="Provider Device ID" value={observations.external_id} mono />
+                                    <DetailField label="Observed Display Name" value={observations.observed_display} />
+                                    <DetailField label="NMS / sysName" value={observations.observed_sys_name} mono />
+                                    <DetailField label="Observed Hostname" value={observations.observed_hostname} mono />
+                                    <DetailField label="Observed IP" value={observations.ip_address} mono />
+                                    <DetailField label="OS / Platform" value={observations.observed_os} />
+                                    <DetailField label="Observed Hardware" value={observations.observed_hardware} />
+                                    <DetailField label="Version" value={observations.observed_version} />
+                                    <DetailField label="Provider Type" value={observations.provider_type} />
+                                    {observations.provider_status && (
                                         <Box>
                                             <Typography variant="caption" color="text.secondary">Observed Status</Typography>
                                             <Chip
-                                                label={specs.provider_status}
+                                                label={observations.provider_status}
                                                 size="small"
-                                                color={specs.provider_status === 'UP' ? 'success' : specs.provider_status === 'DOWN' ? 'error' : 'warning'}
+                                                color={observations.provider_status === 'UP' ? 'success' : observations.provider_status === 'DOWN' ? 'error' : 'default'}
                                                 sx={{ fontSize: '0.7rem', height: 22, mt: 0.5 }}
                                             />
                                         </Box>
                                     )}
-                                    {specs.observed_uptime != null && (
-                                        <DetailField label="Uptime" value={`${Math.floor(Number(specs.observed_uptime) / 86400)}d ${Math.floor((Number(specs.observed_uptime) % 86400) / 3600)}h`} />
+                                    {!observations.provider_status && <DetailField label="Provider Status" value="Unknown" />}
+                                    {observations.observed_uptime != null && (
+                                        <DetailField label="Uptime" value={`${Math.floor(Number(observations.observed_uptime) / 86400)}d ${Math.floor((Number(observations.observed_uptime) % 86400) / 3600)}h`} />
                                     )}
-                                    {specs.serial_number && (
-                                        <DetailField label="Observed Serial" value={specs.serial_number} mono />
-                                    )}
-                                    {specs.mac_address && (
-                                        <DetailField label="MAC Address" value={specs.mac_address} mono />
-                                    )}
-                                    {specs.last_observed_at && (
-                                        <DetailField label="Last Observed" value={new Date(specs.last_observed_at).toLocaleString()} />
-                                    )}
-                                    {specs.last_synced && (
-                                        <DetailField label="Last Synced" value={new Date(specs.last_synced).toLocaleString()} />
-                                    )}
+                                    <DetailField label="Observed Serial" value={observations.serial_number} mono />
+                                    <DetailField label="MAC / Identifier" value={observations.mac_address} mono />
+                                    <DetailField label="Last Observed" value={observations.last_observed_at ? new Date(observations.last_observed_at).toLocaleString() : 'Unknown'} />
+                                    <DetailField label="Last Synced" value={observations.last_synced ? new Date(observations.last_synced).toLocaleString() : 'Unknown'} />
+                                    <DetailField label="Last Poll" value={observations.last_poll ? new Date(observations.last_poll).toLocaleString() : 'Unknown'} />
+                                    <DetailField label="Integration ID" value={observations.integration_id} mono />
                                 </Stack>
                             </CardContent>
                         </Card>
@@ -439,7 +425,7 @@ const AssetDetailPage: React.FC = () => {
                 open={transferOpen}
                 onClose={() => setTransferOpen(false)}
                 assetId={assetId}
-                currentSiteName={asset.site?.site_code || 'Unknown'}
+                currentSiteName={asset.site?.name || 'Unknown'}
                 currentSiteId={asset.site_id}
                 onSuccess={() => { queryClient.invalidateQueries({ queryKey: ['asset', id] }); }}
             />
