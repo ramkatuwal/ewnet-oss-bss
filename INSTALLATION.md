@@ -132,15 +132,41 @@ docker compose exec app php artisan view:cache
 docker compose exec app php artisan storage:link
 ```
 
-### 3.6 Migrate and seed
+### 3.6 Migrate and synchronize authorization
 
 ```bash
-# For a brand new database:
-docker compose exec app php artisan migrate:fresh --seed --force
+# Safe for an existing database. Never use migrate:fresh on a persistent deployment.
+docker compose exec app php artisan migrate --force
 
-# To add seed data without dropping tables (safe for existing databases):
-docker compose exec app php artisan db:seed --force
+# Inspect first, then apply the additive/idempotent authorization catalog.
+docker compose exec app php artisan authorization:sync --dry-run
+docker compose exec app php artisan authorization:sync
+docker compose exec app php artisan authorization:sync
+
+# Clear/rebuild application caches after deployment.
+docker compose exec app php artisan optimize:clear
+docker compose exec app php artisan config:cache
+docker compose exec app php artisan route:cache
+docker compose exec app php artisan view:cache
 ```
+
+`authorization:sync` creates missing source-controlled permissions and the
+managed `Super Admin` role, adds only missing managed-role grants, preserves
+custom roles and assignments, and retains unexpected database permissions for
+review. It does not run `DatabaseSeeder` and does not delete production data.
+
+For BSS behind host Nginx, keep the container private with:
+
+```ini
+WEB_HTTP_BIND=127.0.0.1
+WEB_HTTP_PORT=8080
+WEB_HTTPS_BIND=127.0.0.1
+WEB_HTTPS_PORT=8443
+SESSION_COOKIE=ewnet-bss-session
+```
+
+Use a different cookie value for OSS, such as `ewnet-oss-session`, when both
+deployments are accessed from the same browser.
 
 ### 3.7 Verify
 

@@ -32,7 +32,10 @@ x-app-environment: &app-environment
   REDIS_QUEUE_RETRY_AFTER: ${REDIS_QUEUE_RETRY_AFTER:-90}
   SESSION_DRIVER: ${SESSION_DRIVER:-redis}
   SESSION_LIFETIME: ${SESSION_LIFETIME:-120}
+  SESSION_ENCRYPT: ${SESSION_ENCRYPT:-false}
+  SESSION_PATH: ${SESSION_PATH:-/}
   SESSION_DOMAIN: ${SESSION_DOMAIN:-.localhost}
+  SESSION_COOKIE: ${SESSION_COOKIE:-ewnet-session}
   SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-true}
   SESSION_SAME_SITE: ${SESSION_SAME_SITE:-lax}
   BROADCAST_CONNECTION: ${BROADCAST_CONNECTION:-log}
@@ -60,7 +63,6 @@ services:
       - ./docker/nginx/logs:/var/log/nginx
       - /var/www/html/vendor
       - /var/www/html/node_modules
-      - /var/www/html/public/build
     networks:
       - ewnet-network
 
@@ -81,7 +83,6 @@ services:
       - ./:/var/www/html
       - ./docker/nginx/logs:/var/log/nginx
       - /var/www/html/vendor
-      - /var/www/html/public/build
     networks:
       - ewnet-network
 
@@ -142,8 +143,8 @@ services:
       - NGINX_SSL_CERT_PATH=${NGINX_SSL_CERT_PATH:-/etc/nginx/certs/fullchain.pem}
       - NGINX_SSL_KEY_PATH=${NGINX_SSL_KEY_PATH:-/etc/nginx/certs/privkey.pem}
     ports:
-      - "80:80"
-      - "443:443"
+      - "${WEB_HTTP_BIND:-127.0.0.1}:${WEB_HTTP_PORT:-8080}:80"
+      - "${WEB_HTTPS_BIND:-127.0.0.1}:${WEB_HTTPS_PORT:-8443}:443"
     logging:
       driver: json-file
       options:
@@ -155,7 +156,6 @@ services:
       - ./docker/nginx/logs:/var/log/nginx
       - ${NGINX_CERTS_SOURCE:-certs_data}:/etc/nginx/certs:rw
       - /etc/letsencrypt:/etc/letsencrypt:ro
-      - /var/www/html/public/build
     networks:
       - ewnet-network
 
