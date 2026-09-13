@@ -174,6 +174,19 @@ class UispClient
     }
 
     /**
+     * Fetch interfaces observed for a single UISP device.
+     *
+     * UISP returns a JSON array of interface objects; each exposes
+     * `identification.id` (stable interface UUID) and `attributes`
+     * (name, mac, mtu, operational state where available).
+     * Some UISP firmware streams this information through `/nms/devices`.
+     */
+    public function getDeviceInterfaces(string $deviceId): array
+    {
+        return $this->request('GET', "/devices/{$deviceId}/interfaces");
+    }
+
+    /**
      * Fetch heartbeat for health check
      */
     public function getHeartbeat(): array

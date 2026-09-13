@@ -22,6 +22,7 @@ class IpAddress extends Model
         'metadata',
         'first_seen_at',
         'last_seen_at',
+        'observation_status',
     ];
 
     protected $casts = [
@@ -33,6 +34,8 @@ class IpAddress extends Model
         'last_seen_at' => 'datetime',
         'metadata' => 'array',
     ];
+
+    public const OBSERVATION_STATUSES = ['observed', 'stale'];
 
     public function interface(): BelongsTo
     {

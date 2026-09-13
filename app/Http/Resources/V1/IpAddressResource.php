@@ -17,6 +17,7 @@ class IpAddressResource extends JsonResource
             'prefix_length' => $this->prefix_length,
             'is_primary' => $this->is_primary,
             'is_management' => $this->is_management,
+            'observation_status' => $this->observation_status,
             'provider' => $this->provider,
             'external_type' => $this->external_type,
             'external_id' => $this->external_id,

@@ -21,6 +21,8 @@ class PonMembershipResource extends JsonResource
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'deleted_at' => $this->deleted_at,
+            'pon_domain' => new PonDomainResource($this->whenLoaded('ponDomain')),
+            'onu_asset' => new AssetResource($this->whenLoaded('onuAsset')),
         ];
     }
 }

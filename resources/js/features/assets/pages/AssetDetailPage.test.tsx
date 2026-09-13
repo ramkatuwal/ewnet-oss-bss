@@ -104,6 +104,27 @@ beforeEach(() => {
 });
 
 describe('AssetDetailPage permission-aware actions', () => {
+    it('keeps authoritative identity separate from extended provider observations', async () => {
+        getAsset.mockResolvedValue({ ...asset, device_name: 'Canonical Router', management_ip: '192.0.2.1',
+            specifications: { observed_display: 'Do not read raw specs' },
+            provider_observations: {
+                provider: 'librenms', external_id: '42', observed_display: 'NMS Display',
+                observed_sys_name: 'sys-core', observed_hostname: 'router.example', ip_address: '192.0.2.2',
+                observed_os: 'RouterOS', observed_hardware: 'CCR-observed', observed_version: '7.20',
+                provider_type: 'network', serial_number: 'OBS-SERIAL', provider_status: 'UP',
+                integration_id: 6, last_poll: '2026-09-13T01:00:00Z',
+            },
+        });
+        renderPage(viewer);
+        expect(await screen.findByText('NMS Display')).toBeInTheDocument();
+        for (const text of ['192.0.2.1', '192.0.2.2', 'sys-core', 'router.example', 'RouterOS', 'CCR-observed', '7.20', 'network', 'OBS-SERIAL', 'UP', '6', 'Site Nine', 'MA5608T']) {
+            expect(screen.getByText(text)).toBeInTheDocument();
+        }
+        expect(screen.queryByText('S-9')).not.toBeInTheDocument();
+        expect(screen.queryByText('Do not read raw specs')).not.toBeInTheDocument();
+        expect(screen.queryByText('Integration Name')).not.toBeInTheDocument();
+        expect(screen.getByText(new Date('2026-09-13T01:00:00Z').toLocaleString())).toBeInTheDocument();
+    });
     it('shows Transfer, Retire, Dispose, Edit, and Delete for a super admin', async () => {
         renderPage(superAdmin);
         expect(await screen.findAllByText('AST-000008')).toHaveLength(3);

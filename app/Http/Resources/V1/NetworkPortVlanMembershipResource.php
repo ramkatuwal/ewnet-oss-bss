@@ -14,6 +14,7 @@ class NetworkPortVlanMembershipResource extends JsonResource
             'vlan_id' => $this->vlan_id,
             'tagging' => $this->tagging,
             'metadata' => $this->metadata,
+            'vlan' => new VlanResource($this->whenLoaded('vlan')),
         ];
     }
 }

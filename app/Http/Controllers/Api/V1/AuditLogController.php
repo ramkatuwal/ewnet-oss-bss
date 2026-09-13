@@ -212,6 +212,10 @@ class AuditLogController extends Controller
             $query->where('target_type', $targetType);
         }
 
+        if ($targetId = $request->input('target_id')) {
+            $query->where('target_id', $targetId);
+        }
+
         return $query;
     }
 

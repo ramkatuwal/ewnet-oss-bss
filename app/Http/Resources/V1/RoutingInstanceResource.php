@@ -21,6 +21,8 @@ class RoutingInstanceResource extends JsonResource
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'deleted_at' => $this->deleted_at,
+            'l3_interfaces' => RoutingL3InterfaceResource::collection($this->whenLoaded('routingL3Interfaces')),
+            'static_routes' => StaticRouteResource::collection($this->whenLoaded('staticRoutes')),
         ];
     }
 }

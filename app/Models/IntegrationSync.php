@@ -30,7 +30,7 @@ class IntegrationSync extends Model
         'metadata' => 'array',
     ];
 
-    public const OPERATIONS = ['full', 'incremental', 'manual', 'scheduled', 'webhook'];
+    public const OPERATIONS = ['full', 'incremental', 'manual', 'scheduled', 'webhook', 'interfaces', 'vlans', 'all'];
 
     public const STATUSES = ['pending', 'running', 'completed', 'failed', 'cancelled'];
 

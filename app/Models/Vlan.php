@@ -52,4 +52,9 @@ class Vlan extends Model
     {
         return $this->hasMany(RoutingL3Interface::class);
     }
+
+    public function observedVlans(): HasMany
+    {
+        return $this->hasMany(ObservedVlan::class, 'reconciled_vlan_id');
+    }
 }

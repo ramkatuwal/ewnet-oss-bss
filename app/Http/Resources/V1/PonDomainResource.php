@@ -19,6 +19,8 @@ class PonDomainResource extends JsonResource
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'deleted_at' => $this->deleted_at,
+            'olt_port' => new NetworkPortResource($this->whenLoaded('oltPort')),
+            'memberships' => PonMembershipResource::collection($this->whenLoaded('memberships')),
         ];
     }
 }

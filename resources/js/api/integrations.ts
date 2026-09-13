@@ -97,6 +97,8 @@ export const integrationApi = {
   testConnection: (id: number) => api.post(`/integrations/${id}/test`).then(r => r.data),
   healthCheck: (id: number) => api.post(`/integrations/${id}/health-check`).then(r => r.data),
   sync: (id: number) => api.post(`/integrations/${id}/sync`).then(r => r.data),
+  observationSync: (id: number, category: 'interfaces' | 'vlans' | 'all') =>
+    api.post<{ data: IntegrationSync }>(`/integrations/${id}/observation-sync`, { category }).then(r => r.data),
   getSyncs: (id: number, params?: Record<string, unknown>) =>
     api.get(`/integrations/${id}/syncs`, { params }).then(r => r.data),
   stats: (id: number) => api.get<{ data: IntegrationStats }>(`/integrations/${id}/stats`).then(r => r.data.data),

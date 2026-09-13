@@ -12,6 +12,7 @@ import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
+import LanOutlinedIcon from '@mui/icons-material/LanOutlined';
 import toast from 'react-hot-toast';
 import { integrationApi, type Integration, type IntegrationCredential, type IntegrationSync, type IntegrationStats, type AuditLogEntry } from '@/api/integrations';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -80,6 +81,15 @@ export const IntegrationDetailPage = () => {
   const testMut = useMutation({ mutationFn: () => integrationApi.testConnection(integId), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['integration', integId] }) });
   const healthMut = useMutation({ mutationFn: () => integrationApi.healthCheck(integId), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['integration', integId] }) });
   const syncMut = useMutation({ mutationFn: () => integrationApi.sync(integId), onSuccess: () => { toast.success('Sync started'); queryClient.invalidateQueries({ queryKey: ['integration-syncs', integId] }); } });
+  const obsSyncMut = useMutation({
+    mutationFn: (category: 'interfaces' | 'vlans' | 'all') => integrationApi.observationSync(integId, category),
+    onSuccess: (_d, category) => {
+      toast.success(`Observation sync (${category}) started`);
+      queryClient.invalidateQueries({ queryKey: ['integration-syncs', integId] });
+      queryClient.invalidateQueries({ queryKey: ['integration-audit', integId] });
+    },
+    onError: () => toast.error('Observation sync failed to start'),
+  });
   const credCreateMut = useMutation({
     mutationFn: () => integrationApi.createCredential(integId, credForm),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['integration-creds', integId] }); setCredDialogOpen(false); },
@@ -130,6 +140,13 @@ export const IntegrationDetailPage = () => {
           </Can>
           <Can permission="integrations.sync">
             <Button variant="contained" startIcon={<PlayArrowIcon />} onClick={() => syncMut.mutate()} disabled={syncMut.isPending}>Sync</Button>
+          </Can>
+          <Can permission="assets.observations.sync">
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Button size="small" variant="outlined" startIcon={<LanOutlinedIcon />} onClick={() => obsSyncMut.mutate('all')} disabled={obsSyncMut.isPending}>Sync Provider Data</Button>
+              <Button size="small" variant="outlined" onClick={() => obsSyncMut.mutate('interfaces')} disabled={obsSyncMut.isPending}>Sync Interfaces</Button>
+              <Button size="small" variant="outlined" onClick={() => obsSyncMut.mutate('vlans')} disabled={obsSyncMut.isPending}>Sync VLANs</Button>
+            </Stack>
           </Can>
         </Stack>
       } />

@@ -9,6 +9,7 @@ export const infrastructureKeys = {
     networkPorts: (assetId: number) => ['infrastructure', 'asset', assetId, 'network-ports'] as const,
     assetInterfaces: (assetId: number) => ['infrastructure', 'asset', assetId, 'interfaces'] as const,
     assetIpAddresses: (assetId: number) => ['infrastructure', 'asset', assetId, 'ip-addresses'] as const,
+    assetObservedVlans: (assetId: number) => ['infrastructure', 'asset', assetId, 'observed-vlans'] as const,
     assetPonMemberships: (assetId: number) => ['infrastructure', 'asset', assetId, 'pon-memberships'] as const,
     assetVlanMemberships: (assetId: number) => ['infrastructure', 'asset', assetId, 'vlan-memberships'] as const,
 };

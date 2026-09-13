@@ -15,6 +15,8 @@ use App\Services\AuditService;
 use App\Services\LibreNMSImportService;
 use App\Services\SiteMappingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Factory;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ProviderObservationTest extends TestCase
@@ -33,6 +35,7 @@ class ProviderObservationTest extends TestCase
         $user->givePermissionTo('assets.create');
         $user->givePermissionTo('assets.view');
         $user->givePermissionTo('sites.view');
+        $user->givePermissionTo('librenms.import');
         UserManagementScope::create([
             'user_id' => $user->id,
             'scope_type' => 'company',
@@ -63,14 +66,23 @@ class ProviderObservationTest extends TestCase
         ]);
     }
 
-    protected function mapDeviceToSite(Site $site, string $deviceId): void
+    protected function mapDeviceToSite(Site $site, string $deviceId, Integration $integration): void
     {
         SiteExternalReference::create([
             'site_id' => $site->id,
             'provider' => 'librenms',
             'external_type' => 'device',
             'external_id' => $deviceId,
+            'metadata' => ['integration_id' => $integration->id],
         ]);
+    }
+
+    protected function freshProvider(Integration $integration, array $device): void
+    {
+        $integration->update(['configuration' => ['api_url' => 'https://nms.test']]);
+        Http::swap(new Factory);
+        Http::preventStrayRequests();
+        Http::fake(['https://nms.test/api/v0/devices' => Http::response(['devices' => [$device]])]);
     }
 
     public function test_provider_observations_exposed_in_api_resource()
@@ -226,9 +238,9 @@ class ProviderObservationTest extends TestCase
         $company = Company::factory()->create();
         $site = Site::factory()->create(['company_id' => $company->id]);
         $user = $this->createUserWithScope($company);
-        $integration = Integration::factory()->create(['provider' => 'librenms']);
+        $integration = Integration::factory()->create(['provider' => 'librenms', 'company_id' => $company->id]);
 
-        $this->mapDeviceToSite($site, '999');
+        $this->mapDeviceToSite($site, '999', $integration);
 
         $device = [
             'external_id' => '999',
@@ -244,13 +256,14 @@ class ProviderObservationTest extends TestCase
         ];
 
         $history = $this->makeHistory($integration, $user->id);
+        $this->freshProvider($integration, $device);
         $results = $this->makeService()->execute($integration, $user, [$device], $history);
 
         $this->assertNotEquals(0, $results['created'] + $results['updated'] + $results['skipped'] + $results['failed'],
-            'Results: ' . json_encode($results));
+            'Results: '.json_encode($results));
 
         // Import should create at least one asset
-        $this->assertEquals(1, $results['created'], 'Expected 1 created, got: ' . json_encode($results));
+        $this->assertEquals(1, $results['created'], 'Expected 1 created, got: '.json_encode($results));
 
         $asset = Asset::whereJsonContains('specifications->external_id', '999')->first();
         $this->assertNotNull($asset);
@@ -269,9 +282,9 @@ class ProviderObservationTest extends TestCase
         $company = Company::factory()->create();
         $site = Site::factory()->create(['company_id' => $company->id]);
         $user = $this->createUserWithScope($company);
-        $integration = Integration::factory()->create(['provider' => 'librenms']);
+        $integration = Integration::factory()->create(['provider' => 'librenms', 'company_id' => $company->id]);
 
-        $this->mapDeviceToSite($site, '500');
+        $this->mapDeviceToSite($site, '500', $integration);
 
         $service = $this->makeService();
         $device = [
@@ -283,6 +296,7 @@ class ProviderObservationTest extends TestCase
         ];
 
         $h1 = $this->makeHistory($integration, $user->id);
+        $this->freshProvider($integration, $device);
         $service->execute($integration, $user, [$device], $h1);
 
         $asset = Asset::whereJsonContains('specifications->external_id', '500')->first();
@@ -292,6 +306,7 @@ class ProviderObservationTest extends TestCase
         $device['status'] = 'DOWN';
         $device['version'] = '8.0';
         $h2 = $this->makeHistory($integration, $user->id);
+        $this->freshProvider($integration, $device);
         $r2 = $service->execute($integration, $user, [$device], $h2);
 
         $asset->refresh();
@@ -307,9 +322,9 @@ class ProviderObservationTest extends TestCase
         $company = Company::factory()->create();
         $site = Site::factory()->create(['company_id' => $company->id]);
         $user = $this->createUserWithScope($company);
-        $integration = Integration::factory()->create(['provider' => 'librenms']);
+        $integration = Integration::factory()->create(['provider' => 'librenms', 'company_id' => $company->id]);
 
-        $this->mapDeviceToSite($site, '777');
+        $this->mapDeviceToSite($site, '777', $integration);
 
         $service = $this->makeService();
         $device = [
@@ -321,6 +336,7 @@ class ProviderObservationTest extends TestCase
         ];
 
         $h1 = $this->makeHistory($integration, $user->id);
+        $this->freshProvider($integration, $device);
         $service->execute($integration, $user, [$device], $h1);
 
         $asset = Asset::whereJsonContains('specifications->external_id', '777')->first();
@@ -328,6 +344,7 @@ class ProviderObservationTest extends TestCase
 
         $device['status'] = 'DOWN';
         $h2 = $this->makeHistory($integration, $user->id);
+        $this->freshProvider($integration, $device);
         $r2 = $service->execute($integration, $user, [$device], $h2);
 
         $count = Asset::whereJsonContains('specifications->external_id', '777')->count();
@@ -344,9 +361,9 @@ class ProviderObservationTest extends TestCase
         $company = Company::factory()->create();
         $site = Site::factory()->create(['company_id' => $company->id]);
         $user = $this->createUserWithScope($company);
-        $integration = Integration::factory()->create(['provider' => 'librenms']);
+        $integration = Integration::factory()->create(['provider' => 'librenms', 'company_id' => $company->id]);
 
-        $this->mapDeviceToSite($site, '888');
+        $this->mapDeviceToSite($site, '888', $integration);
 
         $service = $this->makeService();
         $device = [
@@ -359,6 +376,7 @@ class ProviderObservationTest extends TestCase
         ];
 
         $h1 = $this->makeHistory($integration, $user->id);
+        $this->freshProvider($integration, $device);
         $service->execute($integration, $user, [$device], $h1);
 
         $asset = Asset::whereJsonContains('specifications->external_id', '888')->first();
@@ -371,6 +389,7 @@ class ProviderObservationTest extends TestCase
         $device['serial'] = 'SN-NEW-888';
         $device['status'] = 'DOWN';
         $h2 = $this->makeHistory($integration, $user->id);
+        $this->freshProvider($integration, $device);
         $service->execute($integration, $user, [$device], $h2);
 
         $asset->refresh();

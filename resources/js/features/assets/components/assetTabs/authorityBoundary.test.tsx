@@ -1,9 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { AssetInterface, IpAddress, NetworkPort } from '@/types';
 import { AssetInterfacesTab } from './AssetInterfacesTab';
 import { AssetIpAddressesTab } from './AssetIpAddressesTab';
 import { AssetNetworkPortsTab } from './AssetNetworkPortsTab';
+
+vi.mock('@/features/assets/api/assets', () => ({
+    getAssetInterfaces: vi.fn().mockResolvedValue({ data: [], total: 0, per_page: 10, current_page: 1 }),
+}));
+
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
 const networkPort: NetworkPort = {
     id: 1,
@@ -66,14 +73,23 @@ describe('Asset authority boundary tabs', () => {
         expect(screen.queryByText('Observed')).not.toBeInTheDocument();
     });
 
-    it('renders observed interfaces as read-only with the Observed badge', () => {
-        render(<AssetInterfacesTab interfaces={[assetInterface]} />);
+    it('renders observed interfaces as read-only with the Observed badge', async () => {
+        const { getAssetInterfaces } = await import('@/features/assets/api/assets');
+        (getAssetInterfaces as ReturnType<typeof vi.fn>).mockResolvedValue({
+            data: [assetInterface], total: 1, per_page: 10, current_page: 1,
+        });
+        render(
+            <QueryClientProvider client={queryClient}>
+                <AssetInterfacesTab assetId={8} />
+            </QueryClientProvider>,
+        );
         expect(screen.getByText(/Observed interfaces/)).toBeInTheDocument();
         expect(screen.getByText('Observed')).toBeInTheDocument();
-        const table = screen.getByRole('table');
-        expect(within(table).getByText('eth0')).toBeInTheDocument();
-        expect(within(table).getByText('aa:bb:cc:dd:ee:ff')).toBeInTheDocument();
-        expect(within(table).getByText('librenms')).toBeInTheDocument();
+        const cell = await screen.findByText('eth0');
+        const table = cell.closest('table');
+        expect(table).not.toBeNull();
+        expect(table && within(table).getByText('aa:bb:cc:dd:ee:ff')).toBeInTheDocument();
+        expect(table && within(table).getByText('librenms')).toBeInTheDocument();
         expect(screen.queryByText('Authoritative')).not.toBeInTheDocument();
     });
 
